@@ -1,0 +1,13 @@
+{
+  "bundles": [
+    {
+      "name": "game",
+      "assets": [
+        {
+          "alias": "test-image",
+          "src": "images/test-image.png"
+        }
+      ]
+    }
+  ]
+}

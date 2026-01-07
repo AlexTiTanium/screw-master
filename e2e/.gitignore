@@ -1,0 +1,10 @@
+# Test artifacts (generated on each run)
+test-results/
+
+# HTML reports (generated, can be regenerated)
+reports/
+
+# Screenshot snapshots are version controlled for visual regression
+# but diffs are not
+screenshots/*-diff.png
+screenshots/*-actual.png

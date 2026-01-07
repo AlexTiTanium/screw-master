@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# NPM auth (if contains hardcoded token)
+.npmrc.local
+
+# Build output
+dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Test coverage
+coverage/
+
+# Playwright (old location - now in e2e/)
+playwright-report/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Vite
+vite.config.ts.timestamp-*
