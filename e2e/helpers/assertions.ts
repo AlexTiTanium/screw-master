@@ -179,3 +179,58 @@ export function expectNoCriticalErrors(
     `Should have no critical errors, but found: ${criticalErrors.join(', ')}`
   ).toHaveLength(0);
 }
+
+/**
+ * Assert that entity count is within a range
+ */
+export function expectEntityCountRange(
+  signature: RenderSignature,
+  min: number,
+  max: number
+): void {
+  expect(
+    signature.entityCount,
+    `Entity count should be between ${String(min)} and ${String(max)}`
+  ).toBeGreaterThanOrEqual(min);
+  expect(
+    signature.entityCount,
+    `Entity count should be between ${String(min)} and ${String(max)}`
+  ).toBeLessThanOrEqual(max);
+}
+
+/**
+ * Assert that a component has specific data shape (keys exist)
+ */
+export function expectComponentDataShape(
+  entity: EntitySnapshot,
+  componentName: string,
+  expectedKeys: string[]
+): void {
+  expect(
+    entity.components[componentName],
+    `Component ${componentName} should exist`
+  ).toBeDefined();
+
+  const component = entity.components[componentName] as Record<string, unknown>;
+  for (const key of expectedKeys) {
+    expect(
+      key in component,
+      `Component ${componentName} should have key ${key}`
+    ).toBe(true);
+  }
+}
+
+/**
+ * Assert that an action was successful
+ */
+export function expectActionSuccess(
+  result: { success: boolean; error?: string },
+  actionDescription?: string
+): void {
+  expect(
+    result.success,
+    actionDescription
+      ? `Action "${actionDescription}" should succeed: ${result.error ?? 'unknown error'}`
+      : `Action should succeed: ${result.error ?? 'unknown error'}`
+  ).toBe(true);
+}

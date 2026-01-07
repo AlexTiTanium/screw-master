@@ -1,6 +1,6 @@
 import { Scene2D, type Entity2D } from '@play-co/odie';
 import { TouchInput } from '@play-co/astro';
-import type { Container } from 'pixi.js';
+import type { Container, Graphics } from 'pixi.js';
 
 import { APP_CONFIG } from '@app/config';
 import { isTestMode } from '@shared/debug';
@@ -9,7 +9,7 @@ import {
   createSquareEntity,
   createSpriteEntity,
   createRotatingSquareEntity,
-  getSquareGraphics,
+  getVisual,
 } from './factories';
 import { RotationSystem } from './systems';
 
@@ -130,7 +130,7 @@ export class TestScene {
     });
 
     // Get the graphics object for the square
-    const graphics = getSquareGraphics(this.squareEntity);
+    const graphics = getVisual(this.squareEntity) as Graphics | undefined;
     if (graphics) {
       // Make the graphics interactive for touch input
       graphics.eventMode = 'static';
@@ -182,7 +182,7 @@ export class TestScene {
     const newColor = this.isSquareGreen ? 0x00ff00 : 0xff0000;
 
     // Get the graphics and redraw with new color
-    const graphics = getSquareGraphics(this.squareEntity);
+    const graphics = getVisual(this.squareEntity) as Graphics | undefined;
     if (graphics) {
       graphics.clear();
       graphics.rect(0, 0, 100, 100);

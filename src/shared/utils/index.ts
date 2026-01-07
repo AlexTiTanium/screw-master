@@ -1,1 +1,1 @@
-export { clamp, lerp } from './math';
+export { clamp, lerp, distance, lerp2D, clampPosition } from './math';

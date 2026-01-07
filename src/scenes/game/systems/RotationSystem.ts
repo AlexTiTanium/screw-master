@@ -1,19 +1,9 @@
-import type { Time } from '@play-co/odie';
-import type { Container } from 'pixi.js';
+import type { Entity2D, Time } from '@play-co/odie';
 
 import { RotationComponent } from '../components/RotationComponent';
+import type { RotationComponentData } from '../components/RotationComponent';
 
 import { BaseSystem } from './BaseSystem';
-
-/**
- * Interface for entity with rotation capability.
- * Entity2D's rotation getter proxies to view.rotation.
- * We set rotation through the view directly.
- */
-interface RotatingEntity {
-  view: Container;
-  c: { rotation?: RotationComponent };
-}
 
 /**
  * System that rotates entities with a RotationComponent.
@@ -54,11 +44,12 @@ export class RotationSystem extends BaseSystem {
    */
   update(time: Time): void {
     this.forEachEntity('rotating', (entity) => {
-      // Cast to access view - Entity2D's rotation is read-only but view.rotation is writable
-      const e = entity as unknown as RotatingEntity;
-      const rotationComponent = e.c.rotation;
-      if (rotationComponent) {
-        e.view.rotation += rotationComponent.speed * time.deltaTime;
+      // Entity2D's rotation property is read-only (getter proxies to view.rotation)
+      // We access view.rotation directly to modify it
+      const e = entity as Entity2D;
+      const rotation = e.c.rotation as RotationComponentData | undefined;
+      if (rotation) {
+        e.view.rotation += rotation.speed * time.deltaTime;
       }
     });
   }

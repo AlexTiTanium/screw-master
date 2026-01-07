@@ -110,9 +110,9 @@ export abstract class BaseScreen implements Screen {
    * Called when the screen is preparing to become visible.
    * Override to initialize resources, create UI, load assets.
    *
-   * @returns Promise that resolves when preparation is complete
+   * @returns Promise or void when preparation is complete
    */
-  protected async onPrepare(): Promise<void> {
+  protected onPrepare(): Promise<void> | void {
     // Override in subclass
   }
 
@@ -120,9 +120,9 @@ export abstract class BaseScreen implements Screen {
    * Called when the screen becomes visible.
    * Override to start animations, game loops, etc.
    *
-   * @returns Promise that resolves when show is complete
+   * @returns Promise or void when show is complete
    */
-  protected async onShow(): Promise<void> {
+  protected onShow(): Promise<void> | void {
     // Override in subclass
   }
 
@@ -140,9 +140,9 @@ export abstract class BaseScreen implements Screen {
    * Called when the screen starts hiding.
    * Override to stop animations, pause game loops, etc.
    *
-   * @returns Promise that resolves when hide is complete
+   * @returns Promise or void when hide is complete
    */
-  protected async onHide(): Promise<void> {
+  protected onHide(): Promise<void> | void {
     // Override in subclass
   }
 
@@ -150,9 +150,9 @@ export abstract class BaseScreen implements Screen {
    * Called when the screen is fully hidden.
    * Override to cleanup resources, destroy objects.
    *
-   * @returns Promise that resolves when cleanup is complete
+   * @returns Promise or void when cleanup is complete
    */
-  protected async onHidden(): Promise<void> {
+  protected onHidden(): Promise<void> | void {
     // Override in subclass
   }
 

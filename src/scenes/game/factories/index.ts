@@ -26,18 +26,43 @@
  */
 
 import { createEntity, type Entity2D } from '@play-co/odie';
-import { Assets, Graphics, Sprite, type Texture } from 'pixi.js';
+import {
+  Assets,
+  Graphics,
+  Sprite,
+  type Container,
+  type Texture,
+} from 'pixi.js';
 
+import type { Position } from '@shared/types';
 import { TestSquareEntity } from '../entities/TestSquareEntity';
 import { TestSpriteEntity } from '../entities/TestSpriteEntity';
 import { RotatingSquareEntity } from '../entities/RotatingSquareEntity';
 
 /**
- * Position coordinates for entity placement.
+ * WeakMap registry for storing visual references.
+ * Allows type-safe retrieval of visuals without assuming children[0].
  */
-export interface Position {
-  x: number;
-  y: number;
+const visualRegistry = new WeakMap<Entity2D, Container>();
+
+/**
+ * Gets the visual display object from an entity.
+ *
+ * This is the preferred way to access an entity's visual representation,
+ * as it doesn't rely on child ordering assumptions.
+ *
+ * @param entity - The entity to get the visual from
+ * @returns The visual or undefined if not found
+ *
+ * @example
+ * const square = createSquareEntity({ size: 100, color: 0xff0000, position: { x: 0, y: 0 } });
+ * const graphics = getVisual(square) as Graphics | undefined;
+ * if (graphics) {
+ *   graphics.tint = 0x00ff00;
+ * }
+ */
+export function getVisual(entity: Entity2D): Container | undefined {
+  return visualRegistry.get(entity);
 }
 
 /**
@@ -106,6 +131,9 @@ export function createSquareEntity(options: SquareEntityOptions): Entity2D {
   const graphics = new Graphics();
   graphics.rect(0, 0, options.size, options.size);
   graphics.fill({ color: options.color });
+
+  // Register visual for type-safe retrieval
+  visualRegistry.set(entity, graphics);
 
   // Add graphics to entity's view
   entity.view.addChild(graphics);
@@ -183,6 +211,10 @@ export async function createSpriteEntity(
 
   // Create sprite and add to entity's view
   const sprite = new Sprite(texture);
+
+  // Register visual for type-safe retrieval
+  visualRegistry.set(entity, sprite);
+
   entity.view.addChild(sprite);
 
   // Set position
@@ -194,35 +226,37 @@ export async function createSpriteEntity(
 /**
  * Gets the Graphics object from a square entity.
  *
+ * @deprecated Use `getVisual(entity) as Graphics` instead for type-safe visual access.
  * @param entity - A square entity created with createSquareEntity
  * @returns The Graphics object or undefined if not found
  *
  * @example
- * const square = createSquareEntity({ size: 100, color: 0xff0000, position: { x: 0, y: 0 } });
+ * // Preferred: Use getVisual with cast
+ * const graphics = getVisual(square) as Graphics | undefined;
+ *
+ * // Legacy: This function
  * const graphics = getSquareGraphics(square);
- * if (graphics) {
- *   graphics.tint = 0x00ff00; // Change tint to green
- * }
  */
 export function getSquareGraphics(entity: Entity2D): Graphics | undefined {
-  return entity.view.children[0] as Graphics | undefined;
+  return getVisual(entity) as Graphics | undefined;
 }
 
 /**
  * Gets the Sprite object from a sprite entity.
  *
+ * @deprecated Use `getVisual(entity) as Sprite` instead for type-safe visual access.
  * @param entity - A sprite entity created with createSpriteEntity
  * @returns The Sprite object or undefined if not found
  *
  * @example
- * const entity = await createSpriteEntity({ assetPath: 'images/player.png', position: { x: 0, y: 0 } });
+ * // Preferred: Use getVisual with cast
+ * const sprite = getVisual(entity) as Sprite | undefined;
+ *
+ * // Legacy: This function
  * const sprite = getSpriteFromEntity(entity);
- * if (sprite) {
- *   sprite.scale.set(2); // Double the size
- * }
  */
 export function getSpriteFromEntity(entity: Entity2D): Sprite | undefined {
-  return entity.view.children[0] as Sprite | undefined;
+  return getVisual(entity) as Sprite | undefined;
 }
 
 /**
@@ -278,6 +312,9 @@ export function createRotatingSquareEntity(
   const halfSize = options.size / 2;
   graphics.rect(-halfSize, -halfSize, options.size, options.size);
   graphics.fill({ color: options.color });
+
+  // Register visual for type-safe retrieval
+  visualRegistry.set(entity, graphics);
 
   // Add graphics to entity's view
   entity.view.addChild(graphics);

@@ -75,3 +75,88 @@ export function clamp(value: number, min: number, max: number): number {
 export function lerp(start: number, end: number, t: number): number {
   return start + (end - start) * clamp(t, 0, 1);
 }
+
+/**
+ * Calculates the Euclidean distance between two 2D points.
+ *
+ * @param p1 - The first point with x and y coordinates
+ * @param p2 - The second point with x and y coordinates
+ * @returns The distance between the two points
+ *
+ * @example
+ * // Basic usage
+ * const d = distance({ x: 0, y: 0 }, { x: 3, y: 4 }); // Returns 5
+ *
+ * @example
+ * // Check if entities are within range
+ * const d = distance(player.position, enemy.position);
+ * if (d < attackRange) {
+ *   performAttack();
+ * }
+ */
+export function distance(
+  p1: { x: number; y: number },
+  p2: { x: number; y: number }
+): number {
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/**
+ * Linearly interpolates between two 2D points.
+ *
+ * @param start - The starting point
+ * @param end - The ending point
+ * @param t - Interpolation factor, automatically clamped to [0, 1]
+ * @returns The interpolated point
+ *
+ * @example
+ * // Smooth movement towards target
+ * entity.position = lerp2D(entity.position, target, 0.1);
+ *
+ * @example
+ * // Get midpoint
+ * const midpoint = lerp2D(pointA, pointB, 0.5);
+ */
+export function lerp2D(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  t: number
+): { x: number; y: number } {
+  return {
+    x: lerp(start.x, end.x, t),
+    y: lerp(start.y, end.y, t),
+  };
+}
+
+/**
+ * Clamps a position within rectangular bounds.
+ *
+ * @param pos - The position to clamp
+ * @param bounds - The bounding rectangle with width and height
+ * @returns The clamped position
+ *
+ * @example
+ * // Keep entity within screen bounds
+ * import { APP_CONFIG } from '@app';
+ *
+ * entity.position = clampPosition(entity.position, {
+ *   width: APP_CONFIG.width,
+ *   height: APP_CONFIG.height
+ * });
+ *
+ * @example
+ * // Clamp with custom bounds
+ * const safeBounds = { width: 800, height: 600 };
+ * player.position = clampPosition(player.position, safeBounds);
+ */
+export function clampPosition(
+  pos: { x: number; y: number },
+  bounds: { width: number; height: number }
+): { x: number; y: number } {
+  return {
+    x: clamp(pos.x, 0, bounds.width),
+    y: clamp(pos.y, 0, bounds.height),
+  };
+}

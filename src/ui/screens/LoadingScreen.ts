@@ -1,6 +1,4 @@
-import type { Screen, Application } from '@play-co/astro';
-import { Container } from 'pixi.js';
-
+import { BaseScreen } from './BaseScreen';
 import { APP_CONFIG } from '@app/config';
 import { LoadingScene } from '@scenes/loading/LoadingScene';
 
@@ -11,7 +9,7 @@ import { LoadingScene } from '@scenes/loading/LoadingScene';
  * loaded. It provides a `setProgress()` method to update the progress
  * bar from 0 to 1.
  *
- * @implements {Screen}
+ * @extends {BaseScreen}
  *
  * @example
  * // Register and use with PreloadPlugin
@@ -46,49 +44,33 @@ import { LoadingScene } from '@scenes/loading/LoadingScene';
  *   loadingScreen.setProgress(loaded / assets.length);
  * }
  */
-export class LoadingScreen implements Screen {
-  /**
-   * The Astro application instance.
-   * @readonly
-   */
-  public readonly app: Application;
-
-  /**
-   * The root display container for this screen.
-   * @readonly
-   */
-  public readonly view: Container;
-
+export class LoadingScreen extends BaseScreen {
   /**
    * The loading scene with progress bar UI.
    */
   private loadingScene: LoadingScene | null = null;
 
   /**
-   * Creates a new LoadingScreen instance.
-   *
-   * @param app - The Astro Application instance
-   * @param _options - Optional configuration (currently unused)
-   */
-  constructor(app: Application, _options?: Record<string, unknown>) {
-    this.app = app;
-    this.view = new Container();
-  }
-
-  /**
    * Prepares the screen before it becomes visible.
    *
    * Creates the LoadingScene with progress bar UI.
-   *
-   * @returns A promise that resolves when preparation is complete
    */
-  public async prepare(): Promise<void> {
-    await Promise.resolve();
+  protected override onPrepare(): void {
     this.loadingScene = new LoadingScene({
       stage: this.view,
       width: APP_CONFIG.width,
       height: APP_CONFIG.height,
     });
+  }
+
+  /**
+   * Called when the screen is fully hidden.
+   *
+   * Destroys the loading scene and cleans up resources.
+   */
+  protected override onHidden(): void {
+    this.loadingScene?.destroy();
+    this.loadingScene = null;
   }
 
   /**
@@ -107,18 +89,5 @@ export class LoadingScreen implements Screen {
    */
   public setProgress(value: number): void {
     this.loadingScene?.setProgress(value);
-  }
-
-  /**
-   * Called when the screen is fully hidden.
-   *
-   * Destroys the loading scene and cleans up resources.
-   *
-   * @returns A promise that resolves when cleanup is complete
-   */
-  public async hidden(): Promise<void> {
-    await Promise.resolve();
-    this.loadingScene?.destroy();
-    this.loadingScene = null;
   }
 }

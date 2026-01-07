@@ -1,20 +1,10 @@
-import type { Component } from '@play-co/odie';
-
-/**
- * Data interface for RotationComponent initialization.
- */
-export interface RotationComponentData {
-  /** Rotation speed in radians per second */
-  speed: number;
-}
+import { defineComponent } from '@shared/ecs';
 
 /**
  * Component that stores rotation behavior for an entity.
  *
  * When combined with the RotationSystem, entities with this component
  * will rotate continuously at the specified speed.
- *
- * @implements {Component<RotationComponentData>}
  *
  * @example
  * // Create an entity with rotation
@@ -26,23 +16,12 @@ export interface RotationComponentData {
  *   rotation: { speed: Math.PI / 2 }  // 90 degrees per second
  * });
  */
-export class RotationComponent implements Component<RotationComponentData> {
-  /**
-   * Component identifier used by ODIE's ECS.
-   * Must match the key used in createEntity data object.
-   */
-  static readonly NAME = 'rotation';
-
+export const RotationComponent = defineComponent('rotation', {
   /** Rotation speed in radians per second */
-  speed = 0;
+  speed: 0,
+});
 
-  /**
-   * Initializes the component with provided data.
-   * Called automatically by ODIE when the entity is created.
-   *
-   * @param data - Initial component data
-   */
-  init(data: RotationComponentData): void {
-    this.speed = data.speed;
-  }
+/** Data interface for RotationComponent */
+export interface RotationComponentData {
+  speed: number;
 }
