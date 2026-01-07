@@ -161,7 +161,7 @@ export class TestScene {
         x: APP_CONFIG.width / 2 + 150,
         y: APP_CONFIG.height / 2,
       },
-      rotationSpeed: Math.PI / 2, // 90 degrees per second
+      rotationSpeed: Math.PI / 1000, // Radians per millisecond
     });
 
     this.scene.addChild(rotatingSquare);
