@@ -1,8 +1,18 @@
 # Screw Master
 
-A game built with PlayCo's internal technology stack: Astro, ODIE, and PixiJS.
+A tactile puzzle game about dismantling complex objects by unscrewing bolts in the correct order, managing limited colored trays, and physically interacting with parts to reveal hidden connections.
+
+**Core Fantasy:** *"I am carefully taking apart a real object with my hands."*
+
+**Documentation:**
+- [Game Design Document](docs/game-design.md) - Core mechanics and rules
+- [Art Direction Guide](docs/art-direction.md) - Visual style for artists
+- [Level Design Guide](docs/level-design.md) - Puzzle design for level creators
+- [Level Format Spec](docs/level-format.md) - Technical level/region file format
 
 ## Tech Stack
+
+Built with PlayCo's internal technology stack: Astro, ODIE, and PixiJS.
 
 - **Node.js** 22+
 - **TypeScript** 5.9

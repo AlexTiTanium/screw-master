@@ -2,6 +2,13 @@
 
 This file provides context for Claude Code sessions working on this project.
 
+## Documentation
+
+- [Game Design Document](docs/game-design.md) - Core game mechanics, physics system, and MVP scope
+- [Art Direction Guide](docs/art-direction.md) - Visual style, materials, and asset requirements for artists
+- [Level Design Guide](docs/level-design.md) - Puzzle structure, difficulty progression, and design rules
+- [Level Format Spec](docs/level-format.md) - Technical specification for level and region JSON files
+
 ## Tech Stack
 
 - **Runtime**: Node.js 22+
