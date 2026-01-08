@@ -21,7 +21,6 @@ export default defineConfig({
     alias: {
       '@app': resolve(__dirname, 'src/app'),
       '@scenes': resolve(__dirname, 'src/scenes'),
-      '@render': resolve(__dirname, 'src/render'),
       '@ui': resolve(__dirname, 'src/ui'),
       '@shared': resolve(__dirname, 'src/shared'),
     },

@@ -4,7 +4,7 @@ A game built with PlayCo's internal technology stack: Astro, ODIE, and PixiJS.
 
 ## Tech Stack
 
-- **Node.js** 25+
+- **Node.js** 22+
 - **TypeScript** 5.9
 - **Vite** 7.2
 - **Vitest** for unit/integration testing
@@ -15,7 +15,7 @@ A game built with PlayCo's internal technology stack: Astro, ODIE, and PixiJS.
 
 ## Prerequisites
 
-- Node.js 25+
+- Node.js 22+
 - GitHub token with access to `@play-co` packages
 
 Set your GitHub token:

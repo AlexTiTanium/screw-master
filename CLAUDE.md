@@ -4,7 +4,7 @@ This file provides context for Claude Code sessions working on this project.
 
 ## Tech Stack
 
-- **Runtime**: Node.js 25
+- **Runtime**: Node.js 22+
 - **Language**: TypeScript 5.9
 - **Build Tool**: Vite 7.2
 - **Test Framework**: Vitest (unit/integration), Playwright (E2E)
