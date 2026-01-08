@@ -80,7 +80,11 @@ export function lerp(start: number, end: number, t: number): number {
  * Calculates the Euclidean distance between two 2D points.
  *
  * @param p1 - The first point with x and y coordinates
+ * @param p1.x - X coordinate of the first point
+ * @param p1.y - Y coordinate of the first point
  * @param p2 - The second point with x and y coordinates
+ * @param p2.x - X coordinate of the second point
+ * @param p2.y - Y coordinate of the second point
  * @returns The distance between the two points
  *
  * @example
@@ -107,7 +111,11 @@ export function distance(
  * Linearly interpolates between two 2D points.
  *
  * @param start - The starting point
+ * @param start.x - X coordinate of the starting point
+ * @param start.y - Y coordinate of the starting point
  * @param end - The ending point
+ * @param end.x - X coordinate of the ending point
+ * @param end.y - Y coordinate of the ending point
  * @param t - Interpolation factor, automatically clamped to [0, 1]
  * @returns The interpolated point
  *
@@ -134,7 +142,11 @@ export function lerp2D(
  * Clamps a position within rectangular bounds.
  *
  * @param pos - The position to clamp
+ * @param pos.x - X coordinate of the position
+ * @param pos.y - Y coordinate of the position
  * @param bounds - The bounding rectangle with width and height
+ * @param bounds.width - Width of the bounding rectangle
+ * @param bounds.height - Height of the bounding rectangle
  * @returns The clamped position
  *
  * @example

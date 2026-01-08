@@ -26,18 +26,16 @@ import type { TestAction, ActionResult } from '../types';
 /**
  * Finds an entity by ID in the ODIE scene.
  *
- * Searches scene.allEntities.children for an entity matching the ID.
- * Handles both string and numeric IDs.
- *
  * @param scene - ODIE Scene2D instance
  * @param entityId - Entity ID to find
  * @returns Entity or null if not found
+ *
+ * @example
+ * const entity = findEntity(scene, '123');
  */
 function findEntity(scene: unknown, entityId: string | number): unknown {
   const s = scene as { allEntities?: { children?: unknown[] } };
   const entities = s.allEntities?.children ?? [];
-
-  // Normalize to string for comparison
   const targetId =
     typeof entityId === 'number' ? entityId.toString() : entityId;
 
@@ -52,7 +50,41 @@ function findEntity(scene: unknown, entityId: string | number): unknown {
 }
 
 /**
- * Execute setPosition action
+ * Gets a component from an entity by name.
+ *
+ * @param entity - The entity to query
+ * @param componentName - Name of the component
+ * @returns The component or null if not found
+ *
+ * @example
+ * const health = getEntityComponent(entity, 'health');
+ */
+function getEntityComponent(entity: unknown, componentName: string): unknown {
+  const e = entity as {
+    c?: Record<string, unknown>;
+    components?: Map<string, unknown>;
+  };
+  const source = e.c ?? e.components;
+  if (!source) {
+    return null;
+  }
+  if (source instanceof Map) {
+    return source.get(componentName) ?? null;
+  }
+  return source[componentName] ?? null;
+}
+
+/**
+ * Executes a setPosition action on an entity.
+ *
+ * @param scene - The ODIE scene
+ * @param entityId - Target entity ID
+ * @param x - New X position
+ * @param y - New Y position
+ * @returns Action result indicating success or failure
+ *
+ * @example
+ * executeSetPosition(scene, '123', 100, 200);
  */
 function executeSetPosition(
   scene: unknown,
@@ -60,23 +92,32 @@ function executeSetPosition(
   x: number,
   y: number
 ): ActionResult {
-  if (!scene) return { success: false, error: 'Scene not available' };
-
-  const entity = findEntity(scene, entityId);
-  if (!entity) return { success: false, error: `Entity ${entityId} not found` };
-
-  const e = entity as { position?: { set: (x: number, y: number) => void } };
-  if (e.position?.set) {
-    e.position.set(x, y);
-    return { success: true };
+  if (!scene) {
+    return { success: false, error: 'Scene not available' };
   }
-
-  return { success: false, error: 'Entity has no position property' };
+  const entity = findEntity(scene, entityId);
+  if (!entity) {
+    return { success: false, error: `Entity ${entityId} not found` };
+  }
+  const e = entity as { position?: { set: (x: number, y: number) => void } };
+  if (!e.position?.set) {
+    return { success: false, error: 'Entity has no position property' };
+  }
+  e.position.set(x, y);
+  return { success: true };
 }
 
 /**
- * Execute setComponent action
- * ODIE stores components in entity.c property as plain object
+ * Executes a setComponent action to update component data.
+ *
+ * @param scene - The ODIE scene
+ * @param entityId - Target entity ID
+ * @param componentName - Name of the component to update
+ * @param data - Data to merge into the component
+ * @returns Action result indicating success or failure
+ *
+ * @example
+ * executeSetComponent(scene, '123', 'health', { current: 50 });
  */
 function executeSetComponent(
   scene: unknown,
@@ -84,109 +125,142 @@ function executeSetComponent(
   componentName: string,
   data: Record<string, unknown>
 ): ActionResult {
-  if (!scene) return { success: false, error: 'Scene not available' };
-
+  if (!scene) {
+    return { success: false, error: 'Scene not available' };
+  }
   const entity = findEntity(scene, entityId);
-  if (!entity) return { success: false, error: `Entity ${entityId} not found` };
-
-  // ODIE uses 'c' property for components as plain object
-  const e = entity as {
-    c?: Record<string, unknown>;
-    components?: Map<string, unknown>;
-  };
-
-  const componentSource = e.c ?? e.components;
-  if (!componentSource) {
-    return { success: false, error: 'Entity has no components' };
+  if (!entity) {
+    return { success: false, error: `Entity ${entityId} not found` };
   }
-
-  // Handle both Map and plain object
-  let component: unknown;
-  if (componentSource instanceof Map) {
-    component = componentSource.get(componentName);
-  } else {
-    component = componentSource[componentName];
-  }
-
+  const component = getEntityComponent(entity, componentName);
   if (!component) {
     return { success: false, error: `Component ${componentName} not found` };
   }
-
-  // Apply data to component
   Object.assign(component, data);
   return { success: true };
 }
 
 /**
- * Execute setVisible action
+ * Executes a setVisible action on an entity.
+ *
+ * @param scene - The ODIE scene
+ * @param entityId - Target entity ID
+ * @param visible - New visibility state
+ * @returns Action result indicating success or failure
+ *
+ * @example
+ * executeSetVisible(scene, '123', false);
  */
 function executeSetVisible(
   scene: unknown,
   entityId: string,
   visible: boolean
 ): ActionResult {
-  if (!scene) return { success: false, error: 'Scene not available' };
-
+  if (!scene) {
+    return { success: false, error: 'Scene not available' };
+  }
   const entity = findEntity(scene, entityId);
-  if (!entity) return { success: false, error: `Entity ${entityId} not found` };
-
+  if (!entity) {
+    return { success: false, error: `Entity ${entityId} not found` };
+  }
   (entity as { visible?: boolean }).visible = visible;
   return { success: true };
 }
 
 /**
- * Execute destroyEntity action
+ * Executes a destroyEntity action.
+ *
+ * @param scene - The ODIE scene
+ * @param entityId - Target entity ID to destroy
+ * @returns Action result indicating success or failure
+ *
+ * @example
+ * executeDestroyEntity(scene, '123');
  */
 function executeDestroyEntity(scene: unknown, entityId: string): ActionResult {
-  if (!scene) return { success: false, error: 'Scene not available' };
-
-  const entity = findEntity(scene, entityId);
-  if (!entity) return { success: false, error: `Entity ${entityId} not found` };
-
-  const s = scene as { removeChild?: (entity: unknown) => void };
-  if (s.removeChild) {
-    s.removeChild(entity);
-    return { success: true };
+  if (!scene) {
+    return { success: false, error: 'Scene not available' };
   }
-
-  return { success: false, error: 'Scene has no removeChild method' };
+  const entity = findEntity(scene, entityId);
+  if (!entity) {
+    return { success: false, error: `Entity ${entityId} not found` };
+  }
+  const s = scene as { removeChild?: (entity: unknown) => void };
+  if (!s.removeChild) {
+    return { success: false, error: 'Scene has no removeChild method' };
+  }
+  s.removeChild(entity);
+  return { success: true };
 }
 
 /**
- * Execute pause action
+ * Executes a pause action on the scene.
+ *
+ * @param scene - The ODIE scene to pause
+ * @returns Action result indicating success or failure
+ *
+ * @example
+ * executePause(scene);
  */
 function executePause(scene: unknown): ActionResult {
-  if (!scene) return { success: false, error: 'Scene not available' };
+  if (!scene) {
+    return { success: false, error: 'Scene not available' };
+  }
   (scene as { paused?: boolean }).paused = true;
   return { success: true };
 }
 
 /**
- * Execute resume action
+ * Executes a resume action on the scene.
+ *
+ * @param scene - The ODIE scene to resume
+ * @returns Action result indicating success or failure
+ *
+ * @example
+ * executeResume(scene);
  */
 function executeResume(scene: unknown): ActionResult {
-  if (!scene) return { success: false, error: 'Scene not available' };
+  if (!scene) {
+    return { success: false, error: 'Scene not available' };
+  }
   (scene as { paused?: boolean }).paused = false;
   return { success: true };
 }
 
 /**
- * Execute tick action - manually advance scene update
+ * Executes a tick action to manually advance the scene.
+ *
+ * @param scene - The ODIE scene
+ * @param deltaMs - Time delta in milliseconds
+ * @returns Action result indicating success or failure
+ *
+ * @example
+ * executeTick(scene, 16.67);
  */
 function executeTick(scene: unknown, deltaMs: number): ActionResult {
-  if (!scene) return { success: false, error: 'Scene not available' };
-
-  const s = scene as { update?: (delta: number) => void };
-  if (s.update) {
-    s.update(deltaMs);
-    return { success: true };
+  if (!scene) {
+    return { success: false, error: 'Scene not available' };
   }
-
-  return { success: false, error: 'Scene has no update method' };
+  const s = scene as { update?: (delta: number) => void };
+  if (!s.update) {
+    return { success: false, error: 'Scene has no update method' };
+  }
+  s.update(deltaMs);
+  return { success: true };
 }
 
 /**
- * Execute pointer event action
+ * Executes a pointer event on the canvas.
+ *
+ * @param eventType - Type of pointer event
+ * @param canvas - Target canvas element
+ * @param x - X coordinate relative to canvas
+ * @param y - Y coordinate relative to canvas
+ * @param button - Mouse button (default 0)
+ * @returns Action result indicating success or failure
+ *
+ * @example
+ * executePointerEvent('pointerdown', canvas, 100, 200, 0);
  */
 function executePointerEvent(
   eventType: 'pointerdown' | 'pointerup' | 'pointermove',
@@ -195,8 +269,9 @@ function executePointerEvent(
   y: number,
   button?: number
 ): ActionResult {
-  if (!canvas) return { success: false, error: 'Canvas not available' };
-
+  if (!canvas) {
+    return { success: false, error: 'Canvas not available' };
+  }
   const rect = canvas.getBoundingClientRect();
   const event = new PointerEvent(eventType, {
     bubbles: true,
@@ -206,13 +281,20 @@ function executePointerEvent(
     button: button ?? 0,
     pointerType: 'mouse',
   });
-
   canvas.dispatchEvent(event);
   return { success: true };
 }
 
 /**
- * Execute keyboard event action
+ * Executes a keyboard event.
+ *
+ * @param eventType - Type of keyboard event
+ * @param key - The key value
+ * @param code - The key code
+ * @returns Action result indicating success or failure
+ *
+ * @example
+ * executeKeyEvent('keydown', ' ', 'Space');
  */
 function executeKeyEvent(
   eventType: 'keydown' | 'keyup',
@@ -225,9 +307,141 @@ function executeKeyEvent(
     key,
     code,
   });
-
   window.dispatchEvent(event);
   return { success: true };
+}
+
+/**
+ * Dispatches entity-related actions.
+ *
+ * @param action - The entity action to dispatch
+ * @param scene - The current scene
+ * @returns Action result or null if not an entity action
+ *
+ * @example
+ * const result = dispatchEntityAction(action, scene);
+ */
+function dispatchEntityAction(
+  action: TestAction,
+  scene: unknown
+): ActionResult | null {
+  switch (action.type) {
+    case 'setPosition':
+      return executeSetPosition(scene, action.entityId, action.x, action.y);
+    case 'setComponent':
+      return executeSetComponent(
+        scene,
+        action.entityId,
+        action.component,
+        action.data
+      );
+    case 'setVisible':
+      return executeSetVisible(scene, action.entityId, action.visible);
+    case 'destroyEntity':
+      return executeDestroyEntity(scene, action.entityId);
+    case 'pause':
+      return executePause(scene);
+    case 'resume':
+      return executeResume(scene);
+    case 'tick':
+      return executeTick(scene, action.deltaMs);
+    default:
+      return null;
+  }
+}
+
+/**
+ * Dispatches pointer actions to the canvas.
+ *
+ * @param action - The pointer action
+ * @param canvas - The canvas element
+ * @returns Action result or null if not a pointer action
+ * @internal
+ */
+function dispatchPointerAction(
+  action: TestAction,
+  canvas: HTMLCanvasElement | null
+): ActionResult | null {
+  switch (action.type) {
+    case 'pointerDown':
+      return executePointerEvent(
+        'pointerdown',
+        canvas,
+        action.x,
+        action.y,
+        action.button
+      );
+    case 'pointerUp':
+      return executePointerEvent(
+        'pointerup',
+        canvas,
+        action.x,
+        action.y,
+        action.button
+      );
+    case 'pointerMove':
+      return executePointerEvent('pointermove', canvas, action.x, action.y, 0);
+    default:
+      return null;
+  }
+}
+
+/**
+ * Dispatches input-related actions.
+ *
+ * @param action - The input action to dispatch
+ * @param canvas - The canvas element
+ * @returns Action result or null if not an input action
+ *
+ * @example
+ * const result = await dispatchInputAction(action, canvas);
+ */
+async function dispatchInputAction(
+  action: TestAction,
+  canvas: HTMLCanvasElement | null
+): Promise<ActionResult | null> {
+  const pointerResult = dispatchPointerAction(action, canvas);
+  if (pointerResult) {
+    return pointerResult;
+  }
+  switch (action.type) {
+    case 'keyDown':
+      return executeKeyEvent('keydown', action.key, action.code);
+    case 'keyUp':
+      return executeKeyEvent('keyup', action.key, action.code);
+    case 'wait':
+      await new Promise((resolve) => setTimeout(resolve, action.ms));
+      return { success: true };
+    default:
+      return null;
+  }
+}
+
+/**
+ * Dispatches an action to the appropriate executor.
+ *
+ * @param action - The action to dispatch
+ * @param getScene - Function to get the current scene
+ * @param getCanvas - Function to get the canvas element
+ * @returns Promise resolving to action result
+ *
+ * @example
+ * const result = await dispatchAction(action, getScene, getCanvas);
+ */
+async function dispatchAction(
+  action: TestAction,
+  getScene: () => unknown,
+  getCanvas: () => HTMLCanvasElement | null
+): Promise<ActionResult> {
+  const entityResult = dispatchEntityAction(action, getScene());
+  if (entityResult) {
+    return entityResult;
+  }
+  const inputResult = await dispatchInputAction(action, getCanvas());
+  if (inputResult) {
+    return inputResult;
+  }
+  return { success: false, error: `Unknown action type: ${action.type}` };
 }
 
 /**
@@ -258,83 +472,7 @@ export function createActionExecutor(
 ): (action: TestAction) => Promise<ActionResult> {
   return async (action: TestAction): Promise<ActionResult> => {
     try {
-      switch (action.type) {
-        case 'setPosition':
-          return executeSetPosition(
-            getScene(),
-            action.entityId,
-            action.x,
-            action.y
-          );
-
-        case 'setComponent':
-          return executeSetComponent(
-            getScene(),
-            action.entityId,
-            action.component,
-            action.data
-          );
-
-        case 'setVisible':
-          return executeSetVisible(getScene(), action.entityId, action.visible);
-
-        case 'destroyEntity':
-          return executeDestroyEntity(getScene(), action.entityId);
-
-        case 'pause':
-          return executePause(getScene());
-
-        case 'resume':
-          return executeResume(getScene());
-
-        case 'tick':
-          return executeTick(getScene(), action.deltaMs);
-
-        case 'pointerDown':
-          return executePointerEvent(
-            'pointerdown',
-            getCanvas(),
-            action.x,
-            action.y,
-            action.button
-          );
-
-        case 'pointerUp':
-          return executePointerEvent(
-            'pointerup',
-            getCanvas(),
-            action.x,
-            action.y,
-            action.button
-          );
-
-        case 'pointerMove':
-          return executePointerEvent(
-            'pointermove',
-            getCanvas(),
-            action.x,
-            action.y,
-            0
-          );
-
-        case 'keyDown':
-          return executeKeyEvent('keydown', action.key, action.code);
-
-        case 'keyUp':
-          return executeKeyEvent('keyup', action.key, action.code);
-
-        case 'wait':
-          await new Promise((resolve) => setTimeout(resolve, action.ms));
-          return { success: true };
-
-        default: {
-          const exhaustiveCheck: never = action;
-          return {
-            success: false,
-            error: `Unknown action type: ${(exhaustiveCheck as { type: string }).type}`,
-          };
-        }
-      }
+      return await dispatchAction(action, getScene, getCanvas);
     } catch (err) {
       return {
         success: false,

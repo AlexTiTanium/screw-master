@@ -64,6 +64,13 @@ export class LoadingScene {
    * Creates a new LoadingScene instance.
    *
    * @param options - Configuration options
+   *
+   * @example
+   * const loadingScene = new LoadingScene({
+   *   stage: container,
+   *   width: 1024,
+   *   height: 768
+   * });
    */
   constructor(options: LoadingSceneOptions) {
     this.container = options.stage;
@@ -116,6 +123,7 @@ export class LoadingScene {
 
   /**
    * Redraws the progress bar based on current progress.
+   * @private
    */
   private updateProgressBar(): void {
     this.progressBar.clear();
@@ -127,6 +135,10 @@ export class LoadingScene {
    * Destroys all PixiJS objects created by this scene.
    *
    * Call this when the loading scene is no longer needed to free resources.
+   *
+   * @example
+   * // Clean up when loading is complete
+   * loadingScene.destroy();
    */
   public destroy(): void {
     this.loadingText.destroy();

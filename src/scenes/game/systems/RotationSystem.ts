@@ -41,6 +41,11 @@ export class RotationSystem extends BaseSystem {
    * Updates all rotating entities each frame.
    *
    * @param time - Time information including deltaTime
+   *
+   * @example
+   * // Called automatically by Scene2D each frame
+   * // Manual call (typically not needed):
+   * rotationSystem.update({ deltaTime: 16, elapsed: 1000 });
    */
   update(time: Time): void {
     this.forEachEntity('rotating', (entity) => {

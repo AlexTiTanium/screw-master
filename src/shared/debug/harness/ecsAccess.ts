@@ -32,16 +32,50 @@ export interface ECSAccessInternal extends ECSAccess {
 }
 
 /**
- * Serializes a component instance to a plain object.
+ * Checks if a property should be skipped during serialization.
  *
- * Handles:
- * - Primitive values (copied directly)
- * - Arrays (copied directly)
- * - Objects (JSON serialized)
- * - Functions and private properties (skipped)
+ * @param key - Property key
+ * @param value - Property value
+ * @returns True if the property should be skipped
+ *
+ * @example
+ * shouldSkipProperty('_internal', {}); // true
+ */
+function shouldSkipProperty(key: string, value: unknown): boolean {
+  return (
+    typeof value === 'function' || key.startsWith('_') || key === 'constructor'
+  );
+}
+
+/**
+ * Serializes an object value with fallback handling.
+ *
+ * @param value - The object to serialize
+ * @returns Serialized representation of the value
+ *
+ * @example
+ * serializeObjectValue({ x: 1, y: 2 }); // { x: 1, y: 2 }
+ */
+function serializeObjectValue(value: unknown): unknown {
+  try {
+    return JSON.parse(JSON.stringify(value)) as unknown;
+  } catch {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return '[object]';
+    }
+  }
+}
+
+/**
+ * Serializes a component instance to a plain object.
  *
  * @param component - The component instance to serialize
  * @returns Plain object with component data
+ *
+ * @example
+ * serializeComponent({ health: 100, _internal: {} }); // { health: 100 }
  */
 function serializeComponent(component: unknown): unknown {
   if (component === null || component === undefined) {
@@ -53,104 +87,95 @@ function serializeComponent(component: unknown): unknown {
 
   for (const key of Object.keys(comp)) {
     const value = comp[key];
-
-    // Skip functions, private properties, and constructor
-    if (
-      typeof value === 'function' ||
-      key.startsWith('_') ||
-      key === 'constructor'
-    ) {
+    if (shouldSkipProperty(key, value)) {
       continue;
     }
-
-    // Handle primitives
     if (value === null || typeof value !== 'object') {
       result[key] = value;
-      continue;
-    }
-
-    // Handle arrays
-    if (Array.isArray(value)) {
+    } else if (Array.isArray(value)) {
       result[key] = value;
-      continue;
-    }
-
-    // Try to serialize objects, fallback to a string representation
-    try {
-      result[key] = JSON.parse(JSON.stringify(value)) as unknown;
-    } catch {
-      // Use JSON.stringify for objects that can't be round-tripped
-      try {
-        result[key] = JSON.stringify(value);
-      } catch {
-        result[key] = '[object]';
-      }
+    } else {
+      result[key] = serializeObjectValue(value);
     }
   }
 
   return result;
 }
 
-/**
- * Serializes an ODIE Entity2D to an EntitySnapshot.
- *
- * Extracts:
- * - Entity ID (UID)
- * - Constructor name (type)
- * - Transform properties (position, scale, rotation)
- * - Visual properties (visible, alpha)
- * - View bounds
- * - Component data (serialized)
- * - Child count
- *
- * @param entity - The ODIE entity to serialize
- * @returns EntitySnapshot with serialized entity state
- */
-function serializeEntity(entity: unknown): EntitySnapshot {
-  const e = entity as {
-    UID?: string; // ODIE uses UID (uppercase)
-    uid?: string;
-    constructor?: { name: string };
-    position?: { x: number; y: number };
-    scale?: { x: number; y: number };
-    rotation?: number;
-    visible?: boolean;
-    alpha?: number;
-    view?: {
-      getBounds?: () => { x: number; y: number; width: number; height: number };
-      children?: unknown[];
-    };
-    // ODIE stores components in 'c' property as Map or object
-    c?: Map<string, unknown> | Record<string, unknown>;
-    components?: Map<string, unknown> | Record<string, unknown>;
+/** Entity shape for type casting. */
+interface EntityShape {
+  UID?: string;
+  uid?: string;
+  constructor?: { name: string };
+  position?: { x: number; y: number };
+  scale?: { x: number; y: number };
+  rotation?: number;
+  visible?: boolean;
+  alpha?: number;
+  view?: {
+    getBounds?: () => { x: number; y: number; width: number; height: number };
+    children?: unknown[];
   };
+  c?: Map<string, unknown> | Record<string, unknown>;
+  components?: Map<string, unknown> | Record<string, unknown>;
+}
 
-  // Extract component data - ODIE stores components in 'c' property
+/**
+ * Extracts and serializes components from an entity.
+ *
+ * @param e - The entity shape
+ * @returns Serialized components object
+ *
+ * @example
+ * const components = extractComponents(entity);
+ */
+function extractComponents(e: EntityShape): Record<string, unknown> {
   const components: Record<string, unknown> = {};
-  const componentSource = e.c ?? e.components;
-
-  if (componentSource instanceof Map) {
-    componentSource.forEach((component, name) => {
-      components[name] = serializeComponent(component);
+  const source = e.c ?? e.components;
+  if (source instanceof Map) {
+    source.forEach((c, name) => {
+      components[name] = serializeComponent(c);
     });
-  } else if (componentSource && typeof componentSource === 'object') {
-    // Components might be stored as plain object
-    for (const [name, component] of Object.entries(componentSource)) {
-      components[name] = serializeComponent(component);
+  } else if (source && typeof source === 'object') {
+    for (const [name, c] of Object.entries(source)) {
+      components[name] = serializeComponent(c);
     }
   }
+  return components;
+}
 
-  // Get bounds safely
-  let bounds: EntitySnapshot['bounds'] = null;
+/**
+ * Gets the bounds of an entity's view safely.
+ *
+ * @param e - The entity shape
+ * @returns Bounds object or null
+ *
+ * @example
+ * const bounds = getEntityBounds(entity);
+ */
+function getEntityBounds(e: EntityShape): EntitySnapshot['bounds'] {
   try {
     if (e.view?.getBounds) {
       const b = e.view.getBounds();
-      bounds = { x: b.x, y: b.y, width: b.width, height: b.height };
+      return { x: b.x, y: b.y, width: b.width, height: b.height };
     }
   } catch {
-    // Bounds calculation may fail for empty containers
+    // Bounds calculation may fail
   }
+  return null;
+}
 
+/**
+ * Serializes an ODIE Entity2D to an EntitySnapshot.
+ *
+ * @param entity - The ODIE entity to serialize
+ * @returns EntitySnapshot with serialized entity state
+ *
+ * @example
+ * const snapshot = serializeEntity(entity);
+ */
+function serializeEntity(entity: unknown): EntitySnapshot {
+  const e = entity as EntityShape;
   return {
     id: e.UID ?? e.uid ?? 'unknown',
     type: e.constructor?.name ?? 'Entity',
@@ -159,78 +184,56 @@ function serializeEntity(entity: unknown): EntitySnapshot {
     rotation: e.rotation ?? 0,
     visible: e.visible ?? true,
     alpha: e.alpha ?? 1,
-    bounds,
-    components,
+    bounds: getEntityBounds(e),
+    components: extractComponents(e),
     childCount: e.view?.children?.length ?? 0,
   };
 }
 
 /**
- * Creates an ECS access layer for the test harness.
+ * Gets all entities from a scene reference.
  *
- * The returned object provides methods to query entities and components
- * from the registered ODIE Scene2D. All data is serialized to plain objects
- * to ensure safe cross-context access from Playwright evaluate calls.
+ * @param sceneRef - The scene reference
+ * @returns Array of serialized entity snapshots
+ *
+ * @example
+ * const entities = getAllEntities(sceneRef);
+ */
+function getAllEntities(sceneRef: unknown): EntitySnapshot[] {
+  if (!sceneRef) {
+    return [];
+  }
+  const scene = sceneRef as { allEntities?: { children?: unknown[] } };
+  const entities = scene.allEntities?.children ?? [];
+  return entities.map((entity) => serializeEntity(entity));
+}
+
+/**
+ * Creates an ECS access layer for the test harness.
  *
  * @returns ECSAccessInternal instance with query methods and scene setter
  *
  * @example
- * // Internal usage in harness creation
  * const ecsAccess = createECSAccess();
- *
- * // Register scene when game initializes
  * ecsAccess._setScene(scene);
- *
- * // Query entities
  * const entities = ecsAccess.getEntities();
- * const playerEntities = ecsAccess.queryByComponent('player');
  */
 export function createECSAccess(): ECSAccessInternal {
   let sceneRef: unknown = null;
 
-  const getScene = (): unknown => sceneRef;
+  const getEntities = (): EntitySnapshot[] => getAllEntities(sceneRef);
 
-  const getEntities = (): EntitySnapshot[] => {
-    if (!sceneRef) return [];
-
-    // ODIE Scene2D has `allEntities.children` array containing all registered entities
-    // allEntities is a Group class with a children array
-    const scene = sceneRef as {
-      allEntities?: {
-        children?: unknown[];
-        length?: number;
-      };
-    };
-
-    if (!scene.allEntities) {
-      return [];
-    }
-
-    // Group has a children array
-    const entities = scene.allEntities.children ?? [];
-
-    return entities.map((entity) => serializeEntity(entity));
-  };
-
-  const getEntity = (id: string): EntitySnapshot | null => {
-    const entities = getEntities();
-    // Compare as strings to handle both numeric and string IDs
-    return entities.find((e) => String(e.id) === id) ?? null;
-  };
-
-  const queryByComponent = (componentName: string): EntitySnapshot[] => {
-    const entities = getEntities();
-    return entities.filter((e) => componentName in e.components);
-  };
+  const getEntity = (id: string): EntitySnapshot | null =>
+    getEntities().find((e) => String(e.id) === id) ?? null;
 
   return {
-    getScene,
+    getScene: (): unknown => sceneRef,
     getEntities,
     getEntity,
-    queryByComponent,
+    queryByComponent: (name: string): EntitySnapshot[] =>
+      getEntities().filter((e) => name in e.components),
     getEntityCount: (): number => getEntities().length,
     hasEntity: (id: string): boolean => getEntity(id) !== null,
-
     _setScene: (scene: unknown): void => {
       sceneRef = scene;
     },

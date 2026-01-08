@@ -70,6 +70,8 @@ export class TestScene {
    * Creates a new TestScene instance.
    *
    * @param options - Configuration options including the stage container
+   * @example
+   * const scene = new TestScene({ stage: container });
    */
   constructor(options: TestSceneOptions) {
     this.scene = new Scene2D({
@@ -86,6 +88,8 @@ export class TestScene {
    * 3. Sets up input handling
    *
    * @returns Promise that resolves when initialization is complete
+   * @example
+   * await scene.init();
    */
   public async init(): Promise<void> {
     if (this.isInitialized) {
@@ -117,6 +121,7 @@ export class TestScene {
    *
    * This demonstrates how to use Astro's TouchInput with ODIE entities.
    * The square toggles between red and green on each click.
+   * @private
    */
   private createInteractiveSquare(): void {
     // Use the entity factory to create the square
@@ -152,6 +157,7 @@ export class TestScene {
    * Creates a rotating square that spins continuously.
    *
    * This demonstrates how to use the RotationSystem with entities.
+   * @private
    */
   private createRotatingSquare(): void {
     const rotatingSquare = createRotatingSquareEntity({
@@ -172,6 +178,7 @@ export class TestScene {
    *
    * This method demonstrates how to update entity visuals in response
    * to user interaction.
+   * @private
    */
   private toggleSquareColor(): void {
     if (!this.squareEntity) {
@@ -200,6 +207,7 @@ export class TestScene {
 
   /**
    * Creates a test sprite entity in the top-left corner.
+   * @private
    */
   private async createTestSpriteEntity(): Promise<void> {
     try {
@@ -218,6 +226,8 @@ export class TestScene {
   /**
    * Starts the game scene.
    * Call this after init() to begin the game loop.
+   * @example
+   * scene.start();
    */
   public start(): void {
     this.scene.start();
@@ -226,6 +236,8 @@ export class TestScene {
   /**
    * Pauses the game scene.
    * The scene will stop updating until resume() is called.
+   * @example
+   * scene.pause();
    */
   public pause(): void {
     this.scene.paused = true;
@@ -233,6 +245,8 @@ export class TestScene {
 
   /**
    * Resumes a paused game scene.
+   * @example
+   * scene.resume();
    */
   public resume(): void {
     this.scene.paused = false;
@@ -243,6 +257,8 @@ export class TestScene {
    * Called each frame by the screen's update loop.
    *
    * @param _deltaTime - Time elapsed since last frame in seconds
+   * @example
+   * scene.update(0.016);
    */
   public update(_deltaTime: number): void {
     // Scene updates automatically via View2DSystem
@@ -250,6 +266,8 @@ export class TestScene {
 
   /**
    * Destroys the game scene and cleans up resources.
+   * @example
+   * scene.destroy();
    */
   public destroy(): void {
     // Cleanup touch input

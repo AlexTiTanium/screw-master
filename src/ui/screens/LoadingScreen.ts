@@ -9,7 +9,7 @@ import { LoadingScene } from '@scenes/loading/LoadingScene';
  * loaded. It provides a `setProgress()` method to update the progress
  * bar from 0 to 1.
  *
- * @extends {BaseScreen}
+ * @augments {BaseScreen}
  *
  * @example
  * // Register and use with PreloadPlugin
@@ -54,6 +54,7 @@ export class LoadingScreen extends BaseScreen {
    * Prepares the screen before it becomes visible.
    *
    * Creates the LoadingScene with progress bar UI.
+   * @protected
    */
   protected override onPrepare(): void {
     this.loadingScene = new LoadingScene({
@@ -67,6 +68,7 @@ export class LoadingScreen extends BaseScreen {
    * Called when the screen is fully hidden.
    *
    * Destroys the loading scene and cleans up resources.
+   * @protected
    */
   protected override onHidden(): void {
     this.loadingScene?.destroy();

@@ -7,7 +7,7 @@ import type { Component, ComponentClass } from '@play-co/odie';
  * a name and default values, eliminating the need to manually write
  * interfaces, classes, static NAME properties, and init methods.
  *
- * @typeParam T - The shape of the component data (inferred from defaults)
+ * @template T - The shape of the component data (inferred from defaults)
  * @param name - Component identifier (must be unique, used as key in entity data)
  * @param defaults - Default values for component properties
  * @returns A ComponentClass ready for use with DefineEntity and createEntity

@@ -77,8 +77,13 @@ export default defineConfig(
       'jsdoc/require-returns': 'error',
       'jsdoc/require-returns-description': 'error',
       'jsdoc/require-returns-type': 'off', // TypeScript handles types
-      // Warn (not error) when @example is missing
-      'jsdoc/require-example': 'warn',
+      // Warn (not error) when @example is missing on public functions
+      'jsdoc/require-example': [
+        'warn',
+        {
+          exemptedBy: ['internal', 'private', 'protected'],
+        },
+      ],
       // Validate JSDoc syntax
       'jsdoc/check-param-names': 'error',
       'jsdoc/check-tag-names': 'error',

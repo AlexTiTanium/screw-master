@@ -11,7 +11,7 @@ import { TestScene } from '@scenes/game/TestScene';
  * - Pausing/resuming on visibility changes
  * - Cleanup on `onHidden()`
  *
- * @extends {BaseScreen}
+ * @augments {BaseScreen}
  *
  * @example
  * // Registering the screen (typically done in bootstrap)
@@ -44,6 +44,7 @@ export class TestScreen extends BaseScreen {
    * Prepares the screen before it becomes visible.
    *
    * Creates and initializes the ODIE TestScene.
+   * @protected
    */
   protected override async onPrepare(): Promise<void> {
     this.testScene = new TestScene({
@@ -57,6 +58,7 @@ export class TestScreen extends BaseScreen {
    * Called when the screen becomes visible.
    *
    * Starts the test scene game loop.
+   * @protected
    */
   protected override onShow(): void {
     this.testScene?.start();
@@ -66,6 +68,7 @@ export class TestScreen extends BaseScreen {
    * Called each frame while the screen is visible.
    *
    * @param dt - Delta time since last frame in seconds
+   * @protected
    */
   protected override onUpdate(dt: number): void {
     this.testScene?.update(dt);
@@ -75,6 +78,7 @@ export class TestScreen extends BaseScreen {
    * Called when the screen starts hiding.
    *
    * Pauses the test scene.
+   * @protected
    */
   protected override onHide(): void {
     this.testScene?.pause();
@@ -84,6 +88,7 @@ export class TestScreen extends BaseScreen {
    * Called when the screen is fully hidden.
    *
    * Destroys the test scene and cleans up resources.
+   * @protected
    */
   protected override onHidden(): void {
     this.testScene?.destroy();
@@ -92,6 +97,7 @@ export class TestScreen extends BaseScreen {
 
   /**
    * Called when the app is paused (e.g., tab loses focus).
+   * @protected
    */
   protected override onPause(): void {
     this.testScene?.pause();
@@ -99,6 +105,7 @@ export class TestScreen extends BaseScreen {
 
   /**
    * Called when the app is resumed (e.g., tab gains focus).
+   * @protected
    */
   protected override onResume(): void {
     this.testScene?.resume();

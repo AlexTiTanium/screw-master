@@ -96,6 +96,8 @@ export abstract class BaseScreen implements Screen {
    *
    * @param app - The Astro Application instance
    * @param _options - Optional configuration (available for subclasses)
+   * @example
+   * const screen = new MenuScreen(app, { theme: 'dark' });
    */
   constructor(app: Application, _options?: Record<string, unknown>) {
     this.app = app;
@@ -111,6 +113,11 @@ export abstract class BaseScreen implements Screen {
    * Override to initialize resources, create UI, load assets.
    *
    * @returns Promise or void when preparation is complete
+   * @example
+   * protected async onPrepare(): Promise<void> {
+   *   this.ui = new Container();
+   *   this.view.addChild(this.ui);
+   * }
    */
   protected onPrepare(): Promise<void> | void {
     // Override in subclass
@@ -121,6 +128,10 @@ export abstract class BaseScreen implements Screen {
    * Override to start animations, game loops, etc.
    *
    * @returns Promise or void when show is complete
+   * @example
+   * protected onShow(): void {
+   *   this.scene?.start();
+   * }
    */
   protected onShow(): Promise<void> | void {
     // Override in subclass
@@ -131,6 +142,10 @@ export abstract class BaseScreen implements Screen {
    * Override to update game logic, animations, etc.
    *
    * @param _dt - Delta time since last frame in seconds
+   * @example
+   * protected onUpdate(dt: number): void {
+   *   this.scene?.update(dt);
+   * }
    */
   protected onUpdate(_dt: number): void {
     // Override in subclass
@@ -141,6 +156,10 @@ export abstract class BaseScreen implements Screen {
    * Override to stop animations, pause game loops, etc.
    *
    * @returns Promise or void when hide is complete
+   * @example
+   * protected onHide(): void {
+   *   this.scene?.pause();
+   * }
    */
   protected onHide(): Promise<void> | void {
     // Override in subclass
@@ -151,6 +170,11 @@ export abstract class BaseScreen implements Screen {
    * Override to cleanup resources, destroy objects.
    *
    * @returns Promise or void when cleanup is complete
+   * @example
+   * protected onHidden(): void {
+   *   this.scene?.destroy();
+   *   this.scene = null;
+   * }
    */
   protected onHidden(): Promise<void> | void {
     // Override in subclass
@@ -159,6 +183,11 @@ export abstract class BaseScreen implements Screen {
   /**
    * Called when the app is paused (e.g., tab loses focus).
    * Override to pause game, audio, etc.
+   *
+   * @example
+   * protected onPause(): void {
+   *   this.audio?.pause();
+   * }
    */
   protected onPause(): void {
     // Override in subclass
@@ -167,6 +196,11 @@ export abstract class BaseScreen implements Screen {
   /**
    * Called when the app is resumed (e.g., tab gains focus).
    * Override to resume game, audio, etc.
+   *
+   * @example
+   * protected onResume(): void {
+   *   this.audio?.resume();
+   * }
    */
   protected onResume(): void {
     // Override in subclass
@@ -178,6 +212,11 @@ export abstract class BaseScreen implements Screen {
    *
    * @param _w - New width in pixels
    * @param _h - New height in pixels
+   * @example
+   * protected onResize(w: number, h: number): void {
+   *   this.background.width = w;
+   *   this.background.height = h;
+   * }
    */
   protected onResize(_w: number, _h: number): void {
     // Override in subclass
@@ -187,42 +226,77 @@ export abstract class BaseScreen implements Screen {
   // Screen interface implementation
   // ============================================
 
-  /** @internal */
+  /**
+   * Prepares the screen before showing.
+   * @internal
+   * @example screen.prepare();
+   */
   public async prepare(): Promise<void> {
     await this.onPrepare();
   }
 
-  /** @internal */
+  /**
+   * Shows the screen.
+   * @internal
+   * @example screen.show();
+   */
   public async show(): Promise<void> {
     await this.onShow();
   }
 
-  /** @internal */
+  /**
+   * Updates the screen each frame.
+   * @param dt - Delta time in seconds
+   * @internal
+   * @example screen.update(0.016);
+   */
   public update(dt: number): void {
     this.onUpdate(dt);
   }
 
-  /** @internal */
+  /**
+   * Starts hiding the screen.
+   * @internal
+   * @example screen.hide();
+   */
   public async hide(): Promise<void> {
     await this.onHide();
   }
 
-  /** @internal */
+  /**
+   * Called when screen is fully hidden.
+   * @internal
+   * @example screen.hidden();
+   */
   public async hidden(): Promise<void> {
     await this.onHidden();
   }
 
-  /** @internal */
+  /**
+   * Pauses the screen.
+   * @internal
+   * @example screen.pause();
+   */
   public pause(): void {
     this.onPause();
   }
 
-  /** @internal */
+  /**
+   * Resumes the screen.
+   * @internal
+   * @example screen.resume();
+   */
   public resume(): void {
     this.onResume();
   }
 
-  /** @internal */
+  /**
+   * Handles window resize.
+   * @param w - New width in pixels
+   * @param h - New height in pixels
+   * @internal
+   * @example screen.resize(1920, 1080);
+   */
   public resize(w: number, h: number): void {
     this.onResize(w, h);
   }

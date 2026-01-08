@@ -96,59 +96,83 @@ export async function bootstrap(): Promise<Application> {
 
   app = new Application();
 
-  // Add core plugins
-  app.add(StagePlugin, {
+  configurePlugins(app);
+  await app.init();
+  mountToDOM(app);
+  await showInitialScreen(app);
+
+  return app;
+}
+
+/**
+ * Configures all core plugins for the application.
+ *
+ * @param application - The Astro Application instance to configure
+ *
+ * @example
+ * const app = new Application();
+ * configurePlugins(app);
+ */
+function configurePlugins(application: Application): void {
+  application.add(StagePlugin, {
     backgroundColor: APP_CONFIG.backgroundColor,
     antialias: APP_CONFIG.antialias,
     autoAddToDocument: false,
   });
 
-  app.add(ResizePlugin, {
+  application.add(ResizePlugin, {
     resizeFunction: gameResize(APP_CONFIG.width, APP_CONFIG.height),
   });
 
-  // Add resource plugin for asset management
-  app.add(ResourcePlugin);
-
-  // Add keyboard input plugin
-  app.add(KeyboardPlugin);
+  application.add(ResourcePlugin);
+  application.add(KeyboardPlugin);
 
   // Note: Using type assertion because Application.add's generic inference
   // doesn't correctly handle ScreenPluginOptions
-  (app.add as (plugin: typeof ScreensPlugin, options: unknown) => void)(
+  (application.add as (plugin: typeof ScreensPlugin, options: unknown) => void)(
     ScreensPlugin,
     {
-      main: {
-        loadBeforeTransition: true,
-      },
-      overlay: {
-        loadBeforeTransition: true,
-      },
+      main: { loadBeforeTransition: true },
+      overlay: { loadBeforeTransition: true },
     }
   );
+}
 
-  // Initialize the application
-  await app.init();
-
-  // Get the stage plugin to access the canvas
-  const stage = app.get(StagePlugin);
-
-  // Mount to DOM
+/**
+ * Mounts the application canvas to the DOM.
+ *
+ * @param application - The initialized Astro Application
+ * @throws Error if the app container element is not found
+ *
+ * @example
+ * await app.init();
+ * mountToDOM(app);
+ */
+function mountToDOM(application: Application): void {
+  const stage = application.get(StagePlugin);
   const container = document.getElementById('app');
+
   if (container === null) {
     throw new Error('App container element not found');
   }
-  container.appendChild(stage.view);
 
-  // Add and show test screen
-  const screens = app.get(ScreensPlugin);
+  container.appendChild(stage.view);
+}
+
+/**
+ * Shows the initial screen and marks the game as ready.
+ *
+ * @param application - The initialized Astro Application
+ * @returns Promise that resolves when the screen is shown
+ *
+ * @example
+ * await showInitialScreen(app);
+ */
+async function showInitialScreen(application: Application): Promise<void> {
+  const screens = application.get(ScreensPlugin);
   screens.main.add(TestScreen, undefined, 'test');
   await screens.main.show('test' as 'empty');
-
-  // Mark game as ready for test harness
   markGameReady('test');
-
-  return app;
 }
 
 /**

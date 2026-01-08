@@ -69,111 +69,181 @@ export type {
 } from './types';
 export { getTestParams, isTestMode } from './urlParams';
 
+/** Internal state for the harness. */
+interface HarnessState {
+  errors: GameTestError[];
+  ready: boolean;
+  scene: string;
+  bootStartTime: number;
+  bootEndTime: number | undefined;
+  sceneState: 'running' | 'paused' | 'stopped';
+}
+
+/**
+ * Creates harness state getters.
+ *
+ * @param state - The harness state object
+ * @returns Object with getter properties
+ *
+ * @example
+ * const getters = createStateGetters(state);
+ */
+function createStateGetters(
+  state: HarnessState
+): Pick<
+  GameTestHarness,
+  'ready' | 'scene' | 'bootStartTime' | 'bootEndTime' | 'errors'
+> {
+  return {
+    get ready(): boolean {
+      return state.ready;
+    },
+    get scene(): string {
+      return state.scene;
+    },
+    get bootStartTime(): number {
+      return state.bootStartTime;
+    },
+    get bootEndTime(): number | undefined {
+      return state.bootEndTime;
+    },
+    get errors(): GameTestError[] {
+      return state.errors;
+    },
+  };
+}
+
+/**
+ * Creates harness action methods.
+ *
+ * @param state - The harness state object
+ * @param executeAction - Action executor function
+ * @returns Object with action methods
+ *
+ * @example
+ * const actions = createActionMethods(state, executeAction);
+ */
+function createActionMethods(
+  state: HarnessState,
+  executeAction: (action: TestAction) => Promise<ActionResult>
+): Pick<GameTestHarness, 'act' | 'actMany'> {
+  const act = async (action: TestAction): Promise<ActionResult> => {
+    if (action.type === 'pause') {
+      state.sceneState = 'paused';
+    } else if (action.type === 'resume') {
+      state.sceneState = 'running';
+    }
+    return executeAction(action);
+  };
+
+  return {
+    act,
+    async actMany(actions: TestAction[]): Promise<ActionResult[]> {
+      const results: ActionResult[] = [];
+      for (const a of actions) {
+        results.push(await act(a));
+      }
+      return results;
+    },
+  };
+}
+
+/**
+ * Creates snapshot and error capture methods.
+ *
+ * @param state - The harness state
+ * @returns Object with snapshot and captureError methods
+ * @internal
+ */
+function createSnapshotMethods(
+  state: HarnessState
+): Pick<GameTestHarness, 'captureError' | 'snapshot'> {
+  return {
+    captureError(error: Error | string, source?: string): void {
+      state.errors.push({
+        message: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined,
+        timestamp: performance.now(),
+        source,
+      });
+    },
+    snapshot: () => ({
+      ready: state.ready,
+      scene: state.scene,
+      errors: [...state.errors],
+      bootTimeMs: state.bootEndTime
+        ? state.bootEndTime - state.bootStartTime
+        : undefined,
+    }),
+  };
+}
+
+/**
+ * Creates harness lifecycle methods.
+ *
+ * @param state - The harness state
+ * @param ecsAccess - The ECS access layer
+ * @returns Object with lifecycle methods
+ *
+ * @example
+ * const lifecycle = createLifecycleMethods(state, ecsAccess);
+ */
+function createLifecycleMethods(
+  state: HarnessState,
+  ecsAccess: ReturnType<typeof createECSAccess>
+): Pick<
+  GameTestHarness,
+  'markReady' | 'captureError' | 'snapshot' | 'registerScene'
+> {
+  return {
+    markReady(sceneName: string): void {
+      state.ready = true;
+      state.scene = sceneName;
+      state.sceneState = 'running';
+      state.bootEndTime = performance.now();
+    },
+    ...createSnapshotMethods(state),
+    registerScene(sceneInstance: unknown): void {
+      ecsAccess._setScene(sceneInstance);
+    },
+  };
+}
+
+/**
+ * Creates the test harness instance.
+ *
+ * @returns Configured GameTestHarness
+ *
+ * @example
+ * const harness = createHarness();
+ */
 function createHarness(): GameTestHarness {
-  const errors: GameTestError[] = [];
-  let ready = false;
-  let scene = '';
-  const bootStartTime = performance.now();
-  let bootEndTime: number | undefined;
+  const state: HarnessState = {
+    errors: [],
+    ready: false,
+    scene: '',
+    bootStartTime: performance.now(),
+    bootEndTime: undefined,
+    sceneState: 'stopped',
+  };
 
-  // Scene state tracking
-  let sceneState: 'running' | 'paused' | 'stopped' = 'stopped';
-
-  // Create ECS access layer
   const ecsAccess = createECSAccess();
-
-  // Create render signature generator
-  const getRenderSignature = createRenderSignatureGenerator(
-    () => ecsAccess.getEntities(),
-    () => sceneState
-  );
-
-  // Create action executor
   const executeAction = createActionExecutor(
     () => ecsAccess.getScene(),
     () => document.querySelector<HTMLCanvasElement>('canvas')
   );
 
-  const harness: GameTestHarness = {
-    get ready() {
-      return ready;
-    },
-    get scene() {
-      return scene;
-    },
-    get bootStartTime() {
-      return bootStartTime;
-    },
-    get bootEndTime() {
-      return bootEndTime;
-    },
-    get errors() {
-      return errors;
-    },
+  return {
+    ...createStateGetters(state),
+    ...createActionMethods(state, executeAction),
+    ...createLifecycleMethods(state, ecsAccess),
     metrics: {},
-
     ecs: ecsAccess,
-
-    markReady(sceneName: string): void {
-      ready = true;
-      scene = sceneName;
-      sceneState = 'running';
-      bootEndTime = performance.now();
-      // eslint-disable-next-line no-console
-      console.log(
-        `[TestHarness] Game ready in ${(bootEndTime - bootStartTime).toFixed(0)}ms, scene: ${sceneName}`
-      );
-    },
-
-    captureError(error: Error | string, source?: string): void {
-      const err: GameTestError = {
-        message: error instanceof Error ? error.message : error,
-        stack: error instanceof Error ? error.stack : undefined,
-        timestamp: performance.now(),
-        source,
-      };
-      errors.push(err);
-      // eslint-disable-next-line no-console
-      console.error('[TestHarness] Error captured:', err.message, source ?? '');
-    },
-
-    snapshot() {
-      return {
-        ready,
-        scene,
-        errors: [...errors],
-        bootTimeMs: bootEndTime ? bootEndTime - bootStartTime : undefined,
-      };
-    },
-
-    registerScene(sceneInstance: unknown): void {
-      ecsAccess._setScene(sceneInstance);
-      // eslint-disable-next-line no-console
-      console.log('[TestHarness] Scene registered');
-    },
-
-    getRenderSignature,
-
-    async act(action: TestAction): Promise<ActionResult> {
-      // Track pause/resume state changes
-      if (action.type === 'pause') {
-        sceneState = 'paused';
-      } else if (action.type === 'resume') {
-        sceneState = 'running';
-      }
-      return executeAction(action);
-    },
-
-    async actMany(actions: TestAction[]): Promise<ActionResult[]> {
-      const results: ActionResult[] = [];
-      for (const action of actions) {
-        results.push(await harness.act(action));
-      }
-      return results;
-    },
+    getRenderSignature: createRenderSignatureGenerator(
+      () => ecsAccess.getEntities(),
+      () => state.sceneState
+    ),
   };
-
-  return harness;
 }
 
 /**

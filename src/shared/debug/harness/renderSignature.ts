@@ -31,6 +31,7 @@ let frameCounter = 0;
  *
  * @param str - String to hash
  * @returns Hexadecimal hash string
+ * @internal
  */
 function simpleHash(str: string): string {
   let hash = 5381;
@@ -51,6 +52,7 @@ function simpleHash(str: string): string {
  *
  * @param entity - Entity snapshot to convert
  * @returns Deterministic string representation
+ * @internal
  */
 function entityToHashString(entity: EntitySnapshot): string {
   const pos = `${entity.position.x.toFixed(2)},${entity.position.y.toFixed(2)}`;
