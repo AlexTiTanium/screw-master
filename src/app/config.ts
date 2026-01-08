@@ -4,8 +4,8 @@
  * These values configure the game's display settings and are used during
  * bootstrap. The configuration is immutable (defined with `as const`).
  *
- * @property width - Canvas width in pixels (default: 1024)
- * @property height - Canvas height in pixels (default: 768)
+ * @property width - Canvas width in pixels (default: 1080)
+ * @property height - Canvas height in pixels (default: 1920)
  * @property backgroundColor - Background color as hex number (default: 0x1a1a2e - dark blue)
  * @property antialias - Enable antialiasing for smoother graphics (default: true)
  *
@@ -38,8 +38,8 @@
  * );
  */
 export const APP_CONFIG = {
-  width: 1024,
-  height: 768,
+  width: 1080,
+  height: 1920,
   backgroundColor: 0x1a1a2e,
   antialias: true,
 } as const;

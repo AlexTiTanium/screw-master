@@ -80,40 +80,6 @@ interface HarnessState {
 }
 
 /**
- * Creates harness state getters.
- *
- * @param state - The harness state object
- * @returns Object with getter properties
- *
- * @example
- * const getters = createStateGetters(state);
- */
-function createStateGetters(
-  state: HarnessState
-): Pick<
-  GameTestHarness,
-  'ready' | 'scene' | 'bootStartTime' | 'bootEndTime' | 'errors'
-> {
-  return {
-    get ready(): boolean {
-      return state.ready;
-    },
-    get scene(): string {
-      return state.scene;
-    },
-    get bootStartTime(): number {
-      return state.bootStartTime;
-    },
-    get bootEndTime(): number | undefined {
-      return state.bootEndTime;
-    },
-    get errors(): GameTestError[] {
-      return state.errors;
-    },
-  };
-}
-
-/**
  * Creates harness action methods.
  *
  * @param state - The harness state object
@@ -210,6 +176,46 @@ function createLifecycleMethods(
 }
 
 /**
+ * Defines reactive state getters on the harness object.
+ *
+ * Using Object.defineProperties ensures getters remain reactive
+ * (object spread would capture static values at spread time).
+ *
+ * @private
+ * @param harness - The harness object to define getters on
+ * @param state - The state to read from
+ */
+function defineStateGetters(
+  harness: GameTestHarness,
+  state: HarnessState
+): void {
+  Object.defineProperties(harness, {
+    ready: { get: () => state.ready, enumerable: true },
+    scene: { get: () => state.scene, enumerable: true },
+    bootStartTime: { get: () => state.bootStartTime, enumerable: true },
+    bootEndTime: { get: () => state.bootEndTime, enumerable: true },
+    errors: { get: () => state.errors, enumerable: true },
+  });
+}
+
+/**
+ * Creates initial harness state.
+ *
+ * @private
+ * @returns Fresh harness state object
+ */
+function createInitialState(): HarnessState {
+  return {
+    errors: [],
+    ready: false,
+    scene: '',
+    bootStartTime: performance.now(),
+    bootEndTime: undefined,
+    sceneState: 'stopped',
+  };
+}
+
+/**
  * Creates the test harness instance.
  *
  * @returns Configured GameTestHarness
@@ -218,23 +224,14 @@ function createLifecycleMethods(
  * const harness = createHarness();
  */
 function createHarness(): GameTestHarness {
-  const state: HarnessState = {
-    errors: [],
-    ready: false,
-    scene: '',
-    bootStartTime: performance.now(),
-    bootEndTime: undefined,
-    sceneState: 'stopped',
-  };
-
+  const state = createInitialState();
   const ecsAccess = createECSAccess();
   const executeAction = createActionExecutor(
     () => ecsAccess.getScene(),
     () => document.querySelector<HTMLCanvasElement>('canvas')
   );
 
-  return {
-    ...createStateGetters(state),
+  const harness = {
     ...createActionMethods(state, executeAction),
     ...createLifecycleMethods(state, ecsAccess),
     metrics: {},
@@ -243,7 +240,16 @@ function createHarness(): GameTestHarness {
       () => ecsAccess.getEntities(),
       () => state.sceneState
     ),
-  };
+    // Placeholders - overwritten by defineStateGetters
+    ready: false,
+    scene: '',
+    bootStartTime: 0,
+    bootEndTime: undefined,
+    errors: [],
+  } as GameTestHarness;
+
+  defineStateGetters(harness, state);
+  return harness;
 }
 
 /**

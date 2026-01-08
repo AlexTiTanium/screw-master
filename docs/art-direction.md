@@ -159,17 +159,33 @@ All part movement should feel:
 
 ---
 
-## 10. MVP Art Constraints
+## 10. Resolution & Asset Specifications
 
-### 10.1 Locked Decisions
+### 10.1 Target Resolution
+- **Canvas Size:** 1080x1920 pixels (portrait, 9:16 aspect ratio)
+- **Orientation:** Portrait mode only
+- All assets should be authored at 1080p quality
+
+### 10.2 Asset Sizing Guidelines
+- Design assets at native 1080p resolution
+- Puzzle objects typically occupy 60-80% of screen width (~650-860px)
+- UI elements (trays, buttons) should be touch-friendly (minimum 80px tap targets)
+- Screws should be clearly visible at ~40-60px diameter
+
+---
+
+## 11. MVP Art Constraints
+
+### 11.1 Locked Decisions
 | Decision | Requirement |
 |----------|-------------|
 | Top-down perspective | No exceptions |
 | No isometric elements | Strictly forbidden |
 | Consistent light direction | Top-left, always |
 | Readable at all sizes | Screws, parts, UI |
+| Portrait orientation | 1080x1920, no landscape |
 
-### 10.2 Asset Requirements (MVP)
+### 11.2 Asset Requirements (MVP)
 - Screw sprites (4 colors minimum)
 - Basic part shapes (rectangles, L-shapes)
 - Tray designs (colored + buffer)
@@ -178,15 +194,15 @@ All part movement should feel:
 
 ---
 
-## 11. Post-MVP Visual Ideas
+## 12. Post-MVP Visual Ideas
 
-### 11.1 Allowed Enhancements
+### 12.1 Allowed Enhancements
 - Subtle camera shake on heavy movements
 - Animated lighting responses to actions
 - Dynamic shadows that follow part movement
 - Particle effects (dust, metal shavings)
 
-### 11.2 Still Forbidden
+### 12.2 Still Forbidden
 - Camera tilt or rotation
 - Perspective skew
 - Fake depth tricks
@@ -194,7 +210,7 @@ All part movement should feel:
 
 ---
 
-## 12. Reference Style
+## 13. Reference Style
 
 The visual style aims for:
 - **Semi-realistic** (not cartoonish, not photorealistic)

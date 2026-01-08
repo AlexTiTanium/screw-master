@@ -41,23 +41,31 @@ Into a calm but mentally engaging experience.
 
 ## 3. Screen Layout
 
+**Resolution:** 1080x1920 (portrait, 9:16 aspect ratio)
+
 ```
-┌─────────────────────────────────────┐
-│  [Tray 1] [Tray 2] │ [Cover]        │  <- Colored Trays (4 total, 2 hidden)
-├─────────────────────────────────────┤
-│        [ Buffer Tray (5 slots) ]    │  <- Temporary storage
-├─────────────────────────────────────┤
-│                                     │
-│                                     │
-│         ┌─────────────┐             │
-│         │             │             │
-│         │   PUZZLE    │             │  <- Main puzzle object (center)
-│         │   OBJECT    │             │
-│         │             │             │
-│         └─────────────┘             │
-│                                     │
-│                                     │
-└─────────────────────────────────────┘
+┌───────────────────────────┐
+│ [Tray 1] [Tray 2] [Cover] │  <- Colored Trays (4 total, 2 hidden)
+├───────────────────────────┤
+│   [ Buffer Tray (5) ]     │  <- Temporary storage
+├───────────────────────────┤
+│                           │
+│                           │
+│                           │
+│     ┌─────────────┐       │
+│     │             │       │
+│     │   PUZZLE    │       │
+│     │   OBJECT    │       │  <- Main puzzle object (center)
+│     │             │       │
+│     └─────────────┘       │
+│                           │
+│                           │
+│                           │
+│                           │
+│                           │
+│                           │
+│                           │
+└───────────────────────────┘
 ```
 
 ---

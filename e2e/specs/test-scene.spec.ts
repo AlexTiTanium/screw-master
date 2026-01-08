@@ -28,10 +28,10 @@ test.describe('TestScene - Color Toggle', () => {
     expect(initialColor).toBe(0xff0000);
 
     // Calculate square center position
-    // Square is at (1024/2 - 50, 768/2 - 50) = (462, 334) with size 100
-    // Center is at (462 + 50, 334 + 50) = (512, 384)
-    const squareCenterX = 512;
-    const squareCenterY = 384;
+    // Square is at (1080/2 - 50, 1920/2 - 50) = (490, 910) with size 100
+    // Center is at (490 + 50, 910 + 50) = (540, 960)
+    const squareCenterX = 540;
+    const squareCenterY = 960;
 
     // Click on the square (pointer down + up)
     await harness.actMany([
@@ -62,8 +62,8 @@ test.describe('TestScene - Color Toggle', () => {
     const harness = withHarness(page);
     await harness.waitForReady();
 
-    const squareCenterX = 512;
-    const squareCenterY = 384;
+    const squareCenterX = 540;
+    const squareCenterY = 960;
 
     // First click - red to green
     await harness.actMany([
@@ -114,7 +114,7 @@ test.describe('TestScene - Rotation', () => {
       speed: number;
     };
     expect(rotationComponent).toBeDefined();
-    expect(rotationComponent.speed).toBe(Math.PI / 2); // 90 degrees per second
+    expect(rotationComponent.speed).toBe(Math.PI / 1000); // Radians per millisecond
   });
 
   test('rotating square rotation changes over time', async ({ page }) => {

@@ -4,8 +4,8 @@ import { APP_CONFIG } from '@app/config';
 
 describe('Application configuration', () => {
   it('should have correct dimensions', () => {
-    expect(APP_CONFIG.width).toBe(1024);
-    expect(APP_CONFIG.height).toBe(768);
+    expect(APP_CONFIG.width).toBe(1080);
+    expect(APP_CONFIG.height).toBe(1920);
   });
 
   it('should have a background color', () => {

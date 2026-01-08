@@ -178,11 +178,11 @@ test.describe('Action DSL', () => {
     const harness = withHarness(page);
     await harness.waitForReady();
 
-    // Dispatch pointer down at center of canvas
+    // Dispatch pointer down at center of canvas (1080x1920)
     const downResult = await harness.act({
       type: 'pointerDown',
-      x: 512,
-      y: 384,
+      x: 540,
+      y: 960,
       button: 0,
     });
     expect(downResult.success).toBe(true);
@@ -190,8 +190,8 @@ test.describe('Action DSL', () => {
     // Dispatch pointer up
     const upResult = await harness.act({
       type: 'pointerUp',
-      x: 512,
-      y: 384,
+      x: 540,
+      y: 960,
       button: 0,
     });
     expect(upResult.success).toBe(true);

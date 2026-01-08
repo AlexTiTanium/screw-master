@@ -252,10 +252,14 @@ function executeTick(scene: unknown, deltaMs: number): ActionResult {
 /**
  * Executes a pointer event on the canvas.
  *
+ * Coordinates are in game-space (logical canvas coordinates). These are
+ * automatically scaled to screen-space based on the canvas's display size
+ * vs its logical dimensions.
+ *
  * @param eventType - Type of pointer event
  * @param canvas - Target canvas element
- * @param x - X coordinate relative to canvas
- * @param y - Y coordinate relative to canvas
+ * @param x - X coordinate in game-space (logical canvas coordinates)
+ * @param y - Y coordinate in game-space (logical canvas coordinates)
  * @param button - Mouse button (default 0)
  * @returns Action result indicating success or failure
  *
@@ -273,11 +277,20 @@ function executePointerEvent(
     return { success: false, error: 'Canvas not available' };
   }
   const rect = canvas.getBoundingClientRect();
+
+  // Scale game-space coordinates to screen-space
+  // canvas.width/height = logical (game) dimensions
+  // rect.width/height = actual display dimensions
+  const scaleX = rect.width / canvas.width;
+  const scaleY = rect.height / canvas.height;
+  const screenX = x * scaleX;
+  const screenY = y * scaleY;
+
   const event = new PointerEvent(eventType, {
     bubbles: true,
     cancelable: true,
-    clientX: rect.left + x,
-    clientY: rect.top + y,
+    clientX: rect.left + screenX,
+    clientY: rect.top + screenY,
     button: button ?? 0,
     pointerType: 'mouse',
   });

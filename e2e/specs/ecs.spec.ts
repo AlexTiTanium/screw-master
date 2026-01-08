@@ -74,9 +74,9 @@ test.describe('ECS Access', () => {
     const square = squares.find((s) => !('rotation' in s.components));
     expect(square).toBeDefined();
 
-    // Red square is positioned at center: (1024/2 - 50, 768/2 - 50)
-    expect(square!.position.x).toBeCloseTo(512 - 50, 0);
-    expect(square!.position.y).toBeCloseTo(384 - 50, 0);
+    // Red square is positioned at center: (1080/2 - 50, 1920/2 - 50)
+    expect(square!.position.x).toBeCloseTo(540 - 50, 0);
+    expect(square!.position.y).toBeCloseTo(960 - 50, 0);
   });
 
   test('entity snapshot contains expected properties', async ({ page }) => {

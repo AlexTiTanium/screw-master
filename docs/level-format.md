@@ -267,7 +267,7 @@ registerPart(slidingCover);
   "parts": [
     {
       "partId": "base-plate",
-      "position": { "x": 512, "y": 450 },
+      "position": { "x": 540, "y": 960 },
       "layer": 0,
       "screws": [
         { "mountId": "center", "color": "blue" }
@@ -275,7 +275,7 @@ registerPart(slidingCover);
     },
     {
       "partId": "sliding-cover",
-      "position": { "x": 512, "y": 400 },
+      "position": { "x": 540, "y": 910 },
       "layer": 1,
       "screws": [
         { "mountId": "left", "color": "red" },
