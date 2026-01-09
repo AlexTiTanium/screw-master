@@ -34,3 +34,6 @@ npm-debug.log*
 
 # Vite
 vite.config.ts.timestamp-*
+
+# PR screenshots (generated, upload manually to GitHub)
+screenshots/
