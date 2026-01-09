@@ -24,6 +24,28 @@ Screw Master is an interactive game built with a modern TypeScript stack, combin
 
 ## Entries
 
+### Jan 9, 2026 - Figma MCP and Automated PR Media
+
+**Today was a breakthrough day.** Two major wins that changed the development workflow entirely.
+
+**Figma MCP Integration:** Started the day by setting up the Figma MCP server — it automatically exports assets and creates scenes from Figma mockups. Got it working on the second attempt. First try failed because Figma was exporting "original size" images instead of "layout size" images, which threw everything off. (Another reminder: AI pipelines that respect image dimensions would make life so much easier.)
+
+**Game Logic & Animations:** Implemented the core game logic and screw animations. Everything was validated through E2E tests, but screenshots alone felt limiting — how do you really verify animations?
+
+**The idea:** What if PRs could show exactly what changed visually?
+
+**The solution:**
+1. Automatic screenshot attachments for 3 different aspect ratios
+2. Automatic video recording of gameplay attached to PRs
+
+**See it in action:** [PR #2](https://github.com/AlexTiTanium/screw-master/pull/2) — that video was generated automatically during the E2E run.
+
+This changes everything for visual QA. No more "trust me, the animation looks right."
+
+**Next up:** Improving core gameplay to make it actually fun, and adding physics. The physics engine will be challenging to test via E2E... but let's see what's possible.
+
+---
+
 ### Jan 8, 2026 - Assets Crafting (The AI Art Tool Gauntlet)
 
 **Today was asset day.** Armed with concept art, I dove into the world of AI art generation tools. Spoiler: it's a mixed bag at best.
