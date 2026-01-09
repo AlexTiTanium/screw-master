@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
 
-import { clamp, lerp } from '@shared/utils/math';
+import {
+  clamp,
+  lerp,
+  distance,
+  lerp2D,
+  clampPosition,
+} from '@shared/utils/math';
 
 describe('Math utilities', () => {
   describe('clamp', () => {
@@ -51,6 +57,142 @@ describe('Math utilities', () => {
     it('should work with negative values', () => {
       expect(lerp(-100, 100, 0.5)).toBe(0);
       expect(lerp(-50, -10, 0.5)).toBe(-30);
+    });
+  });
+
+  describe('distance', () => {
+    it('should calculate distance between two points', () => {
+      expect(distance({ x: 0, y: 0 }, { x: 3, y: 4 })).toBe(5);
+    });
+
+    it('should return 0 for same point', () => {
+      expect(distance({ x: 10, y: 20 }, { x: 10, y: 20 })).toBe(0);
+    });
+
+    it('should handle negative coordinates', () => {
+      expect(distance({ x: -3, y: -4 }, { x: 0, y: 0 })).toBe(5);
+      expect(distance({ x: 0, y: 0 }, { x: -3, y: -4 })).toBe(5);
+    });
+
+    it('should work with decimal results', () => {
+      const result = distance({ x: 0, y: 0 }, { x: 1, y: 1 });
+      expect(result).toBeCloseTo(Math.sqrt(2), 5);
+    });
+
+    it('should handle horizontal distance', () => {
+      expect(distance({ x: 0, y: 0 }, { x: 10, y: 0 })).toBe(10);
+    });
+
+    it('should handle vertical distance', () => {
+      expect(distance({ x: 0, y: 0 }, { x: 0, y: 10 })).toBe(10);
+    });
+  });
+
+  describe('lerp2D', () => {
+    it('should return start point when t is 0', () => {
+      const result = lerp2D({ x: 0, y: 0 }, { x: 100, y: 100 }, 0);
+      expect(result).toEqual({ x: 0, y: 0 });
+    });
+
+    it('should return end point when t is 1', () => {
+      const result = lerp2D({ x: 0, y: 0 }, { x: 100, y: 100 }, 1);
+      expect(result).toEqual({ x: 100, y: 100 });
+    });
+
+    it('should return midpoint when t is 0.5', () => {
+      const result = lerp2D({ x: 0, y: 0 }, { x: 100, y: 100 }, 0.5);
+      expect(result).toEqual({ x: 50, y: 50 });
+    });
+
+    it('should interpolate both x and y independently', () => {
+      const result = lerp2D({ x: 0, y: 100 }, { x: 100, y: 0 }, 0.5);
+      expect(result).toEqual({ x: 50, y: 50 });
+    });
+
+    it('should clamp t below 0', () => {
+      const result = lerp2D({ x: 0, y: 0 }, { x: 100, y: 100 }, -0.5);
+      expect(result).toEqual({ x: 0, y: 0 });
+    });
+
+    it('should clamp t above 1', () => {
+      const result = lerp2D({ x: 0, y: 0 }, { x: 100, y: 100 }, 1.5);
+      expect(result).toEqual({ x: 100, y: 100 });
+    });
+
+    it('should work with negative coordinates', () => {
+      const result = lerp2D({ x: -100, y: -100 }, { x: 100, y: 100 }, 0.5);
+      expect(result).toEqual({ x: 0, y: 0 });
+    });
+  });
+
+  describe('clampPosition', () => {
+    it('should return position when within bounds', () => {
+      const result = clampPosition(
+        { x: 50, y: 50 },
+        { width: 100, height: 100 }
+      );
+      expect(result).toEqual({ x: 50, y: 50 });
+    });
+
+    it('should clamp x to 0 when negative', () => {
+      const result = clampPosition(
+        { x: -10, y: 50 },
+        { width: 100, height: 100 }
+      );
+      expect(result).toEqual({ x: 0, y: 50 });
+    });
+
+    it('should clamp y to 0 when negative', () => {
+      const result = clampPosition(
+        { x: 50, y: -10 },
+        { width: 100, height: 100 }
+      );
+      expect(result).toEqual({ x: 50, y: 0 });
+    });
+
+    it('should clamp x to width when exceeding bounds', () => {
+      const result = clampPosition(
+        { x: 150, y: 50 },
+        { width: 100, height: 100 }
+      );
+      expect(result).toEqual({ x: 100, y: 50 });
+    });
+
+    it('should clamp y to height when exceeding bounds', () => {
+      const result = clampPosition(
+        { x: 50, y: 150 },
+        { width: 100, height: 100 }
+      );
+      expect(result).toEqual({ x: 50, y: 100 });
+    });
+
+    it('should clamp both x and y when both exceed bounds', () => {
+      const result = clampPosition(
+        { x: -10, y: 150 },
+        { width: 100, height: 100 }
+      );
+      expect(result).toEqual({ x: 0, y: 100 });
+    });
+
+    it('should work with different bounds', () => {
+      const result = clampPosition(
+        { x: 500, y: 1000 },
+        { width: 1080, height: 1920 }
+      );
+      expect(result).toEqual({ x: 500, y: 1000 });
+    });
+
+    it('should handle position at exactly 0,0', () => {
+      const result = clampPosition({ x: 0, y: 0 }, { width: 100, height: 100 });
+      expect(result).toEqual({ x: 0, y: 0 });
+    });
+
+    it('should handle position at exactly width,height', () => {
+      const result = clampPosition(
+        { x: 100, y: 100 },
+        { width: 100, height: 100 }
+      );
+      expect(result).toEqual({ x: 100, y: 100 });
     });
   });
 });
