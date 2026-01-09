@@ -7,6 +7,7 @@ import {
   attachTelemetry,
   printTelemetry,
   getErrors,
+  getWarnings,
 } from '../helpers/telemetry';
 import { createHarnessClient } from '../helpers/harness';
 import { filterByComponent } from '../helpers/entityFilters';
@@ -358,5 +359,330 @@ test.describe('Level Loading - Free Position Screws', () => {
     const entities = await harness.getEntities();
     expect(filterByComponent(entities, 'part')).toHaveLength(2);
     expect(filterByComponent(entities, 'screw')).toHaveLength(6);
+  });
+
+  test('screws have consistent scale after landing in colored trays', async ({
+    page,
+  }) => {
+    const telemetry = attachTelemetry(page);
+    await page.goto('/?testMode=1&region=test&level=0');
+
+    const harness = createHarnessClient(page);
+    await harness.waitForReady(15000);
+
+    // Tap screws of all 4 colors
+    // Test level has: red tray visible, blue tray visible, green tray hidden, yellow tray hidden
+    // First tap red and blue (visible trays)
+    // Red screw at world position (250, 850) - board 1 at (200,800) + screw at (50,50)
+    // Blue screw at world position (420, 850) - board 1 at (200,800) + screw at (220,50)
+    // Green screw at (335, 930) - board 1 at (200,800) + screw at (135,130) - goes to buffer first
+    // Yellow screw at (685, 865) - board 2 at (550,800) + screw at (135,65) - goes to buffer first
+    const screwsToTap = [
+      { color: 'red', x: 250, y: 850 },
+      { color: 'blue', x: 420, y: 850 },
+      { color: 'green', x: 335, y: 930 }, // Will go to buffer (hidden tray)
+      { color: 'yellow', x: 685, y: 865 }, // Will go to buffer (hidden tray)
+    ];
+
+    for (const screwInfo of screwsToTap) {
+      // Tap the screw
+      await harness.act({ type: 'pointerDown', x: screwInfo.x, y: screwInfo.y });
+      await harness.act({ type: 'pointerUp', x: screwInfo.x, y: screwInfo.y });
+
+      // Wait for animation to complete (pop-out 0.15s + flight 0.4s + settle 0.1s = ~0.65s)
+      await page.waitForTimeout(1000);
+    }
+
+    // Get sprite scales directly from the scene (AnimationSystem sets sprite.scale, not entity.scale)
+    interface SpriteScaleInfo {
+      color: string;
+      state: string;
+      spriteScaleX: number;
+      spriteScaleY: number;
+    }
+    const spriteScales = await page.evaluate(() => {
+      const win = window as unknown as {
+        __gameTest?: {
+          ecs?: {
+            getScene?: () => {
+              allEntities?: {
+                children?: Array<{
+                  c?: {
+                    screw?: { color: string; state: string };
+                  };
+                  view?: {
+                    children?: Array<{ scale?: { x: number; y: number } }>;
+                  };
+                }>;
+              };
+            };
+          };
+        };
+      };
+
+      const scene = win.__gameTest?.ecs?.getScene?.();
+      const entities = scene?.allEntities?.children ?? [];
+      const results: SpriteScaleInfo[] = [];
+
+      for (const entity of entities) {
+        const screwComp = entity.c?.screw;
+        // Check both inTray and inBuffer states (green/yellow go to buffer)
+        if (screwComp && (screwComp.state === 'inTray' || screwComp.state === 'inBuffer')) {
+          // Get the sprite (first child of view)
+          const sprite = entity.view?.children?.[0];
+          if (sprite?.scale) {
+            results.push({
+              color: screwComp.color,
+              state: screwComp.state,
+              spriteScaleX: sprite.scale.x,
+              spriteScaleY: sprite.scale.y,
+            });
+          }
+        }
+      }
+
+      return results;
+    });
+
+    // Log sprite scales for debugging
+    console.log('Landed screw sprite scales:');
+    for (const screw of spriteScales) {
+      console.log(
+        `  ${screw.color} (${screw.state}): sprite.scale(${screw.spriteScaleX.toFixed(3)}, ${screw.spriteScaleY.toFixed(3)})`
+      );
+    }
+
+    // Verify we have scale data for all 4 colors
+    expect(spriteScales.length).toBe(4);
+
+    // Check scale based on state:
+    // - inTray: TRAY_SLOT_SCALE = 0.5
+    // - inBuffer: BUFFER_SLOT_SCALE = 1.0
+    const tolerance = 0.01;
+
+    for (const screw of spriteScales) {
+      const expectedScale = screw.state === 'inTray' ? 0.5 : 1.0;
+      expect(screw.spriteScaleX).toBeCloseTo(expectedScale, 2);
+      expect(screw.spriteScaleY).toBeCloseTo(expectedScale, 2);
+    }
+
+    // Verify all inTray screws have the same scale
+    const inTrayScrews = spriteScales.filter((s) => s.state === 'inTray');
+    const firstInTray = inTrayScrews[0];
+    if (inTrayScrews.length > 1 && firstInTray) {
+      for (const screw of inTrayScrews) {
+        expect(
+          Math.abs(screw.spriteScaleX - firstInTray.spriteScaleX)
+        ).toBeLessThan(tolerance);
+        expect(
+          Math.abs(screw.spriteScaleY - firstInTray.spriteScaleY)
+        ).toBeLessThan(tolerance);
+      }
+    }
+
+    // No errors should have occurred
+    const errors = getErrors(telemetry);
+    expect(errors).toHaveLength(0);
+  });
+
+  test('screenshot comparison: red vs blue screw in colored trays', async ({
+    page,
+  }) => {
+    const telemetry = attachTelemetry(page);
+    await page.goto('/?testMode=1&region=test&level=0');
+
+    const harness = createHarnessClient(page);
+    await harness.waitForReady(15000);
+
+    // Tap red screw first (at world position 250, 850)
+    await harness.act({ type: 'pointerDown', x: 250, y: 850 });
+    await harness.act({ type: 'pointerUp', x: 250, y: 850 });
+    await page.waitForTimeout(1000); // Wait for animation
+
+    // Tap blue screw (at world position 420, 850)
+    await harness.act({ type: 'pointerDown', x: 420, y: 850 });
+    await harness.act({ type: 'pointerUp', x: 420, y: 850 });
+    await page.waitForTimeout(1000); // Wait for animation
+
+    // Take a screenshot of the colored trays area
+    await page.screenshot({
+      path: 'e2e/screenshots/screws-in-trays.png',
+      fullPage: false,
+    });
+
+    // Get detailed sprite information for both red and blue screws
+    interface ScriteDetails {
+      color: string;
+      state: string;
+      spriteScaleX: number;
+      spriteScaleY: number;
+      textureWidth: number;
+      textureHeight: number;
+      boundsWidth: number;
+      boundsHeight: number;
+      anchorX: number;
+      anchorY: number;
+      worldX: number;
+      worldY: number;
+    }
+    const screwDetails = await page.evaluate(() => {
+      const win = window as unknown as {
+        __gameTest?: {
+          ecs?: {
+            getScene?: () => {
+              allEntities?: {
+                children?: Array<{
+                  c?: {
+                    screw?: { color: string; state: string };
+                  };
+                  view?: {
+                    children?: Array<{
+                      scale?: { x: number; y: number };
+                      texture?: { width: number; height: number };
+                      getBounds?: () => { width: number; height: number };
+                      anchor?: { x: number; y: number };
+                      getGlobalPosition?: () => { x: number; y: number };
+                    }>;
+                  };
+                }>;
+              };
+            };
+          };
+        };
+      };
+
+      const scene = win.__gameTest?.ecs?.getScene?.();
+      const entities = scene?.allEntities?.children ?? [];
+      const results: ScriteDetails[] = [];
+
+      for (const entity of entities) {
+        const screwComp = entity.c?.screw;
+        if (screwComp && screwComp.state === 'inTray') {
+          const sprite = entity.view?.children?.[0];
+          if (sprite) {
+            const bounds = sprite.getBounds?.();
+            const globalPos = sprite.getGlobalPosition?.();
+            results.push({
+              color: screwComp.color,
+              state: screwComp.state,
+              spriteScaleX: sprite.scale?.x ?? 0,
+              spriteScaleY: sprite.scale?.y ?? 0,
+              textureWidth: sprite.texture?.width ?? 0,
+              textureHeight: sprite.texture?.height ?? 0,
+              boundsWidth: bounds?.width ?? 0,
+              boundsHeight: bounds?.height ?? 0,
+              anchorX: sprite.anchor?.x ?? 0,
+              anchorY: sprite.anchor?.y ?? 0,
+              worldX: globalPos?.x ?? 0,
+              worldY: globalPos?.y ?? 0,
+            });
+          }
+        }
+      }
+
+      return results;
+    });
+
+    // Log detailed information for debugging
+    console.log('Screw details in colored trays:');
+    for (const screw of screwDetails) {
+      console.log(`\n${screw.color.toUpperCase()} SCREW:`);
+      console.log(`  Scale: (${screw.spriteScaleX.toFixed(3)}, ${screw.spriteScaleY.toFixed(3)})`);
+      console.log(`  Texture size: ${screw.textureWidth}x${screw.textureHeight}`);
+      console.log(`  Rendered bounds: ${screw.boundsWidth.toFixed(1)}x${screw.boundsHeight.toFixed(1)}`);
+      console.log(`  Anchor: (${screw.anchorX.toFixed(2)}, ${screw.anchorY.toFixed(2)})`);
+      console.log(`  World position: (${screw.worldX.toFixed(1)}, ${screw.worldY.toFixed(1)})`);
+    }
+
+    // Find red and blue screws
+    const redScrew = screwDetails.find((s) => s.color === 'red');
+    const blueScrew = screwDetails.find((s) => s.color === 'blue');
+
+    expect(redScrew).toBeDefined();
+    expect(blueScrew).toBeDefined();
+
+    if (redScrew && blueScrew) {
+      // Compare scales - should be identical
+      expect(redScrew.spriteScaleX).toBeCloseTo(blueScrew.spriteScaleX, 2);
+      expect(redScrew.spriteScaleY).toBeCloseTo(blueScrew.spriteScaleY, 2);
+
+      // Compare texture sizes - should be identical (both should be long screw: 80x100)
+      expect(redScrew.textureWidth).toBe(blueScrew.textureWidth);
+      expect(redScrew.textureHeight).toBe(blueScrew.textureHeight);
+
+      // Compare rendered bounds - should be very close
+      const boundsTolerance = 1;
+      console.log(`\nBounds comparison:`);
+      console.log(`  Red bounds: ${redScrew.boundsWidth.toFixed(1)}x${redScrew.boundsHeight.toFixed(1)}`);
+      console.log(`  Blue bounds: ${blueScrew.boundsWidth.toFixed(1)}x${blueScrew.boundsHeight.toFixed(1)}`);
+
+      expect(Math.abs(redScrew.boundsWidth - blueScrew.boundsWidth)).toBeLessThan(
+        boundsTolerance
+      );
+      expect(Math.abs(redScrew.boundsHeight - blueScrew.boundsHeight)).toBeLessThan(
+        boundsTolerance
+      );
+    }
+
+    // No errors
+    const errors = getErrors(telemetry);
+    expect(errors).toHaveLength(0);
+  });
+
+  test('level restart does not produce asset warnings', async ({ page }) => {
+    const telemetry = attachTelemetry(page);
+    await page.goto('/?testMode=1&region=test&level=0');
+
+    const harness = createHarnessClient(page);
+    await harness.waitForReady(15000);
+
+    // Clear any warnings from initial load
+    const initialWarnings = getWarnings(telemetry);
+    const pixiWarningsBeforeRestart = initialWarnings.filter((w) =>
+      w.includes('PixiJS Warning')
+    );
+
+    // Trigger restart by clicking the restart button
+    // The restart button is at approximately (48 + 30, 140 + 30) = (78, 170) based on LAYOUT
+    await harness.act({ type: 'pointerDown', x: 78, y: 170 });
+    await harness.act({ type: 'pointerUp', x: 78, y: 170 });
+
+    // Wait for level to reload
+    await page.waitForTimeout(1000);
+
+    // Get all warnings after restart
+    const allWarnings = getWarnings(telemetry);
+    const pixiWarningsAfterRestart = allWarnings.filter((w) =>
+      w.includes('PixiJS Warning')
+    );
+
+    // Filter to only new warnings (after restart)
+    const newPixiWarnings = pixiWarningsAfterRestart.slice(
+      pixiWarningsBeforeRestart.length
+    );
+
+    // There should be no new PixiJS warnings about overwriting assets
+    const overwriteWarnings = newPixiWarnings.filter((w) =>
+      w.includes('overwriting')
+    );
+
+    if (overwriteWarnings.length > 0) {
+      console.log('Asset overwrite warnings found:');
+      for (const warning of overwriteWarnings) {
+        console.log(`  - ${warning}`);
+      }
+      printTelemetry(telemetry);
+    }
+
+    expect(overwriteWarnings).toHaveLength(0);
+
+    // Verify level reloaded correctly
+    const errors = getErrors(telemetry);
+    expect(errors).toHaveLength(0);
+
+    // Check entities are back to initial state
+    const entities = await harness.getEntities();
+    const screwEntities = filterByComponent(entities, 'screw');
+    expect(screwEntities).toHaveLength(6);
   });
 });

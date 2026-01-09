@@ -25,3 +25,14 @@
  */
 
 export { BaseSystem } from './BaseSystem';
+export { ScrewPlacementSystem } from './ScrewPlacementSystem';
+export type { PlacementTarget } from './ScrewPlacementSystem';
+export { ScrewInteractionSystem } from './ScrewInteractionSystem';
+export type { ScrewRemovalEvent } from './ScrewInteractionSystem';
+export { AnimationSystem } from './AnimationSystem';
+export type {
+  ScrewRemovalCompleteEvent,
+  ScrewTransferEvent,
+} from './AnimationSystem';
+export { AutoTransferSystem } from './AutoTransferSystem';
+export { WinConditionSystem } from './WinConditionSystem';

@@ -1,4 +1,4 @@
-import { Scene2D, type Entity2D } from '@play-co/odie';
+import { Scene2D, createEntity, type Entity2D } from '@play-co/odie';
 import { TouchInput } from '@play-co/astro';
 import { Assets, Container, Sprite, type Texture } from 'pixi.js';
 
@@ -8,7 +8,22 @@ import { getPart } from '@shared/parts';
 import type { LevelDefinition } from '@shared/types';
 import { ScrewColor } from '@shared/types';
 
-import { createTrayEntity, createPartEntity, createScrewEntity } from './factories';
+import {
+  createTrayEntity,
+  createPartEntity,
+  createScrewEntity,
+  createBufferTrayEntity,
+} from './factories';
+import { GameStateEntity } from './entities';
+import {
+  ScrewPlacementSystem,
+  ScrewInteractionSystem,
+  AnimationSystem,
+  AutoTransferSystem,
+  WinConditionSystem,
+} from './systems';
+import { gameEvents } from './utils';
+import type { TrayComponentAccess } from './types';
 
 /**
  * Configuration options for creating a GameScene.
@@ -83,9 +98,13 @@ export class GameScene {
 
   // Entity references
   private trayEntities = new Map<ScrewColor, Entity2D>();
+  private bufferTrayEntity: Entity2D | null = null;
+  private gameStateEntity: Entity2D | null = null;
   private partEntities: Entity2D[] = [];
   private screwEntities: Entity2D[] = [];
   private currentLevel: LevelDefinition | null = null;
+  private currentRegionPath: string | null = null;
+  private currentLevelIndex = 0;
 
   constructor(options: GameSceneOptions) {
     this.scene = new Scene2D({
@@ -134,7 +153,59 @@ export class GameScene {
     // Entity views should render on top of the puzzle base but below the UI
     this.fixLayerOrder();
 
+    // Register gameplay systems
+    this.registerSystems();
+
+    // Set up game event listeners
+    this.setupGameEvents();
+
     this.isInitialized = true;
+  }
+
+  /**
+   * Registers all gameplay systems with the scene.
+   * @private
+   */
+  private registerSystems(): void {
+    // Order matters: placement system first (no dependencies)
+    this.scene.addSystem(ScrewPlacementSystem);
+    this.scene.addSystem(AnimationSystem);
+    this.scene.addSystem(ScrewInteractionSystem);
+    this.scene.addSystem(AutoTransferSystem);
+    this.scene.addSystem(WinConditionSystem);
+  }
+
+  /**
+   * Sets up game event listeners.
+   * @private
+   */
+  private setupGameEvents(): void {
+    gameEvents.on('game:won', () => {
+      this.handleGameWon();
+    });
+    gameEvents.on('game:stuck', () => {
+      this.handleGameStuck();
+    });
+  }
+
+  /**
+   * Handles the game won event.
+   * @private
+   */
+  private handleGameWon(): void {
+    // eslint-disable-next-line no-console
+    console.log('Level complete! You won!');
+    // TODO: Show win UI, transition to next level, etc.
+  }
+
+  /**
+   * Handles the game stuck event (soft lock).
+   * @private
+   */
+  private handleGameStuck(): void {
+    // eslint-disable-next-line no-console
+    console.log('No moves available. Tap restart to try again.');
+    // TODO: Show stuck UI with restart prompt
   }
 
   /**
@@ -312,9 +383,11 @@ export class GameScene {
    * @private
    */
   private handleRestartClick(): void {
-    // eslint-disable-next-line no-console
-    console.log('Restart button clicked');
-    // TODO: Implement level restart logic
+    if (this.currentRegionPath && this.currentLevel) {
+      // eslint-disable-next-line no-console
+      console.log('Restarting level...');
+      void this.loadLevel(this.currentRegionPath, this.currentLevelIndex);
+    }
   }
 
   /**
@@ -334,6 +407,7 @@ export class GameScene {
    * Gets the currently loaded level.
    *
    * @returns The current level definition or null if no level is loaded
+   * @example
    */
   public getCurrentLevel(): LevelDefinition | null {
     return this.currentLevel;
@@ -354,6 +428,10 @@ export class GameScene {
   public async loadLevel(regionPath: string, levelIndex: number): Promise<void> {
     this.clearLevel();
 
+    // Store for restart
+    this.currentRegionPath = regionPath;
+    this.currentLevelIndex = levelIndex;
+
     const region = await loadRegion(regionPath);
     const level = getLevelByIndex(region, levelIndex);
     this.currentLevel = level;
@@ -368,6 +446,31 @@ export class GameScene {
    * @private
    */
   private async createLevelEntities(level: LevelDefinition): Promise<void> {
+    // Count total screws for game state
+    const totalScrews = level.parts.reduce(
+      (sum, part) => sum + part.screws.length,
+      0
+    );
+
+    // Create game state entity
+    this.gameStateEntity = createEntity(GameStateEntity, {
+      gameState: {
+        phase: 'playing',
+        totalScrews,
+        removedScrews: 0,
+        winConditionType: level.win.type,
+      },
+    });
+    this.scene.addChild(this.gameStateEntity);
+
+    // Create buffer tray entity
+    this.bufferTrayEntity = await createBufferTrayEntity({
+      position: { x: LAYOUT.bufferTrayFrame.x, y: LAYOUT.bufferTrayFrame.y },
+      capacity: level.bufferCapacity ?? 5,
+    });
+    this.scene.addChild(this.bufferTrayEntity);
+
+    // Create part and screw entities
     for (const partInstance of level.parts) {
       const partDef = getPart(partInstance.partId);
 
@@ -399,20 +502,46 @@ export class GameScene {
   }
 
   /**
-   * Clears all level entities (parts and screws).
+   * Clears all level entities (parts, screws, game state, buffer tray).
+   * Also resets tray counts.
    * @private
    */
   private clearLevel(): void {
+    // Remove game state entity
+    if (this.gameStateEntity) {
+      this.scene.removeChild(this.gameStateEntity);
+      this.gameStateEntity = null;
+    }
+
+    // Remove buffer tray entity
+    if (this.bufferTrayEntity) {
+      this.scene.removeChild(this.bufferTrayEntity);
+      this.bufferTrayEntity = null;
+    }
+
+    // Remove part entities
     for (const entity of this.partEntities) {
       this.scene.removeChild(entity);
     }
+
+    // Remove screw entities
     for (const entity of this.screwEntities) {
       this.scene.removeChild(entity);
     }
+
+    // Reset tray screw counts
+    for (const tray of this.trayEntities.values()) {
+      const trayComponent = (tray.c as unknown as TrayComponentAccess).tray;
+      trayComponent.screwCount = 0;
+    }
+
     this.partEntities = [];
     this.screwEntities = [];
     this.currentLevel = null;
   }
+
+  /** Tracks which part asset bundles have been registered */
+  private loadedPartBundles = new Set<string>();
 
   /**
    * Loads asset bundles for parts used in the level.
@@ -423,18 +552,23 @@ export class GameScene {
     // Collect unique part IDs
     const partIds = new Set(level.parts.map((p) => p.partId));
 
-    // Register and load part assets
+    // Filter to only parts that haven't been loaded yet
     const assets: { alias: string; src: string }[] = [];
     for (const partId of partIds) {
+      if (this.loadedPartBundles.has(partId)) continue;
+
       const partDef = getPart(partId);
       if (partDef.asset) {
         assets.push({ alias: partDef.id, src: partDef.asset });
+        this.loadedPartBundles.add(partId);
       }
     }
 
     if (assets.length > 0) {
-      Assets.addBundle('level-parts', assets);
-      await Assets.loadBundle('level-parts');
+      // Use unique bundle name to avoid overwrite warnings
+      const bundleName = `level-parts-${Date.now()}`;
+      Assets.addBundle(bundleName, assets);
+      await Assets.loadBundle(bundleName);
     }
   }
 
