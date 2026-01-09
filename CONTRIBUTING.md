@@ -34,6 +34,38 @@ npm run test:e2e
 npx playwright test screenshot --project=chromium
 ```
 
+## Adding Screenshots to PRs
+
+Screenshots should be displayed in a table format to avoid full-size images overwhelming the PR description.
+
+### 1. Generate screenshots
+
+```bash
+npx playwright test screenshot --project=chromium
+```
+
+### 2. Upload to GitHub Release
+
+```bash
+# Create release (first time only)
+gh release create pr-screenshots --title "PR Screenshots" --notes "Screenshots for PRs"
+
+# Upload screenshots (use --clobber to replace existing)
+gh release upload pr-screenshots screenshots/*.png --clobber
+```
+
+### 3. Add to PR description
+
+Use a table with thumbnail-sized images:
+
+```markdown
+## Screenshots
+
+| Mobile (390x844) | Tablet (820x1180) | Desktop (1920x1080) |
+|:---:|:---:|:---:|
+| <img src="https://github.com/OWNER/REPO/releases/download/pr-screenshots/game-mobile-390x844.png" width="200"> | <img src="https://github.com/OWNER/REPO/releases/download/pr-screenshots/game-tablet-820x1180.png" width="200"> | <img src="https://github.com/OWNER/REPO/releases/download/pr-screenshots/game-desktop-1920x1080.png" width="200"> |
+```
+
 ## Code Quality Standards
 
 - TypeScript strict mode is enabled
