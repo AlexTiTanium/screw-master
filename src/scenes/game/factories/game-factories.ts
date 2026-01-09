@@ -38,9 +38,19 @@ export function getGameVisual(entity: Entity2D): Container | undefined {
 }
 
 /**
- * Maps screw color to asset alias.
+ * Maps screw color to short screw asset alias (used when screw is in board).
  */
-const SCREW_ASSET_MAP: Record<ScrewColor, string> = {
+const SHORT_SCREW_ASSET_MAP: Record<ScrewColor, string> = {
+  [ScrewColor.Red]: 'short-screw-red',
+  [ScrewColor.Yellow]: 'short-screw-yellow',
+  [ScrewColor.Green]: 'short-screw-green',
+  [ScrewColor.Blue]: 'short-screw-blue',
+};
+
+/**
+ * Maps screw color to long screw asset alias (used when screw is removed).
+ */
+const LONG_SCREW_ASSET_MAP: Record<ScrewColor, string> = {
   [ScrewColor.Red]: 'screw-red',
   [ScrewColor.Yellow]: 'screw-yellow',
   [ScrewColor.Green]: 'screw-green',
@@ -67,14 +77,12 @@ const TRAY_ASSET_MAP: Record<ScrewColor, string> = {
 export interface ScrewEntityOptions {
   /** Screw color */
   color: ScrewColor;
-  /** Position to place the screw */
+  /** Position to place the screw (world coordinates) */
   position: Position;
   /** Initial state (defaults to 'inBoard') */
   state?: ScrewState;
   /** ID of the parent part entity */
   partEntityId?: string;
-  /** ID of the mount point on the part */
-  mountId?: string;
 }
 
 /**
@@ -93,15 +101,18 @@ export interface ScrewEntityOptions {
 export async function createScrewEntity(
   options: ScrewEntityOptions
 ): Promise<Entity2D> {
-  const assetAlias = SCREW_ASSET_MAP[options.color];
+  const state = options.state ?? 'inBoard';
+
+  // Use short screw when in board, long screw when removed
+  const assetMap = state === 'inBoard' ? SHORT_SCREW_ASSET_MAP : LONG_SCREW_ASSET_MAP;
+  const assetAlias = assetMap[options.color];
   const texture = await Assets.load<Texture>(assetAlias);
 
   const entity = createEntity(ScrewEntity, {
     screw: {
       color: options.color,
-      state: options.state ?? 'inBoard',
+      state,
       partEntityId: options.partEntityId ?? '',
-      mountId: options.mountId ?? '',
     },
   });
 

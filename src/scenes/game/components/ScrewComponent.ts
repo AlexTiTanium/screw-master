@@ -13,7 +13,7 @@ export type ScrewState = 'inBoard' | 'inTray' | 'inBuffer' | 'dragging';
  *
  * @example
  * const entity = createEntity(ScrewEntity, {
- *   screw: { color: ScrewColor.Red, mountId: 'top-left' }
+ *   screw: { color: ScrewColor.Red, partEntityId: '123' }
  * });
  */
 export const ScrewComponent = defineComponent('screw', {
@@ -21,8 +21,6 @@ export const ScrewComponent = defineComponent('screw', {
   color: ScrewColor.Red as ScrewColor,
   /** ID of the parent part entity (empty string if removed) */
   partEntityId: '',
-  /** ID of the mount point on the part */
-  mountId: '',
   /** Current state of the screw */
   state: 'inBoard' as ScrewState,
 });
@@ -31,6 +29,5 @@ export const ScrewComponent = defineComponent('screw', {
 export interface ScrewComponentData {
   color: ScrewColor;
   partEntityId: string;
-  mountId: string;
   state: ScrewState;
 }

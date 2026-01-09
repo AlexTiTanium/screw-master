@@ -55,6 +55,10 @@ export interface TestParams {
   muteAudio: boolean;
   /** True to skip intro/splash screens (skipIntro param present) */
   skipIntro: boolean;
+  /** Region ID to load (e.g., 'test' loads regions/region-test.json) */
+  region?: string | undefined;
+  /** Level index within the region (0-based) */
+  level?: number | undefined;
 }
 
 /**
@@ -100,6 +104,7 @@ export interface TestParams {
 export function getTestParams(): TestParams {
   const params = new URLSearchParams(window.location.search);
   const seedParam = params.get('seed');
+  const levelParam = params.get('level');
 
   return {
     testMode: params.has('testMode') || params.get('testMode') === '1',
@@ -107,6 +112,8 @@ export function getTestParams(): TestParams {
     scene: params.get('scene') ?? undefined,
     muteAudio: params.has('muteAudio') || params.get('muteAudio') === '1',
     skipIntro: params.has('skipIntro') || params.get('skipIntro') === '1',
+    region: params.get('region') ?? undefined,
+    level: levelParam !== null ? parseInt(levelParam, 10) : undefined,
   };
 }
 

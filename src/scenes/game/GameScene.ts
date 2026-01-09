@@ -3,9 +3,12 @@ import { TouchInput } from '@play-co/astro';
 import { Assets, Container, Sprite, type Texture } from 'pixi.js';
 
 import { isTestMode } from '@shared/debug';
+import { loadRegion, getLevelByIndex } from '@shared/levels';
+import { getPart } from '@shared/parts';
+import type { LevelDefinition } from '@shared/types';
 import { ScrewColor } from '@shared/types';
 
-import { createTrayEntity } from './factories';
+import { createTrayEntity, createPartEntity, createScrewEntity } from './factories';
 
 /**
  * Configuration options for creating a GameScene.
@@ -80,6 +83,9 @@ export class GameScene {
 
   // Entity references
   private trayEntities = new Map<ScrewColor, Entity2D>();
+  private partEntities: Entity2D[] = [];
+  private screwEntities: Entity2D[] = [];
+  private currentLevel: LevelDefinition | null = null;
 
   constructor(options: GameSceneOptions) {
     this.scene = new Scene2D({
@@ -123,7 +129,39 @@ export class GameScene {
     await this.createPuzzleArea();
     await this.createRestartButton();
 
+    // Fix z-ordering: Move View2DSystem's entity container above puzzleLayer
+    // The puzzleLayer contains background elements (puzzle base)
+    // Entity views should render on top of the puzzle base but below the UI
+    this.fixLayerOrder();
+
     this.isInitialized = true;
+  }
+
+  /**
+   * Fixes z-ordering of stage children.
+   *
+   * Ensures entity views (managed by View2DSystem) render above the puzzleLayer
+   * but below the uiLayer.
+   * @private
+   */
+  private fixLayerOrder(): void {
+    const stage = this.scene.view2d.stage;
+    const entityContainer = this.scene.view2d.innerContainer;
+
+    // Remove and re-add in correct order:
+    // 1. backgroundLayer (bottom)
+    // 2. puzzleLayer (puzzle base background)
+    // 3. entityContainer (parts and screws from View2DSystem)
+    // 4. uiLayer (top - buttons, frames, etc.)
+    stage.removeChild(this.backgroundLayer);
+    stage.removeChild(this.puzzleLayer);
+    stage.removeChild(entityContainer);
+    stage.removeChild(this.uiLayer);
+
+    stage.addChild(this.backgroundLayer);
+    stage.addChild(this.puzzleLayer);
+    stage.addChild(entityContainer);
+    stage.addChild(this.uiLayer);
   }
 
   /**
@@ -150,6 +188,12 @@ export class GameScene {
       { alias: 'tray-blue', src: 'images/trays/tray-blue.png' },
     ]);
     Assets.addBundle('screws', [
+      // Short screws (used when screw is in board)
+      { alias: 'short-screw-red', src: 'images/screws/short-screw-red.png' },
+      { alias: 'short-screw-yellow', src: 'images/screws/short-screw-yellow.png' },
+      { alias: 'short-screw-green', src: 'images/screws/short-screw-green.png' },
+      { alias: 'short-screw-blue', src: 'images/screws/short-screw-blue.png' },
+      // Long screws (used when screw is removed/in tray)
       { alias: 'screw-red', src: 'images/screws/screw-red.png' },
       { alias: 'screw-yellow', src: 'images/screws/screw-yellow.png' },
       { alias: 'screw-green', src: 'images/screws/screw-green.png' },
@@ -284,6 +328,114 @@ export class GameScene {
    */
   public getTrayByColor(color: ScrewColor): Entity2D | undefined {
     return this.trayEntities.get(color);
+  }
+
+  /**
+   * Gets the currently loaded level.
+   *
+   * @returns The current level definition or null if no level is loaded
+   */
+  public getCurrentLevel(): LevelDefinition | null {
+    return this.currentLevel;
+  }
+
+  /**
+   * Loads a level from a region file.
+   *
+   * Creates part and screw entities based on the level definition.
+   * Clears any existing level entities before loading.
+   *
+   * @param regionPath - Path to the region JSON file
+   * @param levelIndex - Index of the level within the region (0-based)
+   *
+   * @example
+   * await gameScene.loadLevel('regions/region-test.json', 0);
+   */
+  public async loadLevel(regionPath: string, levelIndex: number): Promise<void> {
+    this.clearLevel();
+
+    const region = await loadRegion(regionPath);
+    const level = getLevelByIndex(region, levelIndex);
+    this.currentLevel = level;
+
+    await this.loadPartAssets(level);
+    await this.createLevelEntities(level);
+  }
+
+  /**
+   * Creates part and screw entities for a level.
+   * @param level - The level definition to create entities from
+   * @private
+   */
+  private async createLevelEntities(level: LevelDefinition): Promise<void> {
+    for (const partInstance of level.parts) {
+      const partDef = getPart(partInstance.partId);
+
+      const partEntity = await createPartEntity({
+        assetAlias: partDef.id,
+        partDefinitionId: partDef.id,
+        position: partInstance.position,
+        layer: partInstance.layer,
+      });
+      this.scene.addChild(partEntity);
+      this.partEntities.push(partEntity);
+
+      // Create screw entities for this part
+      for (const screw of partInstance.screws) {
+        const worldPosition = {
+          x: partInstance.position.x + screw.position.x,
+          y: partInstance.position.y + screw.position.y,
+        };
+
+        const screwEntity = await createScrewEntity({
+          color: screw.color,
+          position: worldPosition,
+          partEntityId: String(partEntity.UID),
+        });
+        this.scene.addChild(screwEntity);
+        this.screwEntities.push(screwEntity);
+      }
+    }
+  }
+
+  /**
+   * Clears all level entities (parts and screws).
+   * @private
+   */
+  private clearLevel(): void {
+    for (const entity of this.partEntities) {
+      this.scene.removeChild(entity);
+    }
+    for (const entity of this.screwEntities) {
+      this.scene.removeChild(entity);
+    }
+    this.partEntities = [];
+    this.screwEntities = [];
+    this.currentLevel = null;
+  }
+
+  /**
+   * Loads asset bundles for parts used in the level.
+   * @param level - The level definition containing parts to load assets for
+   * @private
+   */
+  private async loadPartAssets(level: LevelDefinition): Promise<void> {
+    // Collect unique part IDs
+    const partIds = new Set(level.parts.map((p) => p.partId));
+
+    // Register and load part assets
+    const assets: { alias: string; src: string }[] = [];
+    for (const partId of partIds) {
+      const partDef = getPart(partId);
+      if (partDef.asset) {
+        assets.push({ alias: partDef.id, src: partDef.asset });
+      }
+    }
+
+    if (assets.length > 0) {
+      Assets.addBundle('level-parts', assets);
+      await Assets.loadBundle('level-parts');
+    }
   }
 
   /**

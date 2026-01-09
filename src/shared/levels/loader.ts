@@ -11,6 +11,7 @@ import type {
   ScrewPlacement,
 } from '@shared/types';
 import { getPart, hasPart } from '@shared/parts';
+import { isScrewInBounds, SCREW_RADIUS } from '@shared/utils';
 
 /**
  * Validation error with context.
@@ -37,6 +38,9 @@ export interface ValidationResult {
 /**
  * Validate a screw placement against its part definition.
  *
+ * Checks that the screw position is within the part's collision bounds,
+ * accounting for the screw radius.
+ *
  * @param screw - The screw placement to validate
  * @param partInstance - The part instance containing this screw
  * @param screwIndex - Index of the screw in the part's screws array
@@ -56,12 +60,16 @@ function validateScrewPlacement(
   partIndex: number
 ): ValidationError | null {
   const partDef = getPart(partInstance.partId);
-  const mountIds = new Set(partDef.screwMounts.map((m) => m.id));
 
-  if (!mountIds.has(screw.mountId)) {
+  if (!isScrewInBounds(screw.position, partDef.collision)) {
+    const boundsDesc =
+      partDef.collision.type === 'box'
+        ? `${String(partDef.collision.width)}x${String(partDef.collision.height)}`
+        : `${String(partDef.collision.points.length)}-point polygon`;
+
     return {
-      message: `Invalid mount "${screw.mountId}" for part "${partInstance.partId}". Valid mounts: ${[...mountIds].join(', ')}`,
-      path: `parts[${String(partIndex)}].screws[${String(screwIndex)}].mountId`,
+      message: `Screw at (${String(screw.position.x)}, ${String(screw.position.y)}) extends beyond part bounds (${boundsDesc}). Screw radius is ${String(SCREW_RADIUS)}px.`,
+      path: `parts[${String(partIndex)}].screws[${String(screwIndex)}].position`,
     };
   }
 
@@ -96,18 +104,20 @@ function validatePartInstance(
     return { errors, warnings };
   }
 
-  const usedMounts = new Set<string>();
+  const usedPositions = new Set<string>();
   part.screws.forEach((screw, i) => {
     const screwError = validateScrewPlacement(screw, part, i, partIndex);
     if (screwError) errors.push(screwError);
 
-    if (usedMounts.has(screw.mountId)) {
-      errors.push({
-        message: `Duplicate screw at mount "${screw.mountId}"`,
-        path: `parts[${String(partIndex)}].screws[${String(i)}].mountId`,
+    // Check for duplicate positions (screws at exact same location)
+    const posKey = `${String(screw.position.x)},${String(screw.position.y)}`;
+    if (usedPositions.has(posKey)) {
+      warnings.push({
+        message: `Multiple screws at position (${String(screw.position.x)}, ${String(screw.position.y)})`,
+        path: `parts[${String(partIndex)}].screws[${String(i)}].position`,
       });
     }
-    usedMounts.add(screw.mountId);
+    usedPositions.add(posKey);
   });
 
   return { errors, warnings };
