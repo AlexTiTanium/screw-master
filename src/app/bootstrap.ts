@@ -14,7 +14,7 @@ import {
   ScreensPlugin,
   KeyboardPlugin,
   ResourcePlugin,
-  gameResize,
+  aspectResize,
 } from '@play-co/astro';
 
 import { GameScreen } from '@ui/screens/GameScreen';
@@ -121,7 +121,7 @@ function configurePlugins(application: Application): void {
   });
 
   application.add(ResizePlugin, {
-    resizeFunction: gameResize(APP_CONFIG.width, APP_CONFIG.height),
+    resizeFunction: aspectResize(APP_CONFIG.width, APP_CONFIG.height, true),
   });
 
   application.add(ResourcePlugin);
