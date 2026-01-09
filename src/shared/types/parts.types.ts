@@ -19,8 +19,6 @@ export enum ScrewColor {
   Blue = 'blue',
   Green = 'green',
   Yellow = 'yellow',
-  Purple = 'purple',
-  Orange = 'orange',
 }
 
 /**
