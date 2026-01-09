@@ -1,0 +1,154 @@
+import type { Entity, Time } from '@play-co/odie';
+import { BaseSystem } from './BaseSystem';
+import { ScrewComponent, TrayComponent, BufferTrayComponent } from '../components';
+import { ScrewPlacementSystem } from './ScrewPlacementSystem';
+import type { ScrewTransferEvent } from './AnimationSystem';
+import { gameEvents } from '../utils';
+import type {
+  ScrewComponentAccess,
+  TrayComponentAccess,
+  BufferTrayComponentAccess,
+} from '../types';
+
+/**
+ * System for automatically transferring screws from buffer to colored trays.
+ *
+ * When a screw is removed and placed in a colored tray (or when a tray cover
+ * is opened), this system checks if any screws in the buffer can now be
+ * moved to their matching colored tray.
+ *
+ * Transfer rules:
+ * - Screws are processed in FIFO order (first in, first out)
+ * - Only one transfer happens at a time for visual clarity
+ * - Transfer only occurs if the colored tray has space and is visible
+ *
+ * Listens for:
+ * - `screw:removalComplete` - Check for auto-transfer opportunity
+ * - `screw:transferComplete` - Check for more transfers
+ * - `trayCover:opened` - Hidden trays revealed, check for transfers
+ *
+ * Emits:
+ * - `screw:startTransfer` - Begin transfer animation
+ */
+export class AutoTransferSystem extends BaseSystem {
+  static readonly NAME = 'autoTransfer';
+  static Queries = {
+    coloredTrays: { components: [TrayComponent] },
+    bufferTrays: { components: [BufferTrayComponent] },
+    screws: { components: [ScrewComponent] },
+  };
+
+  /** Flag to prevent multiple simultaneous transfers */
+  private isTransferring = false;
+
+  /**
+   * Initialize event listeners.
+   * @example
+   */
+  init(): void {
+    gameEvents.on('screw:removalComplete', () => { this.checkAutoTransfer(); });
+    gameEvents.on('screw:transferComplete', () => { this.onTransferComplete(); });
+    gameEvents.on('trayCover:opened', () => { this.checkAutoTransfer(); });
+  }
+
+  /**
+   * Called when a transfer animation completes.
+   * @example
+   */
+  private onTransferComplete(): void {
+    this.isTransferring = false;
+    // Check for more transfers
+    this.checkAutoTransfer();
+  }
+
+  /**
+   * Check if any screws in the buffer can be transferred to colored trays.
+   * @example
+   */
+  private checkAutoTransfer(): void {
+    // Skip if already transferring
+    if (this.isTransferring) return;
+
+    const bufferTray = this.getFirstEntity('bufferTrays');
+    if (!bufferTray) return;
+
+    const buffer = (bufferTray.c as unknown as BufferTrayComponentAccess).bufferTray;
+    if (buffer.screwIds.length === 0) return;
+
+    // Get placement system for finding available trays
+    const placementSystem = this.scene.getSystem(
+      ScrewPlacementSystem
+    );
+
+    // Process buffer screws in FIFO order
+    for (const screwId of buffer.screwIds) {
+      const screwEntity = placementSystem.findScrewByUid(screwId);
+      if (!screwEntity) continue;
+
+      const screw = (screwEntity.c as unknown as ScrewComponentAccess).screw;
+
+      // Skip if screw is already animating
+      if (screw.isAnimating) continue;
+
+      const color = screw.color;
+      const matchingTray = placementSystem.findAvailableColoredTray(color);
+
+      if (matchingTray) {
+        // Found a matching tray with space - initiate transfer
+        this.initiateTransfer(screwEntity, matchingTray, bufferTray);
+        return; // Only one transfer at a time
+      }
+    }
+  }
+
+  /**
+   * Start the transfer animation for a screw.
+   * @param screwEntity - The screw entity
+   * @param targetTray - The target tray entity
+   * @param bufferTray - The buffer tray entity
+   * @example
+   */
+  private initiateTransfer(
+    screwEntity: Entity,
+    targetTray: Entity,
+    bufferTray: Entity
+  ): void {
+    this.isTransferring = true;
+
+    const buffer = (bufferTray.c as unknown as BufferTrayComponentAccess).bufferTray;
+    const tray = (targetTray.c as unknown as TrayComponentAccess).tray;
+    const screw = (screwEntity.c as unknown as ScrewComponentAccess).screw;
+
+    // Remove from buffer
+    const screwUid = String(screwEntity.UID);
+    const bufferIndex = buffer.screwIds.indexOf(screwUid);
+    if (bufferIndex >= 0) {
+      buffer.screwIds.splice(bufferIndex, 1);
+    }
+
+    // Reserve slot in colored tray
+    const slotIndex = tray.screwCount;
+    tray.screwCount++;
+
+    // Update screw state
+    screw.isAnimating = true;
+
+    // Emit transfer event for AnimationSystem
+    const event: ScrewTransferEvent = {
+      screwEntity,
+      targetTray,
+      slotIndex,
+    };
+
+    gameEvents.emit('screw:startTransfer', event);
+  }
+
+  /**
+   * Update is a no-op for this system.
+   * @param _time - Frame time info (unused)
+   * @example
+   */
+  update(_time: Time): void {
+    // No per-frame updates needed - all logic is event-driven
+  }
+}

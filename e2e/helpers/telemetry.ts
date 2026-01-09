@@ -109,3 +109,18 @@ export function getErrors(telemetry: Telemetry): string[] {
 
   return errors;
 }
+
+/**
+ * Get warnings from telemetry
+ */
+export function getWarnings(telemetry: Telemetry): string[] {
+  const warnings: string[] = [];
+
+  for (const entry of telemetry.consoleLogs) {
+    if (entry.type === 'warn') {
+      warnings.push(entry.text);
+    }
+  }
+
+  return warnings;
+}

@@ -23,6 +23,12 @@ export const ScrewComponent = defineComponent('screw', {
   partEntityId: '',
   /** Current state of the screw */
   state: 'inBoard' as ScrewState,
+  /** ID of the tray entity this screw is in (empty if in board) */
+  trayEntityId: '',
+  /** Slot index in the tray (0-based, -1 if not in tray) */
+  slotIndex: -1,
+  /** Whether the screw is currently animating (locked for interaction) */
+  isAnimating: false,
 });
 
 /** Data interface for ScrewComponent */
@@ -30,4 +36,7 @@ export interface ScrewComponentData {
   color: ScrewColor;
   partEntityId: string;
   state: ScrewState;
+  trayEntityId: string;
+  slotIndex: number;
+  isAnimating: boolean;
 }

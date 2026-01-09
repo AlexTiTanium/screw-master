@@ -3,3 +3,4 @@ export { ScrewEntity } from './ScrewEntity';
 export { PartEntity } from './PartEntity';
 export { TrayEntity } from './TrayEntity';
 export { BufferTrayEntity } from './BufferTrayEntity';
+export { GameStateEntity } from './GameStateEntity';

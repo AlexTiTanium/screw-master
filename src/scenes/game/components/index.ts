@@ -7,3 +7,5 @@ export { TrayComponent } from './TrayComponent';
 export type { TrayComponentData } from './TrayComponent';
 export { BufferTrayComponent } from './BufferTrayComponent';
 export type { BufferTrayComponentData } from './BufferTrayComponent';
+export { GameStateComponent } from './GameStateComponent';
+export type { GameStateComponentData, GamePhase } from './GameStateComponent';

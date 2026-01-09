@@ -17,6 +17,7 @@ export const SCREW_RADIUS = 40;
  * @param point - Point to check
  * @param box - Box collision shape
  * @returns True if point is inside or on boundary
+ * @example
  */
 export function isPointInBox(point: Position, box: BoxCollisionShape): boolean {
   return (
@@ -34,6 +35,7 @@ export function isPointInBox(point: Position, box: BoxCollisionShape): boolean {
  * @param radius - Circle radius
  * @param box - Box collision shape
  * @returns True if circle is fully contained
+ * @example
  */
 export function isCircleInBox(
   center: Position,
@@ -54,6 +56,7 @@ export function isCircleInBox(
  * @param point - Point to check
  * @param polygon - Array of polygon vertices
  * @returns True if point is inside polygon
+ * @example
  */
 export function isPointInPolygon(
   point: Position,
@@ -88,6 +91,7 @@ export function isPointInPolygon(
  * @param radius - Circle radius
  * @param polygon - Array of polygon vertices
  * @returns True if all test points are inside polygon
+ * @example
  */
 export function isCircleInPolygon(
   center: Position,
@@ -112,6 +116,7 @@ export function isCircleInPolygon(
  * @param collision - Part collision shape
  * @param radius - Screw radius (defaults to SCREW_RADIUS)
  * @returns True if screw is fully within bounds
+ * @example
  */
 export function isScrewInBounds(
   screwPosition: Position,
