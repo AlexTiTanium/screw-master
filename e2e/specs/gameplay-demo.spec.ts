@@ -7,9 +7,10 @@ import { test } from '@playwright/test';
 import { attachTelemetry } from '../helpers/telemetry';
 import { createHarnessClient } from '../helpers/harness';
 
-// Enable video recording for this test
+// Enable video recording for this test with portrait viewport (matching game aspect ratio)
 test.use({
-  video: { mode: 'on', size: { width: 450, height: 800 } },
+  video: { mode: 'on', size: { width: 360, height: 640 } },
+  viewport: { width: 360, height: 640 },
 });
 
 test.describe('Gameplay Demo', () => {
