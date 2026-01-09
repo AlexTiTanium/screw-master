@@ -123,7 +123,7 @@ interface WindowWithHarness {
  */
 export function createHarnessClient(page: Page): HarnessClient {
   return {
-    async waitForReady(timeout = 15000): Promise<void> {
+    async waitForReady(timeout = 10000): Promise<void> {
       await page.waitForFunction(
         () =>
           (window as unknown as WindowWithHarness).__gameTest?.ready === true,

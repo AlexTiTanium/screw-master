@@ -1,3 +1,5 @@
-export { TestSquareEntity } from './TestSquareEntity';
-export { TestSpriteEntity } from './TestSpriteEntity';
-export { RotatingSquareEntity } from './RotatingSquareEntity';
+// Game entities
+export { ScrewEntity } from './ScrewEntity';
+export { PartEntity } from './PartEntity';
+export { TrayEntity } from './TrayEntity';
+export { BufferTrayEntity } from './BufferTrayEntity';

@@ -80,21 +80,28 @@ src/
     └── debug/        # Test harness for E2E testing
 
 assets/               # Static assets (images, audio)
+scripts/              # Build and asset processing scripts
 tests/                # Unit and integration tests
 e2e/                  # Playwright E2E tests
 ```
 
+## Asset Export from Figma
+
+When exporting assets from Figma, always use **"Layer image size"** (NOT "Original Image size").
+
+This ensures exported dimensions match the design and the manifest width/height values.
+
 ## Common Commands
 
 ```bash
-npm run dev          # Start dev server (opens browser)
-npm run build        # Production build
-npm run test         # Run unit/integration tests
-npm run test:e2e     # Run Playwright E2E tests
-npm run typecheck    # TypeScript check
-npm run lint         # ESLint check
-npm run format       # Format with Prettier
-npm run validate     # Run all checks (typecheck + lint + format:check + test)
+npm run dev            # Start dev server (opens browser)
+npm run build          # Production build
+npm run test           # Run unit/integration tests
+npm run test:e2e       # Run Playwright E2E tests
+npm run typecheck      # TypeScript check
+npm run lint           # ESLint check
+npm run format         # Format with Prettier
+npm run validate       # Run all checks (typecheck + lint + format:check + test)
 ```
 
 ## ODIE ECS Patterns
@@ -147,22 +154,23 @@ export const PlayerEntity = DefineEntity(Entity2D, HealthComponent);
 ### Using Entity Factories (Recommended)
 
 ```typescript
-import { createSquareEntity, createSpriteEntity } from '@scenes/game/factories';
+import { createScrewEntity, createTrayEntity } from '@scenes/game/factories';
+import { ScrewColor } from '@shared/types';
 
-// Create a colored square with visual already attached
-const square = createSquareEntity({
-  size: 100,
-  color: 0xff0000,
+// Create a screw entity
+const screw = await createScrewEntity({
+  color: ScrewColor.Blue,
   position: { x: 100, y: 100 }
 });
-scene.addChild(square);
+scene.addChild(screw);
 
-// Create a sprite from an asset
-const sprite = await createSpriteEntity({
-  assetPath: 'images/player.png',
-  position: { x: 200, y: 200 }
+// Create a tray entity
+const tray = await createTrayEntity({
+  color: ScrewColor.Red,
+  position: { x: 48, y: 175 },
+  capacity: 3
 });
-scene.addChild(sprite);
+scene.addChild(tray);
 ```
 
 ### Creating a System
@@ -323,4 +331,4 @@ const signature = await page.evaluate(() =>
 - Static assets are in `assets/` folder (served at root)
 - Strictest TypeScript settings enabled
 - ESLint uses type-checked rules
-- The red square in GameScene is interactive - click to toggle color
+- GameScene implements the main game UI from the Figma design

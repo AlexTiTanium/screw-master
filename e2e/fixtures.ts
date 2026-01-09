@@ -80,7 +80,7 @@ export const test = base.extend<GameTestFixtures>({
 
     // Wait for game to be ready
     try {
-      await harness.waitForReady(15000);
+      await harness.waitForReady(10000);
     } catch {
       // Print telemetry on failure to help debugging
       printTelemetry(telemetry);

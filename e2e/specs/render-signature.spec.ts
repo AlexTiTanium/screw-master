@@ -214,26 +214,20 @@ test.describe('Render Signature', () => {
 
     const signature = await harness.getRenderSignature();
 
-    // Should have 2 entities with testSquare component (interactive + rotating)
-    const squareEntities = expectEntitiesWithComponent(
-      signature,
-      'testSquare',
-      2
-    );
-    expect(squareEntities.length).toBe(2);
+    // Should have 4 entities with tray component (red, yellow, green, blue)
+    const trayEntities = expectEntitiesWithComponent(signature, 'tray', 4);
+    expect(trayEntities.length).toBe(4);
 
-    // Find the interactive square (without rotation component)
-    const interactiveSquare = squareEntities.find(
-      (e) => !('rotation' in e.components)
-    );
-    expect(interactiveSquare).toBeDefined();
+    // Find the first tray entity
+    const tray = trayEntities[0];
+    expect(tray).toBeDefined();
 
-    // Verify the interactive square's component data
-    const squareComponent = interactiveSquare!.components.testSquare as {
-      size: number;
-      color: number;
+    // Verify the tray's component data
+    const trayComponent = tray!.components.tray as {
+      capacity: number;
+      screwCount: number;
     };
-    expect(squareComponent.size).toBe(100);
-    expect(squareComponent.color).toBe(0xff0000);
+    expect(trayComponent.capacity).toBe(3);
+    expect(trayComponent.screwCount).toBe(0);
   });
 });

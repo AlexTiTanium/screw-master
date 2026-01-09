@@ -6,11 +6,11 @@
  * manage their own display containers.
  *
  * @example
- * import { TestScreen, LoadingScreen, BaseScreen } from '@ui/screens';
+ * import { GameScreen, LoadingScreen, BaseScreen } from '@ui/screens';
  *
  * @module
  */
 
 export { BaseScreen } from './BaseScreen';
-export { TestScreen } from './TestScreen';
+export { GameScreen } from './GameScreen';
 export { LoadingScreen } from './LoadingScreen';

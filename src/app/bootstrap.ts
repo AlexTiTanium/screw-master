@@ -17,7 +17,7 @@ import {
   gameResize,
 } from '@play-co/astro';
 
-import { TestScreen } from '@ui/screens/TestScreen';
+import { GameScreen } from '@ui/screens/GameScreen';
 import { markGameReady } from '@shared/debug';
 
 import { APP_CONFIG } from './config';
@@ -170,9 +170,9 @@ function mountToDOM(application: Application): void {
  */
 async function showInitialScreen(application: Application): Promise<void> {
   const screens = application.get(ScreensPlugin);
-  screens.main.add(TestScreen, undefined, 'test');
-  await screens.main.show('test' as 'empty');
-  markGameReady('test');
+  screens.main.add(GameScreen, undefined, 'game');
+  await screens.main.show('game' as 'empty');
+  markGameReady('game');
 }
 
 /**

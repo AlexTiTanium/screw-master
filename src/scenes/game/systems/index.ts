@@ -25,4 +25,3 @@
  */
 
 export { BaseSystem } from './BaseSystem';
-export { RotationSystem } from './RotationSystem';

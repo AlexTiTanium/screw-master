@@ -1,12 +1,53 @@
 {
   "bundles": [
     {
-      "name": "game",
+      "name": "common",
       "assets": [
-        {
-          "alias": "test-image",
-          "src": "images/test-image.png"
-        }
+        { "alias": "scene-background", "src": "images/backgrounds/scene-background.png", "width": 1080, "height": 1920 },
+        { "alias": "puzzle-base", "src": "images/ui/puzzle-base.png", "width": 1015, "height": 1090 }
+      ]
+    },
+    {
+      "name": "ui",
+      "assets": [
+        { "alias": "restart-button", "src": "images/ui/restart-button.png", "width": 140, "height": 140 },
+        { "alias": "colored-tray-frame", "src": "images/ui/colored-tray-frame.png", "width": 1036, "height": 221 },
+        { "alias": "buffer-tray-frame", "src": "images/ui/buffer-tray-frame.png", "width": 780, "height": 212 },
+        { "alias": "tray-cover", "src": "images/ui/tray-cover.png", "width": 179, "height": 146 },
+        { "alias": "tray-slot", "src": "images/ui/tray-slot.png", "width": 50, "height": 50 }
+      ]
+    },
+    {
+      "name": "trays",
+      "assets": [
+        { "alias": "tray-red", "src": "images/trays/tray-red.png", "width": 200, "height": 170 },
+        { "alias": "tray-yellow", "src": "images/trays/tray-yellow.png", "width": 200, "height": 170 },
+        { "alias": "tray-green", "src": "images/trays/tray-green.png", "width": 200, "height": 170 },
+        { "alias": "tray-blue", "src": "images/trays/tray-blue.png", "width": 200, "height": 170 }
+      ]
+    },
+    {
+      "name": "screws",
+      "assets": [
+        { "alias": "screw-red", "src": "images/screws/screw-red.png", "width": 80, "height": 100 },
+        { "alias": "screw-yellow", "src": "images/screws/screw-yellow.png", "width": 80, "height": 100 },
+        { "alias": "screw-green", "src": "images/screws/screw-green.png", "width": 80, "height": 100 },
+        { "alias": "screw-blue", "src": "images/screws/screw-blue.png", "width": 80, "height": 100 },
+        { "alias": "short-screw-red", "src": "images/screws/short-screw-red.png", "width": 76, "height": 80 },
+        { "alias": "short-screw-yellow", "src": "images/screws/short-screw-yellow.png", "width": 76, "height": 80 },
+        { "alias": "short-screw-green", "src": "images/screws/short-screw-green.png", "width": 76, "height": 80 },
+        { "alias": "short-screw-blue", "src": "images/screws/short-screw-blue.png", "width": 76, "height": 80 }
+      ]
+    },
+    {
+      "name": "parts",
+      "assets": [
+        { "alias": "board-walnut-square", "src": "images/parts/board-walnut-square.png", "width": 270, "height": 260 },
+        { "alias": "board-mahogany-square", "src": "images/parts/board-mahogany-square.png", "width": 270, "height": 260 },
+        { "alias": "board-birch-square", "src": "images/parts/board-birch-square.png", "width": 270, "height": 260 },
+        { "alias": "board-oak-vertical", "src": "images/parts/board-oak-vertical.png", "width": 270, "height": 417 },
+        { "alias": "board-oak-horizontal", "src": "images/parts/board-oak-horizontal.png", "width": 755, "height": 317 },
+        { "alias": "board-pine-horizontal", "src": "images/parts/board-pine-horizontal.png", "width": 501, "height": 317 }
       ]
     }
   ]

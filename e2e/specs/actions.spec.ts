@@ -14,16 +14,16 @@ test.describe('Action DSL', () => {
     const harness = withHarness(page);
     await harness.waitForReady();
 
-    // Get initial state - find the interactive square (without rotation component)
+    // Get initial state - find a tray entity
     const sig1 = await harness.getRenderSignature();
-    const squares = sig1.entities.filter((e) => 'testSquare' in e.components);
-    expect(squares.length).toBe(2);
+    const trays = sig1.entities.filter((e) => 'tray' in e.components);
+    expect(trays.length).toBe(4);
 
-    // Use the interactive square (without rotation component)
-    const square = squares.find((e) => !('rotation' in e.components))!;
-    expect(square).toBeDefined();
-    const entityId = String(square.id);
-    const originalPos = square.position;
+    // Use the first tray
+    const tray = trays[0]!;
+    expect(tray).toBeDefined();
+    const entityId = String(tray.id);
+    const originalPos = tray.position;
 
     // Move entity to new position
     const result = await harness.act({
@@ -228,31 +228,29 @@ test.describe('Action DSL', () => {
     const harness = withHarness(page);
     await harness.waitForReady();
 
-    // Get entity with testSquare component (use interactive square without rotation)
-    const squares = await harness.queryByComponent('testSquare');
-    expect(squares.length).toBe(2);
-    const square = squares.find((s) => !('rotation' in s.components))!;
-    expect(square).toBeDefined();
-    const entityId = String(square.id);
+    // Get entity with tray component
+    const trays = await harness.queryByComponent('tray');
+    expect(trays.length).toBe(4);
+    const tray = trays[0]!;
+    expect(tray).toBeDefined();
+    const entityId = String(tray.id);
 
-    // Modify component data
+    // Modify component data (change capacity)
     const result = await harness.act({
       type: 'setComponent',
       entityId,
-      component: 'testSquare',
-      data: { size: 200 },
+      component: 'tray',
+      data: { capacity: 5 },
     });
     expect(result.success).toBe(true);
 
     // Verify component was updated
-    const updatedSquares = await harness.queryByComponent('testSquare');
-    const updatedSquare = updatedSquares.find(
-      (s) => !('rotation' in s.components)
-    )!;
-    const component = updatedSquare.components.testSquare as {
-      size: number;
+    const updatedTrays = await harness.queryByComponent('tray');
+    const updatedTray = updatedTrays.find((t) => String(t.id) === entityId)!;
+    const component = updatedTray.components.tray as {
+      capacity: number;
     };
-    expect(component.size).toBe(200);
+    expect(component.capacity).toBe(5);
   });
 
   test('wait action delays execution', async ({ page }) => {

@@ -1,10 +1,10 @@
 import { BaseScreen } from './BaseScreen';
-import { TestScene } from '@scenes/game/TestScene';
+import { GameScene } from '@scenes/game/GameScene';
 
 /**
- * Test screen that hosts the ODIE ECS test scene for engine validation.
+ * Game screen that hosts the main ODIE ECS game scene.
  *
- * This screen manages the lifecycle of a TestScene, bridging the Astro
+ * This screen manages the lifecycle of a GameScene, bridging the Astro
  * screen system with ODIE's Scene2D. It handles:
  * - Scene initialization during `onPrepare()`
  * - Starting the scene on `onShow()`
@@ -16,52 +16,52 @@ import { TestScene } from '@scenes/game/TestScene';
  * @example
  * // Registering the screen (typically done in bootstrap)
  * import { ScreensPlugin } from '@play-co/astro';
- * import { TestScreen } from '@ui/screens';
+ * import { GameScreen } from '@ui/screens';
  *
  * const screens = app.get(ScreensPlugin);
- * screens.main.add(TestScreen, undefined, 'test');
- * await screens.main.show('test');
+ * screens.main.add(GameScreen, undefined, 'game');
+ * await screens.main.show('game');
  *
  * @example
- * // Navigating to the test screen from another screen
+ * // Navigating to the game screen from another screen
  * import { getApp } from '@app';
  * import { ScreensPlugin } from '@play-co/astro';
  *
  * const app = getApp();
  * if (app) {
  *   const screens = app.get(ScreensPlugin);
- *   await screens.main.show('test');
+ *   await screens.main.show('game');
  * }
  */
-export class TestScreen extends BaseScreen {
+export class GameScreen extends BaseScreen {
   /**
-   * The ODIE test scene instance.
+   * The ODIE game scene instance.
    * Created during onPrepare() and destroyed during onHidden().
    */
-  private testScene: TestScene | null = null;
+  private gameScene: GameScene | null = null;
 
   /**
    * Prepares the screen before it becomes visible.
    *
-   * Creates and initializes the ODIE TestScene.
+   * Creates and initializes the ODIE GameScene.
    * @protected
    */
   protected override async onPrepare(): Promise<void> {
-    this.testScene = new TestScene({
+    this.gameScene = new GameScene({
       stage: this.view,
     });
 
-    await this.testScene.init();
+    await this.gameScene.init();
   }
 
   /**
    * Called when the screen becomes visible.
    *
-   * Starts the test scene game loop.
+   * Starts the game scene game loop.
    * @protected
    */
   protected override onShow(): void {
-    this.testScene?.start();
+    this.gameScene?.start();
   }
 
   /**
@@ -71,28 +71,28 @@ export class TestScreen extends BaseScreen {
    * @protected
    */
   protected override onUpdate(dt: number): void {
-    this.testScene?.update(dt);
+    this.gameScene?.update(dt);
   }
 
   /**
    * Called when the screen starts hiding.
    *
-   * Pauses the test scene.
+   * Pauses the game scene.
    * @protected
    */
   protected override onHide(): void {
-    this.testScene?.pause();
+    this.gameScene?.pause();
   }
 
   /**
    * Called when the screen is fully hidden.
    *
-   * Destroys the test scene and cleans up resources.
+   * Destroys the game scene and cleans up resources.
    * @protected
    */
   protected override onHidden(): void {
-    this.testScene?.destroy();
-    this.testScene = null;
+    this.gameScene?.destroy();
+    this.gameScene = null;
   }
 
   /**
@@ -100,7 +100,7 @@ export class TestScreen extends BaseScreen {
    * @protected
    */
   protected override onPause(): void {
-    this.testScene?.pause();
+    this.gameScene?.pause();
   }
 
   /**
@@ -108,6 +108,6 @@ export class TestScreen extends BaseScreen {
    * @protected
    */
   protected override onResume(): void {
-    this.testScene?.resume();
+    this.gameScene?.resume();
   }
 }
