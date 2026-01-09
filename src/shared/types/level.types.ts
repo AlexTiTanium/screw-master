@@ -14,8 +14,8 @@ import type { ScrewColor } from './parts.types';
  * A screw placed on a part instance.
  */
 export interface ScrewPlacement {
-  /** References ScrewMountDef.id from the part definition */
-  mountId: string;
+  /** Position relative to part origin (local coordinates) */
+  position: Position;
   /** Color of this screw (determines tray destination) */
   color: ScrewColor;
 }

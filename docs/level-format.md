@@ -81,12 +81,31 @@ interface PartInstance {
 
 ### Screw Placement
 
-Assigns a screw to a mount point on the part:
+Places a screw at a specific position on the part:
 
 ```typescript
 interface ScrewPlacement {
-  mountId: string;               // References ScrewMountDef.id from PartDefinition
+  position: Position;            // Position relative to part origin (local coords)
   color: ScrewColor;             // Screw color (determines tray destination)
+}
+```
+
+**Position Constraints:**
+- Position is in local coordinates (relative to part's origin at 0,0)
+- The screw's full circle must be within the part's collision bounds
+- Screw radius is 40 pixels - for a 200x200 box, valid x/y range is [40, 160]
+
+**Example:**
+```json
+{
+  "partId": "board-walnut-square",
+  "position": { "x": 200, "y": 800 },
+  "layer": 1,
+  "screws": [
+    { "position": { "x": 50, "y": 50 }, "color": "red" },
+    { "position": { "x": 220, "y": 50 }, "color": "blue" },
+    { "position": { "x": 135, "y": 130 }, "color": "green" }
+  ]
 }
 ```
 
@@ -113,18 +132,34 @@ type WinCondition =
 
 ---
 
-## 4. Screw Colors
+## 4. Screw Types and Colors
 
-Available colors (string enum for JSON readability):
+### Screw Visual States
 
-| Value | Description |
-|-------|-------------|
-| `"red"` | Red screw |
-| `"blue"` | Blue screw |
-| `"green"` | Green screw |
-| `"yellow"` | Yellow screw |
-| `"purple"` | Purple screw |
-| `"orange"` | Orange screw |
+Screws have two visual representations depending on their state:
+
+| Type | Asset Pattern | When Used |
+|------|---------------|-----------|
+| **Short screw** | `short-screw-{color}.png` | In puzzle (screwed into boards) |
+| **Long screw** | `screw-{color}.png` | After removal (in buffer/tray) |
+
+**Gameplay flow:**
+1. Screws start as **short** screws embedded in boards
+2. When player taps a screw, it animates to **long** screw (unscrewing)
+3. Long screw then moves to buffer tray or colored tray
+
+This visual distinction helps players understand which screws are still attached vs. removed.
+
+### Available Colors
+
+Colors available (string enum for JSON readability):
+
+| Value | Short Asset | Long Asset |
+|-------|-------------|------------|
+| `"red"` | `short-screw-red.png` | `screw-red.png` |
+| `"blue"` | `short-screw-blue.png` | `screw-blue.png` |
+| `"green"` | `short-screw-green.png` | `screw-green.png` |
+| `"yellow"` | `short-screw-yellow.png` | `screw-yellow.png` |
 
 ---
 
@@ -270,7 +305,7 @@ registerPart(slidingCover);
       "position": { "x": 540, "y": 960 },
       "layer": 0,
       "screws": [
-        { "mountId": "center", "color": "blue" }
+        { "position": { "x": 270, "y": 480 }, "color": "blue" }
       ]
     },
     {
@@ -278,8 +313,8 @@ registerPart(slidingCover);
       "position": { "x": 540, "y": 910 },
       "layer": 1,
       "screws": [
-        { "mountId": "left", "color": "red" },
-        { "mountId": "right", "color": "red" }
+        { "position": { "x": 65, "y": 40 }, "color": "red" },
+        { "position": { "x": 185, "y": 40 }, "color": "red" }
       ]
     }
   ],
@@ -300,7 +335,7 @@ registerPart(slidingCover);
 The level loader validates:
 
 1. **Part references** - Every `partId` must match a registered `PartDefinition`
-2. **Mount references** - Every `mountId` must exist in the part's `screwMounts`
+2. **Screw bounds** - Every screw position must be within the part's collision bounds (accounting for screw radius of 40px)
 3. **Tray count** - Exactly 4 trays required
 4. **Tray capacity** - Must be 1-4
 5. **Layer uniqueness** - Warning if multiple parts share the same layer (occlusion ambiguity)

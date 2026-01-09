@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "id": "test",
+  "name": "Test Region",
+  "levels": [
+    {
+      "version": 1,
+      "id": "test-01",
+      "name": "Free Position Test",
+      "parts": [
+        {
+          "partId": "board-walnut-square",
+          "position": { "x": 200, "y": 800 },
+          "layer": 1,
+          "screws": [
+            { "position": { "x": 50, "y": 50 }, "color": "red" },
+            { "position": { "x": 220, "y": 50 }, "color": "blue" },
+            { "position": { "x": 135, "y": 130 }, "color": "green" }
+          ]
+        },
+        {
+          "partId": "board-birch-square",
+          "position": { "x": 550, "y": 800 },
+          "layer": 2,
+          "screws": [
+            { "position": { "x": 135, "y": 65 }, "color": "yellow" },
+            { "position": { "x": 50, "y": 195 }, "color": "red" },
+            { "position": { "x": 220, "y": 195 }, "color": "blue" }
+          ]
+        }
+      ],
+      "trays": [
+        { "color": "red", "capacity": 3, "hidden": false },
+        { "color": "blue", "capacity": 3, "hidden": false },
+        { "color": "green", "capacity": 2, "hidden": true },
+        { "color": "yellow", "capacity": 2, "hidden": true }
+      ],
+      "win": { "type": "allScrewsRemoved" }
+    }
+  ]
+}

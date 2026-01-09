@@ -69,6 +69,8 @@ function createValidTrays(): [TrayConfig, TrayConfig, TrayConfig, TrayConfig] {
 
 /**
  * Create a valid level definition with optional overrides.
+ * Note: Test part has 100x100 collision box, so with SCREW_RADIUS=40,
+ * valid screw positions are x: [40, 60], y: [40, 60]
  */
 function createValidLevel(
   overrides?: Partial<LevelDefinition>
@@ -82,7 +84,7 @@ function createValidLevel(
         partId: 'test-part',
         position: { x: 100, y: 100 },
         layer: 1,
-        screws: [{ mountId: 'mount-a', color: ScrewColor.Red }],
+        screws: [{ position: { x: 50, y: 50 }, color: ScrewColor.Red }],
       },
     ],
     trays: createValidTrays(),
@@ -249,14 +251,16 @@ describe('Level Loader', () => {
         expect(firstError(result.errors).message).toContain('unknown-part');
       });
 
-      it('produces error for invalid screw mountId', () => {
+      it('produces error when screw extends beyond part bounds', () => {
+        // Test part is 100x100, screw radius is 40
+        // Position (10, 50) means screw extends from x=-30 to x=50, which is out of bounds
         const level = createValidLevel({
           parts: [
             {
               partId: 'test-part',
               position: { x: 0, y: 0 },
               layer: 1,
-              screws: [{ mountId: 'invalid-mount', color: ScrewColor.Red }],
+              screws: [{ position: { x: 10, y: 50 }, color: ScrewColor.Red }],
             },
           ],
         });
@@ -264,13 +268,30 @@ describe('Level Loader', () => {
 
         expect(result.valid).toBe(false);
         expect(firstError(result.errors).path).toBe(
-          'parts[0].screws[0].mountId'
+          'parts[0].screws[0].position'
         );
-        expect(firstError(result.errors).message).toContain('invalid-mount');
-        expect(firstError(result.errors).message).toContain('mount-a');
+        expect(firstError(result.errors).message).toContain('beyond part bounds');
       });
 
-      it('produces error for duplicate screw on same mount', () => {
+      it('passes when screw is within bounds accounting for radius', () => {
+        // Test part is 100x100, screw radius is 40
+        // Center (50, 50) is valid because screw spans from 10 to 90 in both axes
+        const level = createValidLevel({
+          parts: [
+            {
+              partId: 'test-part',
+              position: { x: 0, y: 0 },
+              layer: 1,
+              screws: [{ position: { x: 50, y: 50 }, color: ScrewColor.Red }],
+            },
+          ],
+        });
+        const result = validateLevel(level);
+
+        expect(result.valid).toBe(true);
+      });
+
+      it('produces warning for duplicate screw positions', () => {
         const level = createValidLevel({
           parts: [
             {
@@ -278,20 +299,58 @@ describe('Level Loader', () => {
               position: { x: 0, y: 0 },
               layer: 1,
               screws: [
-                { mountId: 'mount-a', color: ScrewColor.Red },
-                { mountId: 'mount-a', color: ScrewColor.Blue },
+                { position: { x: 50, y: 50 }, color: ScrewColor.Red },
+                { position: { x: 50, y: 50 }, color: ScrewColor.Blue },
               ],
             },
           ],
         });
         const result = validateLevel(level);
 
-        expect(result.valid).toBe(false);
-        expect(result.errors).toHaveLength(1);
-        expect(firstError(result.errors).path).toBe(
-          'parts[0].screws[1].mountId'
+        // Duplicate positions are warnings, not errors
+        expect(result.valid).toBe(true);
+        expect(result.warnings).toHaveLength(1);
+        expect(firstWarning(result.warnings).path).toBe(
+          'parts[0].screws[1].position'
         );
-        expect(firstError(result.errors).message).toContain('Duplicate');
+        expect(firstWarning(result.warnings).message).toContain('Multiple screws');
+      });
+
+      it('produces error when screw is at exact boundary', () => {
+        // Position (40, 50) is exactly at the minimum x boundary
+        // This should be valid: 40 - 40 = 0 >= 0
+        const level = createValidLevel({
+          parts: [
+            {
+              partId: 'test-part',
+              position: { x: 0, y: 0 },
+              layer: 1,
+              screws: [{ position: { x: 40, y: 50 }, color: ScrewColor.Red }],
+            },
+          ],
+        });
+        const result = validateLevel(level);
+
+        expect(result.valid).toBe(true);
+      });
+
+      it('produces error when screw is just past boundary', () => {
+        // Position (39, 50) is just past the minimum x boundary
+        // 39 - 40 = -1 < 0, so this is invalid
+        const level = createValidLevel({
+          parts: [
+            {
+              partId: 'test-part',
+              position: { x: 0, y: 0 },
+              layer: 1,
+              screws: [{ position: { x: 39, y: 50 }, color: ScrewColor.Red }],
+            },
+          ],
+        });
+        const result = validateLevel(level);
+
+        expect(result.valid).toBe(false);
+        expect(firstError(result.errors).path).toBe('parts[0].screws[0].position');
       });
     });
 

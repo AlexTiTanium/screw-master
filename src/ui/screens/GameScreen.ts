@@ -1,5 +1,6 @@
 import { BaseScreen } from './BaseScreen';
 import { GameScene } from '@scenes/game/GameScene';
+import { getTestParams } from '@shared/debug';
 
 /**
  * Game screen that hosts the main ODIE ECS game scene.
@@ -44,6 +45,7 @@ export class GameScreen extends BaseScreen {
    * Prepares the screen before it becomes visible.
    *
    * Creates and initializes the ODIE GameScene.
+   * If URL params specify a region and level, loads that level.
    * @protected
    */
   protected override async onPrepare(): Promise<void> {
@@ -52,6 +54,13 @@ export class GameScreen extends BaseScreen {
     });
 
     await this.gameScene.init();
+
+    // Load level from URL params, defaulting to test region
+    const params = getTestParams();
+    const region = params.region ?? 'test';
+    const regionPath = `regions/region-${region}.json`;
+    const levelIndex = params.level ?? 0;
+    await this.gameScene.loadLevel(regionPath, levelIndex);
   }
 
   /**
