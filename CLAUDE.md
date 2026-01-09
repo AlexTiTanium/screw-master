@@ -325,6 +325,118 @@ const signature = await page.evaluate(() =>
 | `seed=<number>` | Set random seed for determinism |
 | `scene=<name>` | Skip directly to a specific scene |
 
+## PR Requirements: Screenshots and Videos
+
+**Every PR must include visual documentation** - either screenshots or video GIFs demonstrating the changes.
+
+### Quick Reference
+
+```bash
+# Run gameplay demo test (records video)
+npm run test:e2e -- --grep "gameplay demo"
+
+# Convert video to GIF
+ffmpeg -y -i "e2e/test-results/<test-folder>/video.webm" \
+  -vf "fps=12,scale=270:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer" \
+  -loop 0 e2e/screenshots/gameplay-demo.gif
+
+# Upload to GitHub release and get URL
+gh release create <tag> --title "Demo Assets" e2e/screenshots/gameplay-demo.gif
+# Or update existing release:
+gh release upload <tag> e2e/screenshots/gameplay-demo.gif --clobber
+```
+
+### Recording Video in E2E Tests
+
+Playwright can record video during tests. Create a dedicated demo test:
+
+```typescript
+// e2e/specs/gameplay-demo.spec.ts
+import { test } from '@playwright/test';
+
+// Enable video with portrait viewport (9:16 aspect ratio)
+test.use({
+  video: { mode: 'on', size: { width: 360, height: 640 } },
+  viewport: { width: 360, height: 640 },
+});
+
+test('complete level playthrough for demo video', async ({ page }) => {
+  // ... test actions that demonstrate the feature
+});
+```
+
+Videos are saved to `e2e/test-results/<test-name>/video.webm`.
+
+### Converting Video to GIF
+
+Use ffmpeg to convert .webm to optimized GIF:
+
+```bash
+ffmpeg -y -i input.webm \
+  -vf "fps=12,scale=270:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer" \
+  -loop 0 output.gif
+```
+
+Parameters:
+- `fps=12` - Frame rate (12 is smooth enough, keeps size small)
+- `scale=270:-1` - Width 270px, height auto (maintains aspect ratio)
+- `max_colors=128` - Reduce palette for smaller file size
+- `dither=bayer` - Better quality dithering
+
+Target GIF size: **under 1MB** for fast loading in PRs.
+
+### Hosting GIFs for PR Inline Display
+
+GitHub PRs can display inline GIFs. Host via GitHub Releases:
+
+```bash
+# Create a release with the GIF
+gh release create demo-v1.0.0 --title "Demo Assets" gameplay-demo.gif
+
+# Get the download URL
+gh release view demo-v1.0.0 --json assets --jq '.assets[0].url'
+# Returns: https://github.com/<owner>/<repo>/releases/download/demo-v1.0.0/gameplay-demo.gif
+```
+
+### Adding to PR Description
+
+Include the GIF in PR body using markdown:
+
+```markdown
+## Demo
+
+![Gameplay Demo](https://github.com/<owner>/<repo>/releases/download/<tag>/gameplay-demo.gif)
+```
+
+### PR Body Template
+
+```markdown
+## Summary
+- Brief description of changes
+
+## Demo
+
+![Feature Demo](https://github.com/.../.gif)
+
+## Test plan
+- [ ] Manual testing steps
+- [ ] E2E tests pass
+```
+
+### Screenshot-Only PRs
+
+For smaller changes, screenshots may suffice:
+
+```typescript
+// In E2E test
+await page.screenshot({
+  path: 'e2e/screenshots/feature-name.png',
+  fullPage: false,
+});
+```
+
+Screenshots in `e2e/screenshots/` can be committed to the repo and referenced directly.
+
 ## Notes
 
 - Entry HTML is at `src/index.html`
