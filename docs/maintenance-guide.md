@@ -82,6 +82,60 @@ Execute this guide periodically after major features to maintain code quality.
 - [ ] Verify error handling covers edge cases
 - [ ] Ensure no development-only code in production paths
 
+## 11. Code Architecture (Prevent Spaghetti Code)
+
+- [ ] Check file sizes - split files exceeding 400 lines into focused modules
+- [ ] Verify single responsibility - each system/class does one thing well
+- [ ] Review circular dependencies with `madge --circular src/`
+- [ ] Check import depth - avoid deep relative imports (`../../../..`)
+- [ ] Ensure clear layer separation:
+  - `shared/` has no imports from `scenes/` or `ui/`
+  - `scenes/` doesn't import from `ui/`
+  - Components contain only data, no logic
+- [ ] Review function complexity - break down functions with >3 levels of nesting
+- [ ] Check coupling - systems should communicate via events, not direct references
+- [ ] Verify no god objects (classes with too many responsibilities)
+
+## 12. Test Quality Review
+
+- [ ] Remove tests that only check implementation details (brittle tests)
+- [ ] Check for tests with no meaningful assertions (`expect(true).toBe(true)`)
+- [ ] Remove duplicate tests that verify the same behavior
+- [ ] Ensure tests fail when they should (not always passing)
+- [ ] Check test names describe expected behavior, not implementation
+- [ ] Remove tests for deleted/deprecated features
+- [ ] Verify mocks match actual API signatures
+- [ ] Check for flaky tests (run `npm run test -- --retry=3`)
+
+## 13. Bug Prevention Audit
+
+- [ ] Check for off-by-one errors in loops and array access
+- [ ] Verify null/undefined checks before property access
+- [ ] Review async/await - ensure all promises are awaited or handled
+- [ ] Check for race conditions in concurrent operations
+- [ ] Verify event listeners don't fire after component destruction
+- [ ] Check array mutations - no modifying arrays while iterating
+- [ ] Review boundary conditions (empty arrays, zero values, max values)
+- [ ] Check for division by zero possibilities
+- [ ] Verify state consistency after error recovery
+
+## 14. Final Validation
+
+Run all checks to ensure nothing is broken:
+
+```bash
+# Full validation suite
+npm run validate
+
+# E2E tests (catches integration issues)
+npm run test:e2e
+
+# Build check (catches production-only issues)
+npm run build
+```
+
+All commands must pass before maintenance is considered complete.
+
 ## Quick Commands
 
 | Command | Purpose |
