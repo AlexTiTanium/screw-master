@@ -169,7 +169,5 @@ Track items that need future attention:
 
 | Item | Location | Priority | Notes |
 |------|----------|----------|-------|
-| Win/stuck UI handlers | `GameScene.ts:219,229` | High | Currently just console.log |
-| System names in test harness | `renderSignature.ts:121` | Low | TODO comment |
-| Buffer tray layout constants | `GameScene.ts:74-82` | Medium | Should match TRAY_FRAME_LAYOUT pattern |
-| Component access helper | `BaseSystem.ts` | Medium | Could reduce `as unknown as` casts |
+| Win/stuck UI handlers | `GameScene.ts:219,229` | High | Currently just console.log - need actual UI |
+| Migrate systems to getComponents helper | Various systems | Low | `BaseSystem.getComponents<T>()` added - can migrate existing `as unknown as` casts |

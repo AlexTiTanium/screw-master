@@ -307,6 +307,8 @@ export interface ECSAccess {
   getEntityCount(): number;
   /** Check if an entity with the given ID exists */
   hasEntity(id: string): boolean;
+  /** Get names of all registered systems in the scene */
+  getSystems(): string[];
 }
 
 // ============================================================================

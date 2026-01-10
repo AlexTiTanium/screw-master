@@ -11,6 +11,7 @@ export {
   getTrayPositionForBucket,
   getCoverPositionForBucket,
 } from './trayFrameLayout';
+export { BUFFER_TRAY_LAYOUT } from './bufferTrayLayout';
 export { gameEvents } from './GameEventBus';
 export {
   registerAnimationLayer,

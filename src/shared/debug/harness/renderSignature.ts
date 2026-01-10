@@ -81,12 +81,14 @@ function entityToHashString(entity: EntitySnapshot): string {
  *
  * @param getEntities - Function that returns all entity snapshots
  * @param getSceneState - Function that returns current scene state
+ * @param getSystems - Optional function that returns system names
  * @returns Function that generates RenderSignature on each call
  *
  * @example
  * const getRenderSignature = createRenderSignatureGenerator(
  *   () => ecsAccess.getEntities(),
- *   () => sceneState
+ *   () => sceneState,
+ *   () => ecsAccess.getSystems()
  * );
  *
  * const sig = getRenderSignature();
@@ -94,7 +96,8 @@ function entityToHashString(entity: EntitySnapshot): string {
  */
 export function createRenderSignatureGenerator(
   getEntities: () => EntitySnapshot[],
-  getSceneState: () => 'running' | 'paused' | 'stopped'
+  getSceneState: () => 'running' | 'paused' | 'stopped',
+  getSystems?: () => string[]
 ): () => RenderSignature {
   return (): RenderSignature => {
     const entities = getEntities();
@@ -118,7 +121,7 @@ export function createRenderSignatureGenerator(
       frame: currentFrame,
       entityCount: entities.length,
       entities: sortedEntities,
-      systems: [], // TODO: Extract system names from Scene2D if accessible
+      systems: getSystems?.() ?? [],
       sceneState: getSceneState(),
       hash,
     };

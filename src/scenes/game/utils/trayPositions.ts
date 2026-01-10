@@ -1,6 +1,7 @@
 import type { Entity2D } from '@play-co/odie';
 import type { Position } from '@shared/types';
 import { TRAY_FRAME_LAYOUT, getSlotWorldPosition } from './trayFrameLayout';
+import { BUFFER_TRAY_LAYOUT } from './bufferTrayLayout';
 
 /**
  * Display positions for the 5 colored tray slots.
@@ -14,21 +15,6 @@ export const TRAY_DISPLAY_POSITIONS: Position[] =
  * Y position for hidden trays (below the visible tray frame).
  */
 export const TRAY_HIDDEN_Y = 450;
-
-/**
- * Layout coordinates for buffer tray slots.
- * Positions calculated from Figma (node 36:648):
- * - Frame position: x=150, y=438
- * - Slot offsets from Figma percentages converted to pixels
- * - Adjusted for center-anchored sprites (add 28, 35 for 56x70px displayed size)
- */
-const BUFFER_SLOTS: Position[] = [
-  { x: 257, y: 528 }, // Slot 0: top-left(229, 493) + center offset(28, 35)
-  { x: 409, y: 524 }, // Slot 1: top-left(381, 489) + center offset(28, 35)
-  { x: 540, y: 524 }, // Slot 2: top-left(512, 489) + center offset(28, 35)
-  { x: 676, y: 524 }, // Slot 3: top-left(648, 489) + center offset(28, 35)
-  { x: 821, y: 524 }, // Slot 4: top-left(793, 489) + center offset(28, 35)
-];
 
 /**
  * Tray sprite width for centering calculations.
@@ -76,15 +62,15 @@ export function getTraySlotPosition(
 ): Position {
   if (isBuffer) {
     // Buffer tray uses predefined slot positions
-    const slot = BUFFER_SLOTS[slotIndex];
+    const slot = BUFFER_TRAY_LAYOUT.slotPositions[slotIndex];
     if (slot) {
       return { x: slot.x, y: slot.y };
     }
     // Fallback for overflow (shouldn't happen with capacity 5)
-    const fallbackSlot = BUFFER_SLOTS[0];
+    const fallbackSlot = BUFFER_TRAY_LAYOUT.slotPositions[0];
     return {
-      x: (fallbackSlot?.x ?? 219) + slotIndex * 80,
-      y: fallbackSlot?.y ?? 470,
+      x: fallbackSlot.x + slotIndex * 80,
+      y: fallbackSlot.y,
     };
   }
 
@@ -109,14 +95,14 @@ export function getTraySlotPosition(
  * const pos = getBufferSlotPosition(0); // { x: 219, y: 470 }
  */
 export function getBufferSlotPosition(slotIndex: number): Position {
-  const slot = BUFFER_SLOTS[slotIndex];
+  const slot = BUFFER_TRAY_LAYOUT.slotPositions[slotIndex];
   if (slot) {
     return { x: slot.x, y: slot.y };
   }
-  // Fallback
-  const fallbackSlot = BUFFER_SLOTS[0];
+  // Fallback for out-of-range index
+  const fallbackSlot = BUFFER_TRAY_LAYOUT.slotPositions[0];
   return {
-    x: (fallbackSlot?.x ?? 219) + slotIndex * 80,
-    y: fallbackSlot?.y ?? 470,
+    x: fallbackSlot.x + slotIndex * 80,
+    y: fallbackSlot.y,
   };
 }
