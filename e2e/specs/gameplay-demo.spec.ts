@@ -24,18 +24,24 @@ test.describe('Gameplay Demo', () => {
     // Wait a moment for the level to fully render
     await page.waitForTimeout(500);
 
-    // Screw positions in the test level:
-    // Board 1 (200, 800): red (250, 850), blue (420, 850), green (335, 930)
-    // Board 2 (550, 800): yellow (685, 865), red (600, 995), blue (770, 995)
+    // Screw positions using centered coordinate system:
+    // Board 1 (walnut 270x260) at local (-140, 170) -> world (400, 1369), halfSize (135, 130)
+    // Board 2 (birch 270x260) at local (140, 170) -> world (680, 1369), halfSize (135, 130)
+    // Board 3 (mahogany 270x260) at local (-140, -100) -> world (400, 1099), halfSize (135, 130)
+    // Board 4 (pine 501x317) at local (-30, -250) -> world (510, 949), halfSize (250.5, 158.5)
+    //
+    // Screw world positions = boardWorld - halfSize + screwLocal
 
-    // Play sequence - tap screws in order to complete the level
+    // Play sequence - tap screws in order to demonstrate the coordinate system
     const screwSequence = [
-      { x: 250, y: 850, delay: 600 }, // Red screw -> red tray
-      { x: 420, y: 850, delay: 600 }, // Blue screw -> blue tray
-      { x: 685, y: 865, delay: 600 }, // Yellow screw -> buffer (hidden tray)
-      { x: 335, y: 930, delay: 600 }, // Green screw -> buffer (hidden tray)
-      { x: 600, y: 995, delay: 600 }, // Red screw -> red tray
-      { x: 770, y: 995, delay: 800 }, // Blue screw -> blue tray (win!)
+      { x: 315, y: 1289, delay: 800 }, // Red on Board 1 -> red tray
+      { x: 485, y: 1289, delay: 800 }, // Blue on Board 1 -> blue tray
+      { x: 680, y: 1304, delay: 800 }, // Yellow on Board 2 -> buffer (hidden)
+      { x: 400, y: 1369, delay: 800 }, // Green on Board 1 -> buffer (hidden)
+      { x: 595, y: 1434, delay: 800 }, // Red on Board 2 -> red tray
+      { x: 765, y: 1434, delay: 800 }, // Blue on Board 2 -> blue tray
+      { x: 315, y: 1019, delay: 800 }, // Green on Board 3 -> buffer
+      { x: 485, y: 1019, delay: 800 }, // Yellow on Board 3 -> buffer
     ];
 
     for (const screw of screwSequence) {
@@ -47,8 +53,8 @@ test.describe('Gameplay Demo', () => {
       await page.waitForTimeout(screw.delay);
     }
 
-    // Wait a moment to show the win state
-    await page.waitForTimeout(1000);
+    // Wait a moment to show the final state
+    await page.waitForTimeout(1500);
 
     // The video will be saved automatically by Playwright
   });
