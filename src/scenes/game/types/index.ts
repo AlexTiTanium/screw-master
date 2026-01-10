@@ -4,3 +4,5 @@ export type {
   BufferTrayComponentAccess,
   GameStateComponentAccess,
 } from './component-access';
+
+export { getComponents } from './component-access';

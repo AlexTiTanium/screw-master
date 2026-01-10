@@ -2,14 +2,32 @@
  * Type interfaces for accessing ODIE component data.
  *
  * ODIE's Entity.c is loosely typed, so we use these interfaces
- * with type assertions to get proper typing for component access.
+ * with the BaseSystem.getComponents helper to get proper typing.
  *
  * @example
- * const screw = (entity.c as unknown as ScrewComponentAccess).screw;
+ * // In a system that extends BaseSystem:
+ * const screw = this.getComponents<ScrewComponentAccess>(entity).screw;
  */
 
+import type { Entity } from '@play-co/odie';
 import type { ScrewColor } from '@shared/types';
 import type { ScrewState, GamePhase } from '../components';
+
+/**
+ * Get typed component access from an entity.
+ *
+ * This is a standalone helper for use outside of BaseSystem (e.g., in tests).
+ * Systems should use the protected BaseSystem.getComponents method instead.
+ *
+ * @param entity - The entity to get components from
+ * @returns The entity's component map cast to the specified type
+ * @example
+ * const screw = getComponents<ScrewComponentAccess>(entity).screw;
+ */
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- T is intentionally only in return type for type casting
+export function getComponents<T>(entity: Entity): T {
+  return entity.c as unknown as T;
+}
 
 export interface ScrewComponentAccess {
   screw: {

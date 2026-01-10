@@ -83,7 +83,7 @@ export class ScrewPlacementSystem extends BaseSystem {
   private findColoredTrayTarget(color: ScrewColor): PlacementTarget | null {
     const coloredTrays = this.getEntities('coloredTrays');
     const matchingTray = coloredTrays.find((entity) => {
-      const tray = (entity.c as unknown as TrayComponentAccess).tray;
+      const tray = this.getComponents<TrayComponentAccess>(entity).tray;
       return (
         tray.color === color &&
         tray.displayOrder < 2 &&
@@ -93,7 +93,7 @@ export class ScrewPlacementSystem extends BaseSystem {
     });
 
     if (!matchingTray) return null;
-    const tray = (matchingTray.c as unknown as TrayComponentAccess).tray;
+    const tray = this.getComponents<TrayComponentAccess>(matchingTray).tray;
     return { type: 'colored', tray: matchingTray, slotIndex: tray.screwCount };
   }
 
@@ -107,8 +107,8 @@ export class ScrewPlacementSystem extends BaseSystem {
     const bufferTray = this.getFirstEntity('bufferTrays');
     if (!bufferTray) return null;
 
-    const buffer = (bufferTray.c as unknown as BufferTrayComponentAccess)
-      .bufferTray;
+    const buffer =
+      this.getComponents<BufferTrayComponentAccess>(bufferTray).bufferTray;
     if (buffer.screwIds.length >= buffer.capacity) return null;
 
     return {
@@ -130,16 +130,17 @@ export class ScrewPlacementSystem extends BaseSystem {
    * system.reserveSlot(target, screwEntity);
    */
   reserveSlot(target: PlacementTarget, screwEntity: Entity): void {
-    const screw = (screwEntity.c as unknown as ScrewComponentAccess).screw;
+    const screw = this.getComponents<ScrewComponentAccess>(screwEntity).screw;
 
     if (target.type === 'colored') {
       // Increment colored tray count
-      const tray = (target.tray.c as unknown as TrayComponentAccess).tray;
+      const tray = this.getComponents<TrayComponentAccess>(target.tray).tray;
       tray.screwCount++;
     } else {
       // Add to buffer tray FIFO list
-      const buffer = (target.tray.c as unknown as BufferTrayComponentAccess)
-        .bufferTray;
+      const buffer = this.getComponents<BufferTrayComponentAccess>(
+        target.tray
+      ).bufferTray;
       buffer.screwIds.push(String(screwEntity.UID));
     }
 
@@ -163,7 +164,7 @@ export class ScrewPlacementSystem extends BaseSystem {
     const coloredTrays = this.getEntities('coloredTrays');
     return (
       coloredTrays.find((entity) => {
-        const tray = (entity.c as unknown as TrayComponentAccess).tray;
+        const tray = this.getComponents<TrayComponentAccess>(entity).tray;
         return (
           tray.color === color &&
           tray.displayOrder < 2 && // Only visible trays
@@ -200,7 +201,7 @@ export class ScrewPlacementSystem extends BaseSystem {
     const screws = this.getEntities('screws');
 
     return screws.some((entity) => {
-      const screw = (entity.c as unknown as ScrewComponentAccess).screw;
+      const screw = this.getComponents<ScrewComponentAccess>(entity).screw;
       if (screw.state !== 'inBoard' || screw.isAnimating) {
         return false;
       }

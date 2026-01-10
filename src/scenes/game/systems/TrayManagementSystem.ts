@@ -100,9 +100,9 @@ export class TrayManagementSystem extends BaseSystem {
   ): void => {
     const screw = event.screwEntity;
     // Get the screw's tray entity ID
-    const screwComponent = (
-      screw.c as unknown as { screw: { trayEntityId: string; state: string } }
-    ).screw;
+    const screwComponent = this.getComponents<{
+      screw: { trayEntityId: string; state: string };
+    }>(screw).screw;
 
     // Only check colored trays (not buffer)
     if (screwComponent.state !== 'inTray') {
@@ -114,7 +114,7 @@ export class TrayManagementSystem extends BaseSystem {
     const tray = this.findTrayByUID(trayEntityId);
     if (!tray) return;
 
-    const trayComponent = (tray.c as unknown as TrayComponentAccess).tray;
+    const trayComponent = this.getComponents<TrayComponentAccess>(tray).tray;
 
     // Check if tray is now full
     if (trayComponent.screwCount >= trayComponent.capacity) {
@@ -167,8 +167,8 @@ export class TrayManagementSystem extends BaseSystem {
       return;
     }
 
-    const fullTrayComponent = (fullTray.c as unknown as TrayComponentAccess)
-      .tray;
+    const fullTrayComponent =
+      this.getComponents<TrayComponentAccess>(fullTray).tray;
     fullTrayComponent.isAnimating = true;
 
     const sortedTrays = this.getSortedTrays();
@@ -199,8 +199,10 @@ export class TrayManagementSystem extends BaseSystem {
   private getSortedTrays(): Entity[] {
     const allTrays = this.getEntities('trays');
     return allTrays.sort((a, b) => {
-      const aOrder = (a.c as unknown as TrayComponentAccess).tray.displayOrder;
-      const bOrder = (b.c as unknown as TrayComponentAccess).tray.displayOrder;
+      const aOrder =
+        this.getComponents<TrayComponentAccess>(a).tray.displayOrder;
+      const bOrder =
+        this.getComponents<TrayComponentAccess>(b).tray.displayOrder;
       return aOrder - bOrder;
     });
   }
@@ -218,7 +220,7 @@ export class TrayManagementSystem extends BaseSystem {
     fullTray: Entity
   ): Entity | undefined {
     return sortedTrays.find((t) => {
-      const comp = (t.c as unknown as TrayComponentAccess).tray;
+      const comp = this.getComponents<TrayComponentAccess>(t).tray;
       return comp.displayOrder >= 2 && t !== fullTray;
     });
   }
@@ -249,7 +251,7 @@ export class TrayManagementSystem extends BaseSystem {
     fullTray: Entity
   ): Entity[] {
     return sortedTrays.filter((t) => {
-      const comp = (t.c as unknown as TrayComponentAccess).tray;
+      const comp = this.getComponents<TrayComponentAccess>(t).tray;
       return (
         comp.displayOrder > currentDisplayOrder &&
         comp.displayOrder < 2 &&
@@ -290,7 +292,7 @@ export class TrayManagementSystem extends BaseSystem {
   private emitShiftEvents(traysToShift: Entity[]): Promise<void>[] {
     const promises: Promise<void>[] = [];
     for (const tray of traysToShift) {
-      const comp = (tray.c as unknown as TrayComponentAccess).tray;
+      const comp = this.getComponents<TrayComponentAccess>(tray).tray;
       const newOrder = comp.displayOrder - 1;
       comp.displayOrder = newOrder;
       comp.isAnimating = true;
@@ -316,7 +318,8 @@ export class TrayManagementSystem extends BaseSystem {
   ): Promise<void> | null {
     if (!nextHiddenTray) return null;
 
-    const nextComp = (nextHiddenTray.c as unknown as TrayComponentAccess).tray;
+    const nextComp =
+      this.getComponents<TrayComponentAccess>(nextHiddenTray).tray;
     const newDisplayOrder = 1;
     nextComp.displayOrder = newDisplayOrder;
     nextComp.isAnimating = true;
@@ -347,13 +350,13 @@ export class TrayManagementSystem extends BaseSystem {
     fullTrayComponent.isAnimating = false;
 
     for (const tray of traysToShift) {
-      const comp = (tray.c as unknown as TrayComponentAccess).tray;
+      const comp = this.getComponents<TrayComponentAccess>(tray).tray;
       comp.isAnimating = false;
     }
 
     if (nextHiddenTray) {
-      const nextComp = (nextHiddenTray.c as unknown as TrayComponentAccess)
-        .tray;
+      const nextComp =
+        this.getComponents<TrayComponentAccess>(nextHiddenTray).tray;
       nextComp.isAnimating = false;
       gameEvents.emit('tray:revealed', {
         trayEntity: nextHiddenTray,

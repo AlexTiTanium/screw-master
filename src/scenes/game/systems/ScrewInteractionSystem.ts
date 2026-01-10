@@ -103,7 +103,7 @@ export class ScrewInteractionSystem extends BaseSystem {
    * this.handleScrewTap(screwEntity);
    */
   private handleScrewTap(entity: Entity): void {
-    const screw = (entity.c as unknown as ScrewComponentAccess).screw;
+    const screw = this.getComponents<ScrewComponentAccess>(entity).screw;
     if (!this.canInteractWithScrew(screw)) return;
 
     const placementSystem = this.scene.getSystem(ScrewPlacementSystem);
@@ -134,9 +134,8 @@ export class ScrewInteractionSystem extends BaseSystem {
 
     const gameStateEntity = this.getFirstEntity('gameState');
     if (gameStateEntity) {
-      const gameState = (
-        gameStateEntity.c as unknown as GameStateComponentAccess
-      ).gameState;
+      const gameState =
+        this.getComponents<GameStateComponentAccess>(gameStateEntity).gameState;
       if (gameState.phase !== 'playing') return false;
     }
     return true;

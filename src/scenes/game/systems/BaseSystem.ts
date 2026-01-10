@@ -174,10 +174,6 @@ export abstract class BaseSystem implements System<unknown, Scene2D> {
    * @example
    * import type { ScrewComponentAccess } from '../types/component-access';
    *
-   * // Instead of:
-   * const screw = (entity.c as unknown as ScrewComponentAccess).screw;
-   *
-   * // Use:
    * const screw = this.getComponents<ScrewComponentAccess>(entity).screw;
    */
   protected getComponents<T>(entity: Entity, _typeHint?: T): T {

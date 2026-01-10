@@ -239,7 +239,7 @@ export class AnimationSystem extends BaseSystem {
     timeline: gsap.core.Timeline
   ): Promise<void> {
     const { targetTray, slotIndex, isBuffer } = event;
-    const screw = (entity.c as unknown as ScrewComponentAccess).screw;
+    const screw = this.getComponents<ScrewComponentAccess>(entity).screw;
     await this.swapToLongScrew(sprite, screw.color);
 
     const startPos = { x: entity.position.x, y: entity.position.y };
@@ -276,7 +276,7 @@ export class AnimationSystem extends BaseSystem {
   ): { x: number; y: number } {
     const trayCapacity = isBuffer
       ? undefined
-      : (targetTray.c as unknown as TrayComponentAccess).tray.capacity;
+      : this.getComponents<TrayComponentAccess>(targetTray).tray.capacity;
     return getTraySlotPosition(
       targetTray as Entity2D,
       slotIndex,
@@ -431,7 +431,7 @@ export class AnimationSystem extends BaseSystem {
     targetTray?: Entity,
     slotIndex?: number
   ): void {
-    const screw = (screwEntity.c as unknown as ScrewComponentAccess).screw;
+    const screw = this.getComponents<ScrewComponentAccess>(screwEntity).screw;
     screw.state = isBuffer ? 'inBuffer' : 'inTray';
     screw.isAnimating = false;
 
@@ -556,7 +556,7 @@ export class AnimationSystem extends BaseSystem {
     targetTray: Entity,
     slotIndex: number
   ): void {
-    const screw = (screwEntity.c as unknown as ScrewComponentAccess).screw;
+    const screw = this.getComponents<ScrewComponentAccess>(screwEntity).screw;
     screw.state = 'inTray';
     screw.trayEntityId = String(targetTray.UID);
     screw.slotIndex = slotIndex;

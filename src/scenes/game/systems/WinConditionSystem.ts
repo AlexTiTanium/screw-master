@@ -55,8 +55,8 @@ export class WinConditionSystem extends BaseSystem {
     const gameStateEntity = this.getFirstEntity('gameState');
     if (!gameStateEntity) return;
 
-    const gameState = (gameStateEntity.c as unknown as GameStateComponentAccess)
-      .gameState;
+    const gameState =
+      this.getComponents<GameStateComponentAccess>(gameStateEntity).gameState;
 
     // Skip if game is already over
     if (gameState.phase !== 'playing') return;
@@ -105,7 +105,8 @@ export class WinConditionSystem extends BaseSystem {
   private countInBoardScrews(): number {
     return this.getEntities('screws').filter(
       (entity) =>
-        (entity.c as unknown as ScrewComponentAccess).screw.state === 'inBoard'
+        this.getComponents<ScrewComponentAccess>(entity).screw.state ===
+        'inBoard'
     ).length;
   }
 
@@ -128,8 +129,8 @@ export class WinConditionSystem extends BaseSystem {
     const gameStateEntity = this.getFirstEntity('gameState');
     if (!gameStateEntity) return;
 
-    const gameState = (gameStateEntity.c as unknown as GameStateComponentAccess)
-      .gameState;
+    const gameState =
+      this.getComponents<GameStateComponentAccess>(gameStateEntity).gameState;
 
     // Skip if game is already over
     if (gameState.phase !== 'playing') return;

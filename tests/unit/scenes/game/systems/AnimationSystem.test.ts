@@ -4,6 +4,7 @@ import type { Entity, Entity2D, QueryResults } from '@play-co/odie';
 
 import { AnimationSystem } from '@scenes/game/systems/AnimationSystem';
 import { gameEvents } from '@scenes/game/utils';
+import { getComponents } from '@scenes/game/types';
 import { ScrewColor } from '@shared/types';
 
 // Mock GSAP
@@ -266,8 +267,8 @@ describe('AnimationSystem', () => {
 
       system['completeRemoval'](screw, false);
 
-      const screwComponent = (
-        screw.c as unknown as { screw: { state: string } }
+      const screwComponent = getComponents<{ screw: { state: string } }>(
+        screw
       ).screw;
       expect(screwComponent.state).toBe('inTray');
     });
@@ -277,22 +278,22 @@ describe('AnimationSystem', () => {
 
       system['completeRemoval'](screw, true);
 
-      const screwComponent = (
-        screw.c as unknown as { screw: { state: string } }
+      const screwComponent = getComponents<{ screw: { state: string } }>(
+        screw
       ).screw;
       expect(screwComponent.state).toBe('inBuffer');
     });
 
     it('should reset isAnimating flag', () => {
       const screw = createMockScrewEntity(1, ScrewColor.Red, 'dragging');
-      (
-        screw.c as unknown as { screw: { isAnimating: boolean } }
+      getComponents<{ screw: { isAnimating: boolean } }>(
+        screw
       ).screw.isAnimating = true;
 
       system['completeRemoval'](screw, false);
 
-      const screwComponent = (
-        screw.c as unknown as { screw: { isAnimating: boolean } }
+      const screwComponent = getComponents<{ screw: { isAnimating: boolean } }>(
+        screw
       ).screw;
       expect(screwComponent.isAnimating).toBe(false);
     });
@@ -316,8 +317,8 @@ describe('AnimationSystem', () => {
 
       system['completeTransfer'](screw, tray, 1);
 
-      const screwComponent = (
-        screw.c as unknown as { screw: { state: string } }
+      const screwComponent = getComponents<{ screw: { state: string } }>(
+        screw
       ).screw;
       expect(screwComponent.state).toBe('inTray');
     });
@@ -328,26 +329,24 @@ describe('AnimationSystem', () => {
 
       system['completeTransfer'](screw, tray, 2);
 
-      const screwComponent = (
-        screw.c as unknown as {
-          screw: { trayEntityId: string; slotIndex: number };
-        }
-      ).screw;
+      const screwComponent = getComponents<{
+        screw: { trayEntityId: string; slotIndex: number };
+      }>(screw).screw;
       expect(screwComponent.trayEntityId).toBe('10');
       expect(screwComponent.slotIndex).toBe(2);
     });
 
     it('should reset isAnimating flag', () => {
       const screw = createMockScrewEntity(1, ScrewColor.Red, 'inBuffer');
-      (
-        screw.c as unknown as { screw: { isAnimating: boolean } }
+      getComponents<{ screw: { isAnimating: boolean } }>(
+        screw
       ).screw.isAnimating = true;
       const tray = createMockTrayEntity(10, ScrewColor.Red);
 
       system['completeTransfer'](screw, tray, 0);
 
-      const screwComponent = (
-        screw.c as unknown as { screw: { isAnimating: boolean } }
+      const screwComponent = getComponents<{ screw: { isAnimating: boolean } }>(
+        screw
       ).screw;
       expect(screwComponent.isAnimating).toBe(false);
     });

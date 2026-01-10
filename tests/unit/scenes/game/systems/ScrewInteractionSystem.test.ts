@@ -5,6 +5,7 @@ import type { Entity, Entity2D, QueryResults } from '@play-co/odie';
 import { ScrewInteractionSystem } from '@scenes/game/systems/ScrewInteractionSystem';
 import { ScrewPlacementSystem } from '@scenes/game/systems/ScrewPlacementSystem';
 import { gameEvents } from '@scenes/game/utils';
+import { getComponents } from '@scenes/game/types';
 import { ScrewColor } from '@shared/types';
 
 // Mock TouchInput
@@ -489,11 +490,9 @@ describe('ScrewInteractionSystem', () => {
 
       system['handleScrewTap'](screw);
 
-      const screwComponent = (
-        screw.c as unknown as {
-          screw: { isAnimating: boolean; state: string };
-        }
-      ).screw;
+      const screwComponent = getComponents<{
+        screw: { isAnimating: boolean; state: string };
+      }>(screw).screw;
       expect(screwComponent.isAnimating).toBe(true);
       expect(screwComponent.state).toBe('dragging');
     });

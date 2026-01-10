@@ -86,8 +86,8 @@ export class AutoTransferSystem extends BaseSystem {
     const bufferTray = this.getFirstEntity('bufferTrays');
     if (!bufferTray) return;
 
-    const buffer = (bufferTray.c as unknown as BufferTrayComponentAccess)
-      .bufferTray;
+    const buffer =
+      this.getComponents<BufferTrayComponentAccess>(bufferTray).bufferTray;
     if (buffer.screwIds.length === 0) return;
 
     // Get placement system for finding available trays
@@ -98,7 +98,7 @@ export class AutoTransferSystem extends BaseSystem {
       const screwEntity = placementSystem.findScrewByUid(screwId);
       if (!screwEntity) continue;
 
-      const screw = (screwEntity.c as unknown as ScrewComponentAccess).screw;
+      const screw = this.getComponents<ScrewComponentAccess>(screwEntity).screw;
 
       // Skip if screw is already animating
       if (screw.isAnimating) continue;
@@ -129,10 +129,10 @@ export class AutoTransferSystem extends BaseSystem {
   ): void {
     this.isTransferring = true;
 
-    const buffer = (bufferTray.c as unknown as BufferTrayComponentAccess)
-      .bufferTray;
-    const tray = (targetTray.c as unknown as TrayComponentAccess).tray;
-    const screw = (screwEntity.c as unknown as ScrewComponentAccess).screw;
+    const buffer =
+      this.getComponents<BufferTrayComponentAccess>(bufferTray).bufferTray;
+    const tray = this.getComponents<TrayComponentAccess>(targetTray).tray;
+    const screw = this.getComponents<ScrewComponentAccess>(screwEntity).screw;
 
     // Remove from buffer
     const screwUid = String(screwEntity.UID);

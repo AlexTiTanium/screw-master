@@ -119,7 +119,69 @@ Execute this guide periodically after major features to maintain code quality.
 - [ ] Check for division by zero possibilities
 - [ ] Verify state consistency after error recovery
 
-## 14. Final Validation
+## 14. Log Cleanup
+
+Remove unnecessary logging that clutters output and slows performance.
+
+**Game code (`src/`):**
+- [ ] Remove debug `console.log` statements (use conditional debug utility)
+- [ ] Keep only error logs for critical failures
+- [ ] Ensure no verbose logging in hot paths (update loops, animations)
+
+**Unit tests (`tests/`):**
+- [ ] Remove `console.log` from test files (use test assertions instead)
+- [ ] Silence noisy mocks that log during tests
+- [ ] Check for leftover debug prints in test utilities
+
+**E2E tests (`e2e/`):**
+- [ ] Remove debug logging from page interactions
+- [ ] Keep only logs that help diagnose test failures
+- [ ] Ensure screenshots/videos capture state instead of logs
+
+```bash
+# Find all console statements
+grep -rn "console\.\(log\|warn\|info\|debug\)" src/ tests/ e2e/
+
+# Find debug-only code blocks
+grep -rn "if.*DEBUG\|if.*dev" src/
+```
+
+## 15. Pattern Refactoring
+
+Identify and consolidate repeated code patterns.
+
+**Detection:**
+- [ ] Search for similar code blocks (3+ lines repeated in multiple files)
+- [ ] Find copy-pasted logic with minor variations
+- [ ] Identify repeated conditionals or switch statements
+- [ ] Check for similar error handling patterns
+
+**Common patterns to consolidate:**
+- [ ] Entity creation patterns → extract to factory helpers
+- [ ] Component access patterns → use `BaseSystem.getComponents<T>()`
+- [ ] Event emission patterns → create typed event helpers
+- [ ] Position/layout calculations → extract to geometry utilities
+- [ ] Validation logic → create shared validators
+
+**Refactoring checklist:**
+- [ ] Extract repeated code to shared utility functions
+- [ ] Create base classes for similar system behaviors
+- [ ] Use generics to handle type variations
+- [ ] Replace inline callbacks with named functions
+- [ ] Consolidate similar test setup into fixtures
+
+```bash
+# Find potential duplicates (similar function signatures)
+grep -rn "function\s\+\w\+\s*(.*)" src/ | sort | uniq -d
+
+# Find repeated import patterns
+grep -rn "^import.*from" src/ | cut -d: -f2 | sort | uniq -c | sort -rn | head -20
+
+# Find similar method chains
+grep -rn "\.\w\+().\w\+().\w\+()" src/
+```
+
+## 16. Final Validation
 
 Run all checks to ensure nothing is broken:
 
