@@ -28,7 +28,7 @@ All `@play-co` packages are installed from GitHub Packages registry.
 | Package | Version | Purpose |
 |---------|---------|---------|
 | `@play-co/astro` | 11.2.0 | Application framework (screens, plugins) |
-| `@play-co/odie` | next branch | ECS game framework (scenes, entities, components, systems) |
+| `@play-co/odie` | 13.3.x (pinned) | ECS game framework (scenes, entities, components, systems) |
 | `@play-co/pixijs` | 8.14.2 | PixiJS v8 fork (aliased as `pixi.js`) |
 | `@play-co/commons` | ^2.0.0 | Shared utilities |
 

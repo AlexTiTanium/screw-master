@@ -97,21 +97,26 @@ export class WinConditionSystem extends BaseSystem {
   }
 
   /**
+   * Count how many screws are still in the board.
+   * @returns Number of screws with state 'inBoard'
+   * @example
+   * const remaining = this.countInBoardScrews();
+   */
+  private countInBoardScrews(): number {
+    return this.getEntities('screws').filter(
+      (entity) =>
+        (entity.c as unknown as ScrewComponentAccess).screw.state === 'inBoard'
+    ).length;
+  }
+
+  /**
    * Check if all screws have been removed from the puzzle.
    * @returns True if no screws remain in the board
    * @example
    * const allRemoved = this.checkAllScrewsRemoved();
    */
   private checkAllScrewsRemoved(): boolean {
-    const screws = this.getEntities('screws');
-
-    // Count screws still in board
-    const inBoardCount = screws.filter(
-      (entity) =>
-        (entity.c as unknown as ScrewComponentAccess).screw.state === 'inBoard'
-    ).length;
-
-    return inBoardCount === 0;
+    return this.countInBoardScrews() === 0;
   }
 
   /**
@@ -133,16 +138,8 @@ export class WinConditionSystem extends BaseSystem {
     const placementSystem = this.scene.getSystem(ScrewPlacementSystem);
 
     if (!placementSystem.hasValidMoves()) {
-      // Check if there are still screws in the board
-      const screws = this.getEntities('screws');
-      const inBoardCount = screws.filter(
-        (entity) =>
-          (entity.c as unknown as ScrewComponentAccess).screw.state ===
-          'inBoard'
-      ).length;
-
       // Only stuck if there are screws remaining
-      if (inBoardCount > 0) {
+      if (this.countInBoardScrews() > 0) {
         gameState.phase = 'stuck';
         gameEvents.emit('game:stuck');
       }

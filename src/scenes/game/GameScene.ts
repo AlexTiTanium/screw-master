@@ -166,7 +166,6 @@ export class GameScene {
     await this.createBackground();
     await this.createTrayArea();
     await this.createBufferTray();
-    await this.createPuzzleArea();
     await this.createRestartButton();
 
     // Fix z-ordering: Move View2DSystem's entity container above puzzleLayer
@@ -475,16 +474,6 @@ export class GameScene {
     const frame = new Sprite(frameTexture);
     frame.position.set(LAYOUT.bufferTrayFrame.x, LAYOUT.bufferTrayFrame.y);
     this.uiLayer.addChild(frame);
-  }
-
-  /**
-   * Creates the puzzle area with boards and screws.
-   * This will be populated based on level data in the future.
-   * @private
-   */
-  private async createPuzzleArea(): Promise<void> {
-    // Puzzle area will be populated with parts and screws when loading a level
-    // For now, just set up the container structure
   }
 
   /**
