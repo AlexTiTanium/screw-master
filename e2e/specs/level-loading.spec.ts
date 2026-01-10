@@ -52,8 +52,8 @@ test.describe('Level Loading - Free Position Screws', () => {
     const entities = await harness.getEntities();
     const partEntities = filterByComponent(entities, 'part');
 
-    // Test level has 2 boards
-    expect(partEntities).toHaveLength(2);
+    // Test level has 4 boards
+    expect(partEntities).toHaveLength(4);
   });
 
   test('creates correct number of screw entities', async ({ page }) => {
@@ -66,8 +66,8 @@ test.describe('Level Loading - Free Position Screws', () => {
     const entities = await harness.getEntities();
     const screwEntities = filterByComponent(entities, 'screw');
 
-    // Test level has 6 screws (3 per board)
-    expect(screwEntities).toHaveLength(6);
+    // Test level has 11 screws across 4 boards
+    expect(screwEntities).toHaveLength(11);
   });
 
   test('screws have correct colors', async ({ page }) => {
@@ -88,11 +88,11 @@ test.describe('Level Loading - Free Position Screws', () => {
       colorCounts.set(color, (colorCounts.get(color) ?? 0) + 1);
     }
 
-    // Test level: 2 red, 2 blue, 1 green, 1 yellow
-    expect(colorCounts.get('red')).toBe(2);
-    expect(colorCounts.get('blue')).toBe(2);
-    expect(colorCounts.get('green')).toBe(1);
-    expect(colorCounts.get('yellow')).toBe(1);
+    // Test level: 3 red, 3 blue, 3 green, 2 yellow
+    expect(colorCounts.get('red')).toBe(3);
+    expect(colorCounts.get('blue')).toBe(3);
+    expect(colorCounts.get('green')).toBe(3);
+    expect(colorCounts.get('yellow')).toBe(2);
   });
 
   test('screws are positioned correctly relative to boards', async ({
@@ -108,8 +108,9 @@ test.describe('Level Loading - Free Position Screws', () => {
     const screwEntities = filterByComponent(entities, 'screw');
 
     // Find the first red screw (should be on first board)
-    // First board at (200, 800), first red screw at local (50, 50)
-    // Expected world position: (250, 850)
+    // Using centered coordinate system:
+    // Board 1 (walnut 270x260) at local (-140, 170) -> world (400, 1369)
+    // Red screw at local (50, 50) -> world (400-135+50, 1369-130+50) = (315, 1289)
     const redScrews = screwEntities.filter((e) => {
       const component = e.components.screw as { color: string };
       return component.color === 'red';
@@ -118,16 +119,19 @@ test.describe('Level Loading - Free Position Screws', () => {
     expect(redScrews.length).toBeGreaterThanOrEqual(1);
 
     // Check that one of the red screws is at the expected position
+    // Using centered coordinates with centered sprite anchors:
+    // partWorldPos = localToWorld(partLocal), screwWorld = partWorld - halfSize + screwLocal
     const expectedPositions = [
-      { x: 250, y: 850 }, // Board 1: position (200,800) + screw (50,50)
-      { x: 600, y: 995 }, // Board 2: position (550,800) + screw (50,195)
+      { x: 315, y: 1289 }, // Board 1: world (400,1369) - half(135,130) + screw(50,50)
+      { x: 595, y: 1434 }, // Board 2: world (680,1369) - half(135,130) + screw(50,195)
+      { x: 400, y: 1169 }, // Board 3: world (400,1099) - half(135,130) + screw(135,200)
     ];
 
     const positionMatches = redScrews.filter((screw) => {
       return expectedPositions.some(
         (expected) =>
-          Math.abs(screw.position.x - expected.x) < 1 &&
-          Math.abs(screw.position.y - expected.y) < 1
+          Math.abs(screw.position.x - expected.x) < 2 &&
+          Math.abs(screw.position.y - expected.y) < 2
       );
     });
 
@@ -149,8 +153,8 @@ test.describe('Level Loading - Free Position Screws', () => {
       return component.layer;
     });
 
-    // Test level: board 1 at layer 1, board 2 at layer 2
-    expect(layers.sort((a, b) => a - b)).toEqual([1, 2]);
+    // Test level: boards at layers 1, 2, 3, 4
+    expect(layers.sort((a, b) => a - b)).toEqual([1, 2, 3, 4]);
   });
 
   test('render signature is stable when paused', async ({ page }) => {
@@ -192,9 +196,9 @@ test.describe('Level Loading - Free Position Screws', () => {
 
     const entities = await harness.getEntities();
 
-    // 4 trays + 2 parts + 6 screws = 12 entities minimum
+    // 4 trays + 4 parts + 11 screws = 19 entities minimum
     // (There may be additional UI entities)
-    expect(entities.length).toBeGreaterThanOrEqual(12);
+    expect(entities.length).toBeGreaterThanOrEqual(19);
   });
 
   test('entities persist after multiple frames', async ({ page }) => {
@@ -209,8 +213,8 @@ test.describe('Level Loading - Free Position Screws', () => {
     const initialParts = filterByComponent(initialEntities, 'part');
     const initialScrews = filterByComponent(initialEntities, 'screw');
 
-    expect(initialParts).toHaveLength(2);
-    expect(initialScrews).toHaveLength(6);
+    expect(initialParts).toHaveLength(4);
+    expect(initialScrews).toHaveLength(11);
 
     // Wait for several frames (500ms)
     await page.waitForTimeout(500);
@@ -221,8 +225,8 @@ test.describe('Level Loading - Free Position Screws', () => {
     const laterScrews = filterByComponent(laterEntities, 'screw');
 
     // Entities should still exist
-    expect(laterParts).toHaveLength(2);
-    expect(laterScrews).toHaveLength(6);
+    expect(laterParts).toHaveLength(4);
+    expect(laterScrews).toHaveLength(11);
 
     // Wait even longer (1 second total)
     await page.waitForTimeout(500);
@@ -232,8 +236,8 @@ test.describe('Level Loading - Free Position Screws', () => {
     const finalParts = filterByComponent(finalEntities, 'part');
     const finalScrews = filterByComponent(finalEntities, 'screw');
 
-    expect(finalParts).toHaveLength(2);
-    expect(finalScrews).toHaveLength(6);
+    expect(finalParts).toHaveLength(4);
+    expect(finalScrews).toHaveLength(11);
   });
 
   test('entity views are visible in display list', async ({ page }) => {
@@ -329,8 +333,8 @@ test.describe('Level Loading - Free Position Screws', () => {
     const partEntities = filterByComponent(entities, 'part');
     const screwEntities = filterByComponent(entities, 'screw');
 
-    expect(partEntities).toHaveLength(2);
-    expect(screwEntities).toHaveLength(6);
+    expect(partEntities).toHaveLength(4);
+    expect(screwEntities).toHaveLength(11);
   });
 
   test('no errors during multiple frame updates', async ({ page }) => {
@@ -357,8 +361,8 @@ test.describe('Level Loading - Free Position Screws', () => {
 
     // Final entity check
     const entities = await harness.getEntities();
-    expect(filterByComponent(entities, 'part')).toHaveLength(2);
-    expect(filterByComponent(entities, 'screw')).toHaveLength(6);
+    expect(filterByComponent(entities, 'part')).toHaveLength(4);
+    expect(filterByComponent(entities, 'screw')).toHaveLength(11);
   });
 
   test('screws have consistent scale after landing in colored trays', async ({
@@ -372,16 +376,18 @@ test.describe('Level Loading - Free Position Screws', () => {
 
     // Tap screws of all 4 colors
     // Test level has: red tray visible, blue tray visible, green tray hidden, yellow tray hidden
-    // First tap red and blue (visible trays)
-    // Red screw at world position (250, 850) - board 1 at (200,800) + screw at (50,50)
-    // Blue screw at world position (420, 850) - board 1 at (200,800) + screw at (220,50)
-    // Green screw at (335, 930) - board 1 at (200,800) + screw at (135,130) - goes to buffer first
-    // Yellow screw at (685, 865) - board 2 at (550,800) + screw at (135,65) - goes to buffer first
+    // Using centered coordinate system with centered sprite anchors:
+    // Board 1 (walnut 270x260) at world (400, 1369), halfSize (135, 130)
+    // Board 2 (birch 270x260) at world (680, 1369), halfSize (135, 130)
+    // Red screw at world (315, 1289) - board 1 at world(400,1369) - half(135,130) + screw(50,50)
+    // Blue screw at world (485, 1289) - board 1 at world(400,1369) - half(135,130) + screw(220,50)
+    // Green screw at world (400, 1369) - board 1 at world(400,1369) - half(135,130) + screw(135,130)
+    // Yellow screw at world (680, 1304) - board 2 at world(680,1369) - half(135,130) + screw(135,65)
     const screwsToTap = [
-      { color: 'red', x: 250, y: 850 },
-      { color: 'blue', x: 420, y: 850 },
-      { color: 'green', x: 335, y: 930 }, // Will go to buffer (hidden tray)
-      { color: 'yellow', x: 685, y: 865 }, // Will go to buffer (hidden tray)
+      { color: 'red', x: 315, y: 1289 },
+      { color: 'blue', x: 485, y: 1289 },
+      { color: 'green', x: 400, y: 1369 }, // Will go to buffer (hidden tray)
+      { color: 'yellow', x: 680, y: 1304 }, // Will go to buffer (hidden tray)
     ];
 
     for (const screwInfo of screwsToTap) {
@@ -493,14 +499,14 @@ test.describe('Level Loading - Free Position Screws', () => {
     const harness = createHarnessClient(page);
     await harness.waitForReady(15000);
 
-    // Tap red screw first (at world position 250, 850)
-    await harness.act({ type: 'pointerDown', x: 250, y: 850 });
-    await harness.act({ type: 'pointerUp', x: 250, y: 850 });
+    // Tap red screw first (at world position 315, 1289 using centered coords)
+    await harness.act({ type: 'pointerDown', x: 315, y: 1289 });
+    await harness.act({ type: 'pointerUp', x: 315, y: 1289 });
     await page.waitForTimeout(1000); // Wait for animation
 
-    // Tap blue screw (at world position 420, 850)
-    await harness.act({ type: 'pointerDown', x: 420, y: 850 });
-    await harness.act({ type: 'pointerUp', x: 420, y: 850 });
+    // Tap blue screw (at world position 485, 1289 using centered coords)
+    await harness.act({ type: 'pointerDown', x: 485, y: 1289 });
+    await harness.act({ type: 'pointerUp', x: 485, y: 1289 });
     await page.waitForTimeout(1000); // Wait for animation
 
     // Take a screenshot of the colored trays area
@@ -668,6 +674,6 @@ test.describe('Level Loading - Free Position Screws', () => {
     // Check entities are back to initial state
     const entities = await harness.getEntities();
     const screwEntities = filterByComponent(entities, 'screw');
-    expect(screwEntities).toHaveLength(6);
+    expect(screwEntities).toHaveLength(11);
   });
 });

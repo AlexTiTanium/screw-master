@@ -227,6 +227,7 @@ export async function createPartEntity(
   });
 
   const sprite = new Sprite(texture);
+  sprite.anchor.set(0.5); // Center anchor for centered coordinate system
 
   gameVisualRegistry.set(entity, sprite);
   entity.view.addChild(sprite);

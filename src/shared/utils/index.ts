@@ -7,3 +7,10 @@ export {
   isCircleInPolygon,
   isScrewInBounds,
 } from './geometry';
+export {
+  PLAY_AREA,
+  localToWorld,
+  worldToLocal,
+  isPartInPlayArea,
+  getPartBoundsInfo,
+} from './playArea';
