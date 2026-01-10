@@ -74,7 +74,7 @@ const LAYOUT = {
   bufferTrayFrame: { x: 150, y: 438, width: 780, height: 212 },
   // Buffer slot positions - center-anchored (Figma top-left + 28, 35 offset)
   bufferSlots: [
-    { x: 257, y: 528 }, // slot 0: center of 56x70 screw
+    { x: 257, y: 524 }, // slot 0: center of 56x70 screw
     { x: 409, y: 524 }, // slot 1
     { x: 540, y: 524 }, // slot 2
     { x: 676, y: 524 }, // slot 3
