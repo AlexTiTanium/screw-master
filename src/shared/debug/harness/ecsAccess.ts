@@ -209,6 +209,34 @@ function getAllEntities(sceneRef: unknown): EntitySnapshot[] {
 }
 
 /**
+ * Extracts system names from a Scene2D reference.
+ *
+ * ODIE Scene2D stores systems in an internal map. This function
+ * attempts to extract system names via the NAME static property.
+ *
+ * @param sceneRef - The scene reference
+ * @returns Array of system names, or empty array if unavailable
+ *
+ * @example
+ * const systems = getSystemNames(sceneRef);
+ * // Returns: ['screwPlacement', 'animation', 'screwInteraction', ...]
+ */
+function getSystemNames(sceneRef: unknown): string[] {
+  if (!sceneRef) {
+    return [];
+  }
+
+  // ODIE Scene2D has a systems Map<string, System>
+  const scene = sceneRef as { systems?: Map<string, unknown> };
+  if (!scene.systems || !(scene.systems instanceof Map)) {
+    return [];
+  }
+
+  // The Map keys are the system names
+  return Array.from(scene.systems.keys());
+}
+
+/**
  * Creates an ECS access layer for the test harness.
  *
  * @returns ECSAccessInternal instance with query methods and scene setter
@@ -234,6 +262,7 @@ export function createECSAccess(): ECSAccessInternal {
       getEntities().filter((e) => name in e.components),
     getEntityCount: (): number => getEntities().length,
     hasEntity: (id: string): boolean => getEntity(id) !== null,
+    getSystems: (): string[] => getSystemNames(sceneRef),
     _setScene: (scene: unknown): void => {
       sceneRef = scene;
     },

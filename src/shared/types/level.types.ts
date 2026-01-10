@@ -42,16 +42,17 @@ export interface PartInstance {
 /**
  * Tray configuration for a level.
  *
- * The game has 4 colored trays. Two are visible at start,
- * two are hidden under a cover.
+ * The game has 5 tray slots. Array order determines display order:
+ * - Index 0-1: Initially visible trays (left to right)
+ * - Index 2-4: Hidden trays (revealed when visible trays complete)
+ *
+ * Levels can use 4-5 trays depending on puzzle design.
  */
 export interface TrayConfig {
   /** Which color this tray accepts */
   color: ScrewColor;
   /** Maximum screw capacity (1-4) */
   capacity: number;
-  /** Whether this tray starts hidden under the cover */
-  hidden: boolean;
 }
 
 /**
@@ -102,8 +103,8 @@ export interface LevelDefinition {
   name: string;
   /** Part instances in this level */
   parts: PartInstance[];
-  /** Tray configuration (exactly 4 trays) */
-  trays: [TrayConfig, TrayConfig, TrayConfig, TrayConfig];
+  /** Tray configuration (4-5 trays, array index = displayOrder) */
+  trays: TrayConfig[];
   /** Buffer tray capacity (default: 5) */
   bufferCapacity?: number;
   /** Win condition */

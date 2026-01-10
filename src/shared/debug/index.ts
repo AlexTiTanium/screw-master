@@ -238,7 +238,8 @@ function createHarness(): GameTestHarness {
     ecs: ecsAccess,
     getRenderSignature: createRenderSignatureGenerator(
       () => ecsAccess.getEntities(),
-      () => state.sceneState
+      () => state.sceneState,
+      () => ecsAccess.getSystems()
     ),
     // Placeholders - overwritten by defineStateGetters
     ready: false,

@@ -59,8 +59,6 @@ test.describe('Game Boot', () => {
       }
       return gameTest.snapshot();
     });
-    console.log('\n=== FINAL GAME STATE ===');
-    console.log(JSON.stringify(snapshot, null, 2));
 
     // Assert no errors
     const errors = getErrors(telemetry);

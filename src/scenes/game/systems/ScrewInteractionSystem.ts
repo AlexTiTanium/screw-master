@@ -57,6 +57,7 @@ export class ScrewInteractionSystem extends BaseSystem {
    * Initialize touch inputs for all existing screw entities.
    * Called on first update to ensure entities are ready.
    * @example
+   * this.initTouchInputs();
    */
   private initTouchInputs(): void {
     if (this.initialized) return;
@@ -71,6 +72,7 @@ export class ScrewInteractionSystem extends BaseSystem {
    * Set up touch input for a single screw entity.
    * @param entity - The screw entity
    * @example
+   * this.setupTouchInput(screwEntity);
    */
   private setupTouchInput(entity: Entity): void {
     // Skip if already set up
@@ -98,62 +100,52 @@ export class ScrewInteractionSystem extends BaseSystem {
    * Handle a tap on a screw entity.
    * @param entity - The screw entity
    * @example
+   * this.handleScrewTap(screwEntity);
    */
   private handleScrewTap(entity: Entity): void {
-    const screw = (entity.c as unknown as ScrewComponentAccess).screw;
+    const screw = this.getComponents<ScrewComponentAccess>(entity).screw;
+    if (!this.canInteractWithScrew(screw)) return;
 
-    // Guard: Check game state
-    const gameStateEntity = this.getFirstEntity('gameState');
-    if (gameStateEntity) {
-      const gameState = (gameStateEntity.c as unknown as GameStateComponentAccess).gameState;
-      if (gameState.phase !== 'playing') {
-        return; // Game is over
-      }
-    }
-
-    // Guard: Only allow tapping screws that are in the board
-    if (screw.state !== 'inBoard') {
-      return;
-    }
-
-    // Guard: Don't allow interaction during animation
-    if (screw.isAnimating) {
-      return;
-    }
-
-    // Find a valid placement target
-    const placementSystem = this.scene.getSystem(
-      ScrewPlacementSystem
-    );
+    const placementSystem = this.scene.getSystem(ScrewPlacementSystem);
     const target = placementSystem.findPlacementTarget(screw.color);
+    if (!target) return;
 
-    if (!target) {
-      // No valid placement - could show feedback here
-      return;
-    }
-
-    // Reserve the slot immediately to prevent race conditions
     placementSystem.reserveSlot(target, entity);
-
-    // Mark as animating and change state
     screw.isAnimating = true;
-    screw.state = 'dragging'; // Intermediate state during animation
+    screw.state = 'dragging';
 
-    // Emit event for AnimationSystem to handle
-    const event: ScrewRemovalEvent = {
+    gameEvents.emit('screw:startRemoval', {
       screwEntity: entity,
       targetTray: target.tray,
       slotIndex: target.slotIndex,
       isBuffer: target.type === 'buffer',
-    };
+    } as ScrewRemovalEvent);
+  }
 
-    gameEvents.emit('screw:startRemoval', event);
+  /**
+   * Check if a screw can be interacted with.
+   * @param screw - The screw component data
+   * @returns True if screw can be interacted with
+   * @example
+   * const canInteract = this.canInteractWithScrew(screw);
+   */
+  private canInteractWithScrew(screw: ScrewComponentAccess['screw']): boolean {
+    if (screw.state !== 'inBoard' || screw.isAnimating) return false;
+
+    const gameStateEntity = this.getFirstEntity('gameState');
+    if (gameStateEntity) {
+      const gameState =
+        this.getComponents<GameStateComponentAccess>(gameStateEntity).gameState;
+      if (gameState.phase !== 'playing') return false;
+    }
+    return true;
   }
 
   /**
    * Clean up touch input for a screw entity.
    * @param entity - The screw entity
    * @example
+   * this.cleanupTouchInput(screwEntity);
    */
   private cleanupTouchInput(entity: Entity): void {
     const input = this.touchInputs.get(entity.UID);
@@ -167,6 +159,7 @@ export class ScrewInteractionSystem extends BaseSystem {
    * Update checks for new screws and initializes them.
    * @param _time - Frame time info (unused)
    * @example
+   * system.update(time); // Called automatically by ECS
    */
   update(_time: Time): void {
     // Initialize on first update
@@ -186,6 +179,7 @@ export class ScrewInteractionSystem extends BaseSystem {
   /**
    * Clean up all touch inputs when system is destroyed.
    * @example
+   * system.destroy(); // Called automatically by ECS
    */
   destroy(): void {
     for (const [uid] of this.touchInputs) {

@@ -33,6 +33,7 @@ export {
   createTrayEntity,
   createBufferTrayEntity,
   getGameVisual,
+  getTrayPlaceholders,
 } from './game-factories';
 export type {
   ScrewEntityOptions,

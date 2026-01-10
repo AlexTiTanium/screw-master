@@ -8,6 +8,7 @@ This file provides context for Claude Code sessions working on this project.
 - [Art Direction Guide](docs/art-direction.md) - Visual style, materials, and asset requirements for artists
 - [Level Design Guide](docs/level-design.md) - Puzzle structure, difficulty progression, and design rules
 - [Level Format Spec](docs/level-format.md) - Technical specification for level and region JSON files
+- [Maintenance Guide](docs/maintenance-guide.md) - Periodic maintenance checklist for AI agents
 
 ## Tech Stack
 
@@ -27,7 +28,7 @@ All `@play-co` packages are installed from GitHub Packages registry.
 | Package | Version | Purpose |
 |---------|---------|---------|
 | `@play-co/astro` | 11.2.0 | Application framework (screens, plugins) |
-| `@play-co/odie` | next branch | ECS game framework (scenes, entities, components, systems) |
+| `@play-co/odie` | 13.3.x (pinned) | ECS game framework (scenes, entities, components, systems) |
 | `@play-co/pixijs` | 8.14.2 | PixiJS v8 fork (aliased as `pixi.js`) |
 | `@play-co/commons` | ^2.0.0 | Shared utilities |
 
@@ -90,6 +91,21 @@ e2e/                  # Playwright E2E tests
 When exporting assets from Figma, always use **"Layer image size"** (NOT "Original Image size").
 
 This ensures exported dimensions match the design and the manifest width/height values.
+
+## Figma to PixiJS Position Conversion
+
+Figma CSS positions (left, top) specify the **top-left corner** of elements. PixiJS sprites use **center-anchor** (0.5, 0.5) by default.
+
+**When converting Figma positions to PixiJS:**
+
+```
+pixiX = figmaLeft + (displayedWidth / 2)
+pixiY = figmaTop + (displayedHeight / 2)
+```
+
+**Example**: A 56×70px screw at Figma position (229, 493):
+- PixiJS center X = 229 + 28 = 257
+- PixiJS center Y = 493 + 35 = 528
 
 ## Common Commands
 

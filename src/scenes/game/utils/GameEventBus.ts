@@ -28,6 +28,7 @@ class GameEventBus {
    * @param event - Event name
    * @param handler - Handler function
    * @example
+   * gameEvents.on('screw:removed', (data) => console.log(data));
    */
   on<T = unknown>(event: string, handler: EventHandler<T>): void {
     let handlers = this.listeners.get(event);
@@ -44,6 +45,7 @@ class GameEventBus {
    * @param event - Event name
    * @param handler - Handler function to remove
    * @example
+   * gameEvents.off('screw:removed', myHandler);
    */
   off<T = unknown>(event: string, handler: EventHandler<T>): void {
     const handlers = this.listeners.get(event);
@@ -58,6 +60,7 @@ class GameEventBus {
    * @param event - Event name
    * @param data - Event data
    * @example
+   * gameEvents.emit('screw:removed', { screwId: '123' });
    */
   emit(event: string, data?: unknown): void {
     const handlers = this.listeners.get(event);
@@ -73,6 +76,8 @@ class GameEventBus {
    *
    * @param event - Optional event name. If omitted, clears all listeners.
    * @example
+   * gameEvents.clear('screw:removed'); // Clear specific event
+   * gameEvents.clear(); // Clear all events
    */
   clear(event?: string): void {
     if (event) {

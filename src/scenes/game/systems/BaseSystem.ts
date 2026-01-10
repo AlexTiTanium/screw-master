@@ -160,6 +160,27 @@ export abstract class BaseSystem implements System<unknown, Scene2D> {
   }
 
   /**
+   * Gets typed component access for an entity.
+   *
+   * ODIE's Entity.c is loosely typed (Map<string, unknown>). This helper
+   * provides a cleaner way to access components with proper typing,
+   * reducing the need for `as unknown as` casts throughout systems.
+   *
+   * @template T - The component access interface (e.g., ScrewComponentAccess)
+   * @param entity - The entity to get components from
+   * @param _typeHint - Optional type hint parameter (unused, for type inference)
+   * @returns The entity's component map cast to the specified type
+   *
+   * @example
+   * import type { ScrewComponentAccess } from '../types/component-access';
+   *
+   * const screw = this.getComponents<ScrewComponentAccess>(entity).screw;
+   */
+  protected getComponents<T>(entity: Entity, _typeHint?: T): T {
+    return entity.c as unknown as T;
+  }
+
+  /**
    * Called each frame to update the system.
    * Override this method to implement your game logic.
    *

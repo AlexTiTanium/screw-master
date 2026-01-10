@@ -11,19 +11,19 @@
       "name": "ui",
       "assets": [
         { "alias": "restart-button", "src": "images/ui/restart-button.png", "width": 140, "height": 140 },
-        { "alias": "colored-tray-frame", "src": "images/ui/colored-tray-frame.png", "width": 1036, "height": 221 },
+        { "alias": "colored-tray-frame", "src": "images/ui/colored-tray-frame.png", "width": 1015, "height": 210 },
         { "alias": "buffer-tray-frame", "src": "images/ui/buffer-tray-frame.png", "width": 780, "height": 212 },
-        { "alias": "tray-cover", "src": "images/ui/tray-cover.png", "width": 179, "height": 146 },
+        { "alias": "tray-cover", "src": "images/ui/tray-cover.png", "width": 180, "height": 145 },
         { "alias": "tray-slot", "src": "images/ui/tray-slot.png", "width": 50, "height": 50 }
       ]
     },
     {
       "name": "trays",
       "assets": [
-        { "alias": "tray-red", "src": "images/trays/tray-red.png", "width": 200, "height": 170 },
-        { "alias": "tray-yellow", "src": "images/trays/tray-yellow.png", "width": 200, "height": 170 },
-        { "alias": "tray-green", "src": "images/trays/tray-green.png", "width": 200, "height": 170 },
-        { "alias": "tray-blue", "src": "images/trays/tray-blue.png", "width": 200, "height": 170 }
+        { "alias": "tray-red", "src": "images/trays/tray-red.png", "width": 185, "height": 150 },
+        { "alias": "tray-yellow", "src": "images/trays/tray-yellow.png", "width": 185, "height": 150 },
+        { "alias": "tray-green", "src": "images/trays/tray-green.png", "width": 185, "height": 150 },
+        { "alias": "tray-blue", "src": "images/trays/tray-blue.png", "width": 185, "height": 150 }
       ]
     },
     {

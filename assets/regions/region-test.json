@@ -30,10 +30,10 @@
         }
       ],
       "trays": [
-        { "color": "red", "capacity": 3, "hidden": false },
-        { "color": "blue", "capacity": 3, "hidden": false },
-        { "color": "green", "capacity": 2, "hidden": true },
-        { "color": "yellow", "capacity": 2, "hidden": true }
+        { "color": "red", "capacity": 3 },
+        { "color": "blue", "capacity": 3 },
+        { "color": "green", "capacity": 2 },
+        { "color": "yellow", "capacity": 2 }
       ],
       "win": { "type": "allScrewsRemoved" }
     }

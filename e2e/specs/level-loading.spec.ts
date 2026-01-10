@@ -386,7 +386,11 @@ test.describe('Level Loading - Free Position Screws', () => {
 
     for (const screwInfo of screwsToTap) {
       // Tap the screw
-      await harness.act({ type: 'pointerDown', x: screwInfo.x, y: screwInfo.y });
+      await harness.act({
+        type: 'pointerDown',
+        x: screwInfo.x,
+        y: screwInfo.y,
+      });
       await harness.act({ type: 'pointerUp', x: screwInfo.x, y: screwInfo.y });
 
       // Wait for animation to complete (pop-out 0.15s + flight 0.4s + settle 0.1s = ~0.65s)
@@ -406,14 +410,14 @@ test.describe('Level Loading - Free Position Screws', () => {
           ecs?: {
             getScene?: () => {
               allEntities?: {
-                children?: Array<{
+                children?: {
                   c?: {
                     screw?: { color: string; state: string };
                   };
                   view?: {
-                    children?: Array<{ scale?: { x: number; y: number } }>;
+                    children?: { scale?: { x: number; y: number } }[];
                   };
-                }>;
+                }[];
               };
             };
           };
@@ -427,7 +431,10 @@ test.describe('Level Loading - Free Position Screws', () => {
       for (const entity of entities) {
         const screwComp = entity.c?.screw;
         // Check both inTray and inBuffer states (green/yellow go to buffer)
-        if (screwComp && (screwComp.state === 'inTray' || screwComp.state === 'inBuffer')) {
+        if (
+          screwComp &&
+          (screwComp.state === 'inTray' || screwComp.state === 'inBuffer')
+        ) {
           // Get the sprite (first child of view)
           const sprite = entity.view?.children?.[0];
           if (sprite?.scale) {
@@ -444,24 +451,16 @@ test.describe('Level Loading - Free Position Screws', () => {
       return results;
     });
 
-    // Log sprite scales for debugging
-    console.log('Landed screw sprite scales:');
-    for (const screw of spriteScales) {
-      console.log(
-        `  ${screw.color} (${screw.state}): sprite.scale(${screw.spriteScaleX.toFixed(3)}, ${screw.spriteScaleY.toFixed(3)})`
-      );
-    }
-
     // Verify we have scale data for all 4 colors
     expect(spriteScales.length).toBe(4);
 
     // Check scale based on state:
     // - inTray: TRAY_SLOT_SCALE = 0.5
-    // - inBuffer: BUFFER_SLOT_SCALE = 1.0
+    // - inBuffer: BUFFER_SLOT_SCALE = 0.7 (updated from 1.0 per Figma)
     const tolerance = 0.01;
 
     for (const screw of spriteScales) {
-      const expectedScale = screw.state === 'inTray' ? 0.5 : 1.0;
+      const expectedScale = screw.state === 'inTray' ? 0.5 : 0.7;
       expect(screw.spriteScaleX).toBeCloseTo(expectedScale, 2);
       expect(screw.spriteScaleY).toBeCloseTo(expectedScale, 2);
     }
@@ -531,20 +530,20 @@ test.describe('Level Loading - Free Position Screws', () => {
           ecs?: {
             getScene?: () => {
               allEntities?: {
-                children?: Array<{
+                children?: {
                   c?: {
                     screw?: { color: string; state: string };
                   };
                   view?: {
-                    children?: Array<{
+                    children?: {
                       scale?: { x: number; y: number };
                       texture?: { width: number; height: number };
                       getBounds?: () => { width: number; height: number };
                       anchor?: { x: number; y: number };
                       getGlobalPosition?: () => { x: number; y: number };
-                    }>;
+                    }[];
                   };
-                }>;
+                }[];
               };
             };
           };
@@ -557,7 +556,7 @@ test.describe('Level Loading - Free Position Screws', () => {
 
       for (const entity of entities) {
         const screwComp = entity.c?.screw;
-        if (screwComp && screwComp.state === 'inTray') {
+        if (screwComp?.state === 'inTray') {
           const sprite = entity.view?.children?.[0];
           if (sprite) {
             const bounds = sprite.getBounds?.();
@@ -583,17 +582,6 @@ test.describe('Level Loading - Free Position Screws', () => {
       return results;
     });
 
-    // Log detailed information for debugging
-    console.log('Screw details in colored trays:');
-    for (const screw of screwDetails) {
-      console.log(`\n${screw.color.toUpperCase()} SCREW:`);
-      console.log(`  Scale: (${screw.spriteScaleX.toFixed(3)}, ${screw.spriteScaleY.toFixed(3)})`);
-      console.log(`  Texture size: ${screw.textureWidth}x${screw.textureHeight}`);
-      console.log(`  Rendered bounds: ${screw.boundsWidth.toFixed(1)}x${screw.boundsHeight.toFixed(1)}`);
-      console.log(`  Anchor: (${screw.anchorX.toFixed(2)}, ${screw.anchorY.toFixed(2)})`);
-      console.log(`  World position: (${screw.worldX.toFixed(1)}, ${screw.worldY.toFixed(1)})`);
-    }
-
     // Find red and blue screws
     const redScrew = screwDetails.find((s) => s.color === 'red');
     const blueScrew = screwDetails.find((s) => s.color === 'blue');
@@ -612,16 +600,13 @@ test.describe('Level Loading - Free Position Screws', () => {
 
       // Compare rendered bounds - should be very close
       const boundsTolerance = 1;
-      console.log(`\nBounds comparison:`);
-      console.log(`  Red bounds: ${redScrew.boundsWidth.toFixed(1)}x${redScrew.boundsHeight.toFixed(1)}`);
-      console.log(`  Blue bounds: ${blueScrew.boundsWidth.toFixed(1)}x${blueScrew.boundsHeight.toFixed(1)}`);
 
-      expect(Math.abs(redScrew.boundsWidth - blueScrew.boundsWidth)).toBeLessThan(
-        boundsTolerance
-      );
-      expect(Math.abs(redScrew.boundsHeight - blueScrew.boundsHeight)).toBeLessThan(
-        boundsTolerance
-      );
+      expect(
+        Math.abs(redScrew.boundsWidth - blueScrew.boundsWidth)
+      ).toBeLessThan(boundsTolerance);
+      expect(
+        Math.abs(redScrew.boundsHeight - blueScrew.boundsHeight)
+      ).toBeLessThan(boundsTolerance);
     }
 
     // No errors
