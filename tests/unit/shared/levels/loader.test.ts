@@ -56,14 +56,15 @@ function createTestPart(id: string, mounts: string[]): PartDefinition {
 }
 
 /**
- * Create valid tray configuration.
+ * Create valid tray configuration (4 trays).
+ * Array order determines display order: index 0-1 visible, 2-3 hidden.
  */
-function createValidTrays(): [TrayConfig, TrayConfig, TrayConfig, TrayConfig] {
+function createValidTrays(): TrayConfig[] {
   return [
-    { color: ScrewColor.Red, capacity: 4, hidden: false },
-    { color: ScrewColor.Blue, capacity: 3, hidden: false },
-    { color: ScrewColor.Green, capacity: 2, hidden: true },
-    { color: ScrewColor.Yellow, capacity: 2, hidden: true },
+    { color: ScrewColor.Red, capacity: 4 },
+    { color: ScrewColor.Blue, capacity: 3 },
+    { color: ScrewColor.Green, capacity: 2 },
+    { color: ScrewColor.Yellow, capacity: 2 },
   ];
 }
 
@@ -172,7 +173,7 @@ describe('Level Loader', () => {
     describe('tray validation', () => {
       it('produces error when tray capacity < 1', () => {
         const trays = createValidTrays();
-        trays[0].capacity = 0;
+        trays[0]!.capacity = 0;
         const level = createValidLevel({ trays });
         const result = validateLevel(level);
 
@@ -184,7 +185,7 @@ describe('Level Loader', () => {
 
       it('produces error when tray capacity > 4', () => {
         const trays = createValidTrays();
-        trays[1].capacity = 5;
+        trays[1]!.capacity = 5;
         const level = createValidLevel({ trays });
         const result = validateLevel(level);
 
@@ -195,8 +196,8 @@ describe('Level Loader', () => {
 
       it('produces multiple errors for multiple invalid trays', () => {
         const trays = createValidTrays();
-        trays[0].capacity = 0;
-        trays[2].capacity = 10;
+        trays[0]!.capacity = 0;
+        trays[2]!.capacity = 10;
         const level = createValidLevel({ trays });
         const result = validateLevel(level);
 
@@ -270,7 +271,9 @@ describe('Level Loader', () => {
         expect(firstError(result.errors).path).toBe(
           'parts[0].screws[0].position'
         );
-        expect(firstError(result.errors).message).toContain('beyond part bounds');
+        expect(firstError(result.errors).message).toContain(
+          'beyond part bounds'
+        );
       });
 
       it('passes when screw is within bounds accounting for radius', () => {
@@ -313,7 +316,9 @@ describe('Level Loader', () => {
         expect(firstWarning(result.warnings).path).toBe(
           'parts[0].screws[1].position'
         );
-        expect(firstWarning(result.warnings).message).toContain('Multiple screws');
+        expect(firstWarning(result.warnings).message).toContain(
+          'Multiple screws'
+        );
       });
 
       it('produces error when screw is at exact boundary', () => {
@@ -350,7 +355,9 @@ describe('Level Loader', () => {
         const result = validateLevel(level);
 
         expect(result.valid).toBe(false);
-        expect(firstError(result.errors).path).toBe('parts[0].screws[0].position');
+        expect(firstError(result.errors).path).toBe(
+          'parts[0].screws[0].position'
+        );
       });
     });
 

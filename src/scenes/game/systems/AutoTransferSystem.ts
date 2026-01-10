@@ -1,8 +1,13 @@
 import type { Entity, Time } from '@play-co/odie';
 import { BaseSystem } from './BaseSystem';
-import { ScrewComponent, TrayComponent, BufferTrayComponent } from '../components';
+import {
+  ScrewComponent,
+  TrayComponent,
+  BufferTrayComponent,
+} from '../components';
 import { ScrewPlacementSystem } from './ScrewPlacementSystem';
 import type { ScrewTransferEvent } from './AnimationSystem';
+import type { TrayRevealedEvent } from './TrayManagementSystem';
 import { gameEvents } from '../utils';
 import type {
   ScrewComponentAccess,
@@ -13,8 +18,8 @@ import type {
 /**
  * System for automatically transferring screws from buffer to colored trays.
  *
- * When a screw is removed and placed in a colored tray (or when a tray cover
- * is opened), this system checks if any screws in the buffer can now be
+ * When a screw is removed and placed in a colored tray (or when a new tray
+ * is revealed), this system checks if any screws in the buffer can now be
  * moved to their matching colored tray.
  *
  * Transfer rules:
@@ -25,7 +30,7 @@ import type {
  * Listens for:
  * - `screw:removalComplete` - Check for auto-transfer opportunity
  * - `screw:transferComplete` - Check for more transfers
- * - `trayCover:opened` - Hidden trays revealed, check for transfers
+ * - `tray:revealed` - New tray revealed, check for matching buffer screws
  *
  * Emits:
  * - `screw:startTransfer` - Begin transfer animation
@@ -44,16 +49,24 @@ export class AutoTransferSystem extends BaseSystem {
   /**
    * Initialize event listeners.
    * @example
+   * system.init(); // Called automatically by ECS
    */
   init(): void {
-    gameEvents.on('screw:removalComplete', () => { this.checkAutoTransfer(); });
-    gameEvents.on('screw:transferComplete', () => { this.onTransferComplete(); });
-    gameEvents.on('trayCover:opened', () => { this.checkAutoTransfer(); });
+    gameEvents.on('screw:removalComplete', () => {
+      this.checkAutoTransfer();
+    });
+    gameEvents.on('screw:transferComplete', () => {
+      this.onTransferComplete();
+    });
+    gameEvents.on<TrayRevealedEvent>('tray:revealed', () => {
+      this.checkAutoTransfer();
+    });
   }
 
   /**
    * Called when a transfer animation completes.
    * @example
+   * this.onTransferComplete(); // Called via event
    */
   private onTransferComplete(): void {
     this.isTransferring = false;
@@ -64,6 +77,7 @@ export class AutoTransferSystem extends BaseSystem {
   /**
    * Check if any screws in the buffer can be transferred to colored trays.
    * @example
+   * this.checkAutoTransfer();
    */
   private checkAutoTransfer(): void {
     // Skip if already transferring
@@ -72,13 +86,12 @@ export class AutoTransferSystem extends BaseSystem {
     const bufferTray = this.getFirstEntity('bufferTrays');
     if (!bufferTray) return;
 
-    const buffer = (bufferTray.c as unknown as BufferTrayComponentAccess).bufferTray;
+    const buffer = (bufferTray.c as unknown as BufferTrayComponentAccess)
+      .bufferTray;
     if (buffer.screwIds.length === 0) return;
 
     // Get placement system for finding available trays
-    const placementSystem = this.scene.getSystem(
-      ScrewPlacementSystem
-    );
+    const placementSystem = this.scene.getSystem(ScrewPlacementSystem);
 
     // Process buffer screws in FIFO order
     for (const screwId of buffer.screwIds) {
@@ -107,6 +120,7 @@ export class AutoTransferSystem extends BaseSystem {
    * @param targetTray - The target tray entity
    * @param bufferTray - The buffer tray entity
    * @example
+   * this.initiateTransfer(screwEntity, coloredTray, bufferTray);
    */
   private initiateTransfer(
     screwEntity: Entity,
@@ -115,7 +129,8 @@ export class AutoTransferSystem extends BaseSystem {
   ): void {
     this.isTransferring = true;
 
-    const buffer = (bufferTray.c as unknown as BufferTrayComponentAccess).bufferTray;
+    const buffer = (bufferTray.c as unknown as BufferTrayComponentAccess)
+      .bufferTray;
     const tray = (targetTray.c as unknown as TrayComponentAccess).tray;
     const screw = (screwEntity.c as unknown as ScrewComponentAccess).screw;
 
@@ -147,6 +162,7 @@ export class AutoTransferSystem extends BaseSystem {
    * Update is a no-op for this system.
    * @param _time - Frame time info (unused)
    * @example
+   * system.update(time); // Called automatically by ECS
    */
   update(_time: Time): void {
     // No per-frame updates needed - all logic is event-driven

@@ -35,6 +35,7 @@ export class WinConditionSystem extends BaseSystem {
   /**
    * Initialize event listeners.
    * @example
+   * system.init(); // Called automatically by ECS
    */
   init(): void {
     gameEvents.on('screw:removalComplete', () => {
@@ -48,12 +49,14 @@ export class WinConditionSystem extends BaseSystem {
   /**
    * Check both win and stuck conditions.
    * @example
+   * this.checkConditions();
    */
   private checkConditions(): void {
     const gameStateEntity = this.getFirstEntity('gameState');
     if (!gameStateEntity) return;
 
-    const gameState = (gameStateEntity.c as unknown as GameStateComponentAccess).gameState;
+    const gameState = (gameStateEntity.c as unknown as GameStateComponentAccess)
+      .gameState;
 
     // Skip if game is already over
     if (gameState.phase !== 'playing') return;
@@ -77,6 +80,7 @@ export class WinConditionSystem extends BaseSystem {
    * @param winType - The type of win condition to check
    * @returns True if the win condition is met
    * @example
+   * const won = this.checkWinCondition('allScrewsRemoved');
    */
   private checkWinCondition(winType: string): boolean {
     switch (winType) {
@@ -96,13 +100,15 @@ export class WinConditionSystem extends BaseSystem {
    * Check if all screws have been removed from the puzzle.
    * @returns True if no screws remain in the board
    * @example
+   * const allRemoved = this.checkAllScrewsRemoved();
    */
   private checkAllScrewsRemoved(): boolean {
     const screws = this.getEntities('screws');
 
     // Count screws still in board
     const inBoardCount = screws.filter(
-      (entity) => (entity.c as unknown as ScrewComponentAccess).screw.state === 'inBoard'
+      (entity) =>
+        (entity.c as unknown as ScrewComponentAccess).screw.state === 'inBoard'
     ).length;
 
     return inBoardCount === 0;
@@ -111,12 +117,14 @@ export class WinConditionSystem extends BaseSystem {
   /**
    * Check if the player is stuck (no valid moves).
    * @example
+   * this.checkStuckCondition();
    */
   private checkStuckCondition(): void {
     const gameStateEntity = this.getFirstEntity('gameState');
     if (!gameStateEntity) return;
 
-    const gameState = (gameStateEntity.c as unknown as GameStateComponentAccess).gameState;
+    const gameState = (gameStateEntity.c as unknown as GameStateComponentAccess)
+      .gameState;
 
     // Skip if game is already over
     if (gameState.phase !== 'playing') return;
@@ -128,7 +136,9 @@ export class WinConditionSystem extends BaseSystem {
       // Check if there are still screws in the board
       const screws = this.getEntities('screws');
       const inBoardCount = screws.filter(
-        (entity) => (entity.c as unknown as ScrewComponentAccess).screw.state === 'inBoard'
+        (entity) =>
+          (entity.c as unknown as ScrewComponentAccess).screw.state ===
+          'inBoard'
       ).length;
 
       // Only stuck if there are screws remaining
@@ -143,6 +153,7 @@ export class WinConditionSystem extends BaseSystem {
    * Update is a no-op for this system.
    * @param _time - Frame time info (unused)
    * @example
+   * system.update(time); // Called automatically by ECS
    */
   update(_time: Time): void {
     // No per-frame updates needed - all logic is event-driven

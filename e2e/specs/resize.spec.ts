@@ -38,11 +38,19 @@ async function getCanvasInfo(page: Page): Promise<CanvasInfo> {
 
 function logCanvasInfo(info: CanvasInfo, label: string): void {
   console.log(`\n${label}:`);
-  console.log(`  Viewport: ${info.viewportWidth}x${info.viewportHeight}`);
-  console.log(`  Canvas CSS size: ${info.clientWidth}x${info.clientHeight}`);
-  console.log(`  Canvas internal: ${info.width}x${info.height}`);
-  console.log(`  Position: left=${info.left}, top=${info.top}`);
-  console.log(`  Aspect ratio: ${(info.clientWidth / info.clientHeight).toFixed(3)}`);
+  console.log(
+    `  Viewport: ${String(info.viewportWidth)}x${String(info.viewportHeight)}`
+  );
+  console.log(
+    `  Canvas CSS size: ${String(info.clientWidth)}x${String(info.clientHeight)}`
+  );
+  console.log(
+    `  Canvas internal: ${String(info.width)}x${String(info.height)}`
+  );
+  console.log(`  Position: left=${String(info.left)}, top=${String(info.top)}`);
+  console.log(
+    `  Aspect ratio: ${(info.clientWidth / info.clientHeight).toFixed(3)}`
+  );
 }
 
 test.describe('Resize and centering', () => {

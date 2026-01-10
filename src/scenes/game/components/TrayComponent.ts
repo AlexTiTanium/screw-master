@@ -7,9 +7,13 @@ import { ScrewColor } from '@shared/types';
  * Stores the tray's color, capacity, and current screw count.
  * Screws of matching color are placed here when removed from parts.
  *
+ * The displayOrder property (0-4) determines visibility:
+ * - 0-1: Visible trays in left-to-right order
+ * - 2-4: Hidden trays (below the visible area, covered)
+ *
  * @example
  * const entity = createEntity(TrayEntity, {
- *   tray: { color: ScrewColor.Blue, capacity: 3 }
+ *   tray: { color: ScrewColor.Blue, capacity: 3, displayOrder: 0 }
  * });
  */
 export const TrayComponent = defineComponent('tray', {
@@ -19,8 +23,10 @@ export const TrayComponent = defineComponent('tray', {
   capacity: 3,
   /** Current number of screws in the tray */
   screwCount: 0,
-  /** Whether the tray is hidden (under cover) */
-  isHidden: false,
+  /** Display order (0-4): 0-1 are visible, 2-4 are hidden */
+  displayOrder: 0,
+  /** Whether the tray is currently animating (block interactions) */
+  isAnimating: false,
 });
 
 /** Data interface for TrayComponent */
@@ -28,5 +34,6 @@ export interface TrayComponentData {
   color: ScrewColor;
   capacity: number;
   screwCount: number;
-  isHidden: boolean;
+  displayOrder: number;
+  isAnimating: boolean;
 }

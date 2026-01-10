@@ -27,7 +27,8 @@ export interface TrayComponentAccess {
     color: ScrewColor;
     capacity: number;
     screwCount: number;
-    isHidden: boolean;
+    displayOrder: number;
+    isAnimating: boolean;
   };
 }
 

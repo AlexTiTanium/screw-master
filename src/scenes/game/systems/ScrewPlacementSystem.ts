@@ -1,6 +1,10 @@
 import type { Entity, Time } from '@play-co/odie';
 import { BaseSystem } from './BaseSystem';
-import { ScrewComponent, TrayComponent, BufferTrayComponent } from '../components';
+import {
+  ScrewComponent,
+  TrayComponent,
+  BufferTrayComponent,
+} from '../components';
 import type { ScrewColor } from '@shared/types';
 import type {
   ScrewComponentAccess,
@@ -51,44 +55,67 @@ export class ScrewPlacementSystem extends BaseSystem {
   /**
    * Find a valid placement target for a screw of the given color.
    *
+   * Visible trays have displayOrder < 2 (positions 0 and 1).
+   * Trays that are animating are skipped.
+   *
    * @param color - The screw color to find placement for
    * @returns PlacementTarget if found, null if no valid placement
    * @example
+   * const target = system.findPlacementTarget(ScrewColor.Red);
    */
   findPlacementTarget(color: ScrewColor): PlacementTarget | null {
-    // 1. Check matching colored tray (visible and has space)
+    const coloredTarget = this.findColoredTrayTarget(color);
+    if (coloredTarget) return coloredTarget;
+
+    const bufferTarget = this.findBufferTrayTarget();
+    if (bufferTarget) return bufferTarget;
+
+    return null;
+  }
+
+  /**
+   * Find a matching colored tray with space.
+   * @param color - The screw color
+   * @returns Placement target or null if none found
+   * @example
+   * const target = this.findColoredTrayTarget(ScrewColor.Blue);
+   */
+  private findColoredTrayTarget(color: ScrewColor): PlacementTarget | null {
     const coloredTrays = this.getEntities('coloredTrays');
     const matchingTray = coloredTrays.find((entity) => {
       const tray = (entity.c as unknown as TrayComponentAccess).tray;
       return (
-        tray.color === color && !tray.isHidden && tray.screwCount < tray.capacity
+        tray.color === color &&
+        tray.displayOrder < 2 &&
+        !tray.isAnimating &&
+        tray.screwCount < tray.capacity
       );
     });
 
-    if (matchingTray) {
-      const tray = (matchingTray.c as unknown as TrayComponentAccess).tray;
-      return {
-        type: 'colored',
-        tray: matchingTray,
-        slotIndex: tray.screwCount,
-      };
-    }
+    if (!matchingTray) return null;
+    const tray = (matchingTray.c as unknown as TrayComponentAccess).tray;
+    return { type: 'colored', tray: matchingTray, slotIndex: tray.screwCount };
+  }
 
-    // 2. Fall back to buffer tray
+  /**
+   * Find the buffer tray if it has space.
+   * @returns Placement target or null if buffer is full
+   * @example
+   * const target = this.findBufferTrayTarget();
+   */
+  private findBufferTrayTarget(): PlacementTarget | null {
     const bufferTray = this.getFirstEntity('bufferTrays');
-    if (bufferTray) {
-      const buffer = (bufferTray.c as unknown as BufferTrayComponentAccess).bufferTray;
-      if (buffer.screwIds.length < buffer.capacity) {
-        return {
-          type: 'buffer',
-          tray: bufferTray,
-          slotIndex: buffer.screwIds.length,
-        };
-      }
-    }
+    if (!bufferTray) return null;
 
-    // 3. No valid placement (soft lock)
-    return null;
+    const buffer = (bufferTray.c as unknown as BufferTrayComponentAccess)
+      .bufferTray;
+    if (buffer.screwIds.length >= buffer.capacity) return null;
+
+    return {
+      type: 'buffer',
+      tray: bufferTray,
+      slotIndex: buffer.screwIds.length,
+    };
   }
 
   /**
@@ -100,6 +127,7 @@ export class ScrewPlacementSystem extends BaseSystem {
    * @param target - The placement target from findPlacementTarget
    * @param screwEntity - The screw entity being placed
    * @example
+   * system.reserveSlot(target, screwEntity);
    */
   reserveSlot(target: PlacementTarget, screwEntity: Entity): void {
     const screw = (screwEntity.c as unknown as ScrewComponentAccess).screw;
@@ -110,7 +138,8 @@ export class ScrewPlacementSystem extends BaseSystem {
       tray.screwCount++;
     } else {
       // Add to buffer tray FIFO list
-      const buffer = (target.tray.c as unknown as BufferTrayComponentAccess).bufferTray;
+      const buffer = (target.tray.c as unknown as BufferTrayComponentAccess)
+        .bufferTray;
       buffer.screwIds.push(String(screwEntity.UID));
     }
 
@@ -123,10 +152,12 @@ export class ScrewPlacementSystem extends BaseSystem {
    * Find a colored tray with available space for the given color.
    *
    * Used by AutoTransferSystem to check if buffer screws can be moved.
+   * Only considers visible trays (displayOrder < 2) that are not animating.
    *
    * @param color - The screw color to find a tray for
    * @returns The tray entity if found, null otherwise
    * @example
+   * const tray = system.findAvailableColoredTray(ScrewColor.Green);
    */
   findAvailableColoredTray(color: ScrewColor): Entity | null {
     const coloredTrays = this.getEntities('coloredTrays');
@@ -135,7 +166,8 @@ export class ScrewPlacementSystem extends BaseSystem {
         const tray = (entity.c as unknown as TrayComponentAccess).tray;
         return (
           tray.color === color &&
-          !tray.isHidden &&
+          tray.displayOrder < 2 && // Only visible trays
+          !tray.isAnimating &&
           tray.screwCount < tray.capacity
         );
       }) ?? null
@@ -148,6 +180,7 @@ export class ScrewPlacementSystem extends BaseSystem {
    * @param uid - The entity UID as a string
    * @returns The screw entity if found, undefined otherwise
    * @example
+   * const screw = system.findScrewByUid('123');
    */
   findScrewByUid(uid: string): Entity | undefined {
     const screws = this.getEntities('screws');
@@ -161,6 +194,7 @@ export class ScrewPlacementSystem extends BaseSystem {
    *
    * @returns true if at least one screw in board can be placed
    * @example
+   * const canMove = system.hasValidMoves();
    */
   hasValidMoves(): boolean {
     const screws = this.getEntities('screws');
@@ -179,6 +213,7 @@ export class ScrewPlacementSystem extends BaseSystem {
    * All logic is triggered by other systems calling methods directly.
    * @param _time - Frame time info (unused)
    * @example
+   * system.update(time); // Called automatically by ECS
    */
   update(_time: Time): void {
     // No per-frame updates needed

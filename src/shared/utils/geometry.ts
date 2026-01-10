@@ -6,7 +6,11 @@
  * @module
  */
 
-import type { Position, CollisionShape, BoxCollisionShape } from '@shared/types';
+import type {
+  Position,
+  CollisionShape,
+  BoxCollisionShape,
+} from '@shared/types';
 
 /** Screw head radius in pixels for bounds checking */
 export const SCREW_RADIUS = 40;
@@ -18,6 +22,7 @@ export const SCREW_RADIUS = 40;
  * @param box - Box collision shape
  * @returns True if point is inside or on boundary
  * @example
+ * const inside = isPointInBox({ x: 50, y: 50 }, { type: 'box', width: 100, height: 100 });
  */
 export function isPointInBox(point: Position, box: BoxCollisionShape): boolean {
   return (
@@ -36,6 +41,7 @@ export function isPointInBox(point: Position, box: BoxCollisionShape): boolean {
  * @param box - Box collision shape
  * @returns True if circle is fully contained
  * @example
+ * const inside = isCircleInBox({ x: 50, y: 50 }, 10, { type: 'box', width: 100, height: 100 });
  */
 export function isCircleInBox(
   center: Position,
@@ -57,6 +63,7 @@ export function isCircleInBox(
  * @param polygon - Array of polygon vertices
  * @returns True if point is inside polygon
  * @example
+ * const inside = isPointInPolygon({ x: 5, y: 5 }, [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }]);
  */
 export function isPointInPolygon(
   point: Position,
@@ -92,6 +99,7 @@ export function isPointInPolygon(
  * @param polygon - Array of polygon vertices
  * @returns True if all test points are inside polygon
  * @example
+ * const inside = isCircleInPolygon({ x: 50, y: 50 }, 10, polygon);
  */
 export function isCircleInPolygon(
   center: Position,
@@ -117,6 +125,7 @@ export function isCircleInPolygon(
  * @param radius - Screw radius (defaults to SCREW_RADIUS)
  * @returns True if screw is fully within bounds
  * @example
+ * const valid = isScrewInBounds({ x: 100, y: 100 }, collision);
  */
 export function isScrewInBounds(
   screwPosition: Position,

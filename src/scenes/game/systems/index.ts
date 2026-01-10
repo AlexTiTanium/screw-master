@@ -36,3 +36,10 @@ export type {
 } from './AnimationSystem';
 export { AutoTransferSystem } from './AutoTransferSystem';
 export { WinConditionSystem } from './WinConditionSystem';
+export { TrayManagementSystem } from './TrayManagementSystem';
+export type {
+  TrayHideEvent,
+  TrayShiftEvent,
+  TrayRevealEvent,
+  TrayRevealedEvent,
+} from './TrayManagementSystem';

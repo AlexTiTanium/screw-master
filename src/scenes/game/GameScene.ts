@@ -1,12 +1,11 @@
 import { Scene2D, createEntity, type Entity2D } from '@play-co/odie';
 import { TouchInput } from '@play-co/astro';
-import { Assets, Container, Sprite, type Texture } from 'pixi.js';
+import { Assets, Container, Graphics, Sprite, type Texture } from 'pixi.js';
 
 import { isTestMode } from '@shared/debug';
 import { loadRegion, getLevelByIndex } from '@shared/levels';
 import { getPart } from '@shared/parts';
-import type { LevelDefinition } from '@shared/types';
-import { ScrewColor } from '@shared/types';
+import type { LevelDefinition, ScrewColor } from '@shared/types';
 
 import {
   createTrayEntity,
@@ -21,9 +20,18 @@ import {
   AnimationSystem,
   AutoTransferSystem,
   WinConditionSystem,
+  TrayManagementSystem,
 } from './systems';
-import { gameEvents } from './utils';
-import type { TrayComponentAccess } from './types';
+import {
+  gameEvents,
+  TRAY_DISPLAY_POSITIONS,
+  TRAY_HIDDEN_Y,
+  getCoverPositionForBucket,
+  TRAY_FRAME_LAYOUT,
+  registerAnimationLayer,
+  registerColoredTrayLayer,
+  clearLayerRegistry,
+} from './utils';
 
 /**
  * Configuration options for creating a GameScene.
@@ -47,23 +55,30 @@ const LAYOUT = {
   // Restart button
   restartButton: { x: 918, y: 21, width: 140, height: 140 },
 
-  // Colored tray area
-  coloredTrayFrame: { x: 22, y: 187, width: 1036, height: 221 },
-  trays: {
-    red: { x: 52, y: 202, width: 200, height: 170 },
-    yellow: { x: 250, y: 202, width: 200, height: 170 },
-    green: { x: 444, y: 202, width: 200, height: 170 },
-    blue: { x: 639, y: 202, width: 200, height: 170 },
+  // Colored tray area (from TRAY_FRAME_LAYOUT)
+  coloredTrayFrame: {
+    x: TRAY_FRAME_LAYOUT.framePosition.x,
+    y: TRAY_FRAME_LAYOUT.framePosition.y,
+    width: TRAY_FRAME_LAYOUT.frame.width,
+    height: TRAY_FRAME_LAYOUT.frame.height,
   },
-  trayCover: { x: 843, y: 213, width: 179, height: 146 },
+  // Covers for hidden tray slots (displayOrder 2, 3, 4)
+  // Positions calculated from TRAY_FRAME_LAYOUT bucket positions
+  trayCovers: [
+    getCoverPositionForBucket(2), // covers bucket 2
+    getCoverPositionForBucket(3), // covers bucket 3
+    getCoverPositionForBucket(4), // covers bucket 4
+  ],
 
   // Buffer tray
   bufferTrayFrame: { x: 150, y: 438, width: 780, height: 212 },
+  // Buffer slot positions - center-anchored (Figma top-left + 28, 35 offset)
   bufferSlots: [
-    { x: 219, y: 470 }, // slot 1
-    { x: 365, y: 470 }, // slot 2
-    { x: 501, y: 470 }, // slot 3
-    { x: 638, y: 470 }, // slot 4
+    { x: 257, y: 528 }, // slot 0: center of 56x70 screw
+    { x: 409, y: 524 }, // slot 1
+    { x: 540, y: 524 }, // slot 2
+    { x: 676, y: 524 }, // slot 3
+    { x: 821, y: 524 }, // slot 4
   ],
 } as const;
 
@@ -91,10 +106,13 @@ export class GameScene {
   private backgroundLayer: Container;
   private uiLayer: Container;
   private puzzleLayer: Container;
+  private coloredTrayLayer: Container; // For colored tray entities (between bg and covers)
+  private animationLayer: Container; // For animated screws (on top of everything)
 
   // UI sprites
   private restartButton: Sprite | null = null;
   private restartInput: TouchInput | null = null;
+  private trayCovers: Sprite[] = [];
 
   // Entity references
   private trayEntities = new Map<ScrewColor, Entity2D>();
@@ -115,11 +133,14 @@ export class GameScene {
     this.backgroundLayer = new Container();
     this.uiLayer = new Container();
     this.puzzleLayer = new Container();
+    this.coloredTrayLayer = new Container();
+    this.animationLayer = new Container();
 
     // Add layers to scene stage in order
     options.stage.addChild(this.backgroundLayer);
     options.stage.addChild(this.puzzleLayer);
     options.stage.addChild(this.uiLayer);
+    // animationLayer added on top in fixLayerOrder() after entityContainer is available
   }
 
   /**
@@ -173,6 +194,7 @@ export class GameScene {
     this.scene.addSystem(ScrewInteractionSystem);
     this.scene.addSystem(AutoTransferSystem);
     this.scene.addSystem(WinConditionSystem);
+    this.scene.addSystem(TrayManagementSystem);
   }
 
   /**
@@ -212,7 +234,7 @@ export class GameScene {
    * Fixes z-ordering of stage children.
    *
    * Ensures entity views (managed by View2DSystem) render above the puzzleLayer
-   * but below the uiLayer.
+   * but below the uiLayer. Animation layer is on top for animated screws.
    * @private
    */
   private fixLayerOrder(): void {
@@ -223,7 +245,8 @@ export class GameScene {
     // 1. backgroundLayer (bottom)
     // 2. puzzleLayer (puzzle base background)
     // 3. entityContainer (parts and screws from View2DSystem)
-    // 4. uiLayer (top - buttons, frames, etc.)
+    // 4. uiLayer (UI frames, covers, buttons)
+    // 5. animationLayer (animated screws on top of everything)
     stage.removeChild(this.backgroundLayer);
     stage.removeChild(this.puzzleLayer);
     stage.removeChild(entityContainer);
@@ -233,6 +256,11 @@ export class GameScene {
     stage.addChild(this.puzzleLayer);
     stage.addChild(entityContainer);
     stage.addChild(this.uiLayer);
+    stage.addChild(this.animationLayer);
+
+    // Register layers for AnimationSystem access
+    registerAnimationLayer(this.animationLayer);
+    registerColoredTrayLayer(this.coloredTrayLayer);
   }
 
   /**
@@ -240,39 +268,94 @@ export class GameScene {
    * @private
    */
   private async loadAssets(): Promise<void> {
-    // Register asset bundles matching manifest.json
+    this.registerAssetBundles();
+    await Assets.loadBundle([
+      'common',
+      'ui',
+      'trays',
+      'screws',
+      'placeholders',
+    ]);
+  }
+
+  /**
+   * Registers all asset bundles.
+   * @private
+   */
+  private registerAssetBundles(): void {
+    this.registerCommonBundle();
+    this.registerUIBundle();
+    this.registerPlaceholderBundle();
+    this.registerTrayBundle();
+    this.registerScrewBundle();
+  }
+
+  private registerCommonBundle(): void {
     Assets.addBundle('common', [
-      { alias: 'scene-background', src: 'images/backgrounds/scene-background.png' },
+      {
+        alias: 'scene-background',
+        src: 'images/backgrounds/scene-background.png',
+      },
       { alias: 'puzzle-base', src: 'images/ui/puzzle-base.png' },
     ]);
+  }
+
+  private registerUIBundle(): void {
     Assets.addBundle('ui', [
       { alias: 'restart-button', src: 'images/ui/restart-button.png' },
       { alias: 'colored-tray-frame', src: 'images/ui/colored-tray-frame.png' },
       { alias: 'buffer-tray-frame', src: 'images/ui/buffer-tray-frame.png' },
       { alias: 'tray-cover', src: 'images/ui/tray-cover.png' },
-      { alias: 'tray-slot', src: 'images/ui/tray-slot.png' },
     ]);
+  }
+
+  private registerPlaceholderBundle(): void {
+    Assets.addBundle('placeholders', [
+      {
+        alias: 'placeholder-red',
+        src: 'images/placeholders/placeholder-red.png',
+      },
+      {
+        alias: 'placeholder-yellow',
+        src: 'images/placeholders/placeholder-yellow.png',
+      },
+      {
+        alias: 'placeholder-green',
+        src: 'images/placeholders/placeholder-green.png',
+      },
+      {
+        alias: 'placeholder-blue',
+        src: 'images/placeholders/placeholder-blue.png',
+      },
+    ]);
+  }
+
+  private registerTrayBundle(): void {
     Assets.addBundle('trays', [
       { alias: 'tray-red', src: 'images/trays/tray-red.png' },
       { alias: 'tray-yellow', src: 'images/trays/tray-yellow.png' },
       { alias: 'tray-green', src: 'images/trays/tray-green.png' },
       { alias: 'tray-blue', src: 'images/trays/tray-blue.png' },
     ]);
+  }
+
+  private registerScrewBundle(): void {
     Assets.addBundle('screws', [
-      // Short screws (used when screw is in board)
       { alias: 'short-screw-red', src: 'images/screws/short-screw-red.png' },
-      { alias: 'short-screw-yellow', src: 'images/screws/short-screw-yellow.png' },
-      { alias: 'short-screw-green', src: 'images/screws/short-screw-green.png' },
+      {
+        alias: 'short-screw-yellow',
+        src: 'images/screws/short-screw-yellow.png',
+      },
+      {
+        alias: 'short-screw-green',
+        src: 'images/screws/short-screw-green.png',
+      },
       { alias: 'short-screw-blue', src: 'images/screws/short-screw-blue.png' },
-      // Long screws (used when screw is removed/in tray)
       { alias: 'screw-red', src: 'images/screws/screw-red.png' },
       { alias: 'screw-yellow', src: 'images/screws/screw-yellow.png' },
       { alias: 'screw-green', src: 'images/screws/screw-green.png' },
       { alias: 'screw-blue', src: 'images/screws/screw-blue.png' },
     ]);
-
-    // Load all bundles
-    await Assets.loadBundle(['common', 'ui', 'trays', 'screws']);
   }
 
   /**
@@ -294,42 +377,93 @@ export class GameScene {
   }
 
   /**
-   * Creates the colored tray area at the top.
+   * Creates the colored tray area frame and cover.
+   * Tray entities are created dynamically per level in createLevelTrays().
+   *
+   * Z-order (bottom to top):
+   * 1. Background (dark gray behind slots)
+   * 2. Colored tray layer (tray entity views added here)
+   * 3. Covers (behind frame, on top of colored trays)
+   * 4. Frame (always on top)
    * @private
    */
   private async createTrayArea(): Promise<void> {
-    // Tray frame
+    // 1. Background layer (dark gray behind slot openings) - bottom
+    const bg = new Graphics();
+    bg.rect(
+      0,
+      0,
+      TRAY_FRAME_LAYOUT.background.width,
+      TRAY_FRAME_LAYOUT.background.height
+    );
+    bg.fill({ color: TRAY_FRAME_LAYOUT.background.color });
+    bg.position.set(
+      LAYOUT.coloredTrayFrame.x + TRAY_FRAME_LAYOUT.background.offsetX,
+      LAYOUT.coloredTrayFrame.y + TRAY_FRAME_LAYOUT.background.offsetY
+    );
+    this.uiLayer.addChild(bg);
+
+    // 2. Colored tray layer (tray entity views will be added here in createLevelTrays)
+    this.uiLayer.addChild(this.coloredTrayLayer);
+
+    // 3. Tray covers (for hidden tray slots) - behind frame, on top of colored trays
+    const coverTexture = await Assets.load<Texture>('tray-cover');
+    for (const coverPos of LAYOUT.trayCovers) {
+      const cover = new Sprite(coverTexture);
+      cover.position.set(coverPos.x, coverPos.y);
+      this.uiLayer.addChild(cover);
+      this.trayCovers.push(cover);
+    }
+
+    // 4. Tray frame (always on top)
     const frameTexture = await Assets.load<Texture>('colored-tray-frame');
     const frame = new Sprite(frameTexture);
     frame.position.set(LAYOUT.coloredTrayFrame.x, LAYOUT.coloredTrayFrame.y);
     this.uiLayer.addChild(frame);
+  }
 
-    // Create tray entities
-    const trayConfigs: {
-      color: ScrewColor;
-      position: { x: number; y: number };
-    }[] = [
-      { color: ScrewColor.Red, position: LAYOUT.trays.red },
-      { color: ScrewColor.Yellow, position: LAYOUT.trays.yellow },
-      { color: ScrewColor.Green, position: LAYOUT.trays.green },
-      { color: ScrewColor.Blue, position: LAYOUT.trays.blue },
-    ];
+  /**
+   * Creates tray entities based on level configuration.
+   * Array order in level.trays determines displayOrder:
+   * - Index 0-1: Visible trays (displayOrder 0-1)
+   * - Index 2-4: Hidden trays below visible area (displayOrder 2-4)
+   * Levels can have 4-5 trays.
+   *
+   * Tray views are added to coloredTrayLayer for proper z-ordering
+   * (between background and covers).
+   * @param level - The level definition containing tray configs
+   * @private
+   */
+  private async createLevelTrays(level: LevelDefinition): Promise<void> {
+    const trayConfigs = level.trays;
 
-    for (const config of trayConfigs) {
+    for (let i = 0; i < trayConfigs.length; i++) {
+      const config = trayConfigs[i];
+      if (!config) continue;
+
+      const displayOrder = i;
+      const isVisible = displayOrder < 2;
+
+      // Visible trays use display positions, hidden trays start below
+      const displayPosition = TRAY_DISPLAY_POSITIONS[displayOrder];
+      const position = isVisible
+        ? { x: displayPosition?.x ?? 40, y: displayPosition?.y ?? 202 }
+        : { x: displayPosition?.x ?? 40, y: TRAY_HIDDEN_Y };
+
       const tray = await createTrayEntity({
         color: config.color,
-        position: config.position,
-        capacity: 3,
+        position,
+        capacity: config.capacity,
+        displayOrder,
       });
+      // Add entity to scene for ECS management
       this.scene.addChild(tray);
       this.trayEntities.set(config.color, tray);
-    }
 
-    // Tray cover (for hidden tray slot)
-    const coverTexture = await Assets.load<Texture>('tray-cover');
-    const cover = new Sprite(coverTexture);
-    cover.position.set(LAYOUT.trayCover.x, LAYOUT.trayCover.y);
-    this.uiLayer.addChild(cover);
+      // Move tray view to coloredTrayLayer for proper z-ordering
+      // (between background and covers in uiLayer)
+      this.coloredTrayLayer.addChild(tray.view);
+    }
   }
 
   /**
@@ -404,10 +538,38 @@ export class GameScene {
   }
 
   /**
+   * Gets the animation layer container.
+   * Used by AnimationSystem to move screws to top during animation.
+   *
+   * @returns The animation layer container
+   * @example
+   * const layer = gameScene.getAnimationLayer();
+   * layer.addChild(screwSprite);
+   */
+  public getAnimationLayer(): Container {
+    return this.animationLayer;
+  }
+
+  /**
+   * Gets the colored tray layer container.
+   * Used by AnimationSystem to move screws to correct layer after animation.
+   *
+   * @returns The colored tray layer container
+   * @example
+   * const layer = gameScene.getColoredTrayLayer();
+   * layer.addChild(screwSprite);
+   */
+  public getColoredTrayLayer(): Container {
+    return this.coloredTrayLayer;
+  }
+
+  /**
    * Gets the currently loaded level.
    *
    * @returns The current level definition or null if no level is loaded
    * @example
+   * const level = gameScene.getCurrentLevel();
+   * if (level) console.log(level.parts.length);
    */
   public getCurrentLevel(): LevelDefinition | null {
     return this.currentLevel;
@@ -425,7 +587,10 @@ export class GameScene {
    * @example
    * await gameScene.loadLevel('regions/region-test.json', 0);
    */
-  public async loadLevel(regionPath: string, levelIndex: number): Promise<void> {
+  public async loadLevel(
+    regionPath: string,
+    levelIndex: number
+  ): Promise<void> {
     this.clearLevel();
 
     // Store for restart
@@ -446,13 +611,23 @@ export class GameScene {
    * @private
    */
   private async createLevelEntities(level: LevelDefinition): Promise<void> {
-    // Count total screws for game state
+    this.createGameStateEntity(level);
+    await this.createLevelTrays(level);
+    await this.createBufferTrayEntity(level);
+    await this.createPartsAndScrews(level);
+  }
+
+  /**
+   * Creates the game state entity for tracking level progress.
+   * @param level - The level definition
+   * @example
+   * this.createGameStateEntity(level);
+   */
+  private createGameStateEntity(level: LevelDefinition): void {
     const totalScrews = level.parts.reduce(
       (sum, part) => sum + part.screws.length,
       0
     );
-
-    // Create game state entity
     this.gameStateEntity = createEntity(GameStateEntity, {
       gameState: {
         phase: 'playing',
@@ -462,18 +637,31 @@ export class GameScene {
       },
     });
     this.scene.addChild(this.gameStateEntity);
+  }
 
-    // Create buffer tray entity
+  /**
+   * Creates the buffer tray entity for the level.
+   * @param level - The level definition
+   * @example
+   * await this.createBufferTrayEntity(level);
+   */
+  private async createBufferTrayEntity(level: LevelDefinition): Promise<void> {
     this.bufferTrayEntity = await createBufferTrayEntity({
       position: { x: LAYOUT.bufferTrayFrame.x, y: LAYOUT.bufferTrayFrame.y },
       capacity: level.bufferCapacity ?? 5,
     });
     this.scene.addChild(this.bufferTrayEntity);
+  }
 
-    // Create part and screw entities
+  /**
+   * Creates part and screw entities from level definition.
+   * @param level - The level definition
+   * @example
+   * await this.createPartsAndScrews(level);
+   */
+  private async createPartsAndScrews(level: LevelDefinition): Promise<void> {
     for (const partInstance of level.parts) {
       const partDef = getPart(partInstance.partId);
-
       const partEntity = await createPartEntity({
         assetAlias: partDef.id,
         partDefinitionId: partDef.id,
@@ -483,13 +671,11 @@ export class GameScene {
       this.scene.addChild(partEntity);
       this.partEntities.push(partEntity);
 
-      // Create screw entities for this part
       for (const screw of partInstance.screws) {
         const worldPosition = {
           x: partInstance.position.x + screw.position.x,
           y: partInstance.position.y + screw.position.y,
         };
-
         const screwEntity = await createScrewEntity({
           color: screw.color,
           position: worldPosition,
@@ -502,8 +688,7 @@ export class GameScene {
   }
 
   /**
-   * Clears all level entities (parts, screws, game state, buffer tray).
-   * Also resets tray counts.
+   * Clears all level entities (parts, screws, trays, game state, buffer tray).
    * @private
    */
   private clearLevel(): void {
@@ -519,6 +704,14 @@ export class GameScene {
       this.bufferTrayEntity = null;
     }
 
+    // Remove tray entities (they're recreated per level)
+    // Clear the coloredTrayLayer which holds tray views
+    this.coloredTrayLayer.removeChildren();
+    for (const tray of this.trayEntities.values()) {
+      this.scene.removeChild(tray);
+    }
+    this.trayEntities.clear();
+
     // Remove part entities
     for (const entity of this.partEntities) {
       this.scene.removeChild(entity);
@@ -529,11 +722,8 @@ export class GameScene {
       this.scene.removeChild(entity);
     }
 
-    // Reset tray screw counts
-    for (const tray of this.trayEntities.values()) {
-      const trayComponent = (tray.c as unknown as TrayComponentAccess).tray;
-      trayComponent.screwCount = 0;
-    }
+    // Clear animation layer (screws in buffer tray are left here after animation)
+    this.animationLayer.removeChildren();
 
     this.partEntities = [];
     this.screwEntities = [];
@@ -566,7 +756,7 @@ export class GameScene {
 
     if (assets.length > 0) {
       // Use unique bundle name to avoid overwrite warnings
-      const bundleName = `level-parts-${Date.now()}`;
+      const bundleName = `level-parts-${String(Date.now())}`;
       Assets.addBundle(bundleName, assets);
       await Assets.loadBundle(bundleName);
     }
@@ -634,6 +824,10 @@ export class GameScene {
     this.backgroundLayer.removeChildren();
     this.uiLayer.removeChildren();
     this.puzzleLayer.removeChildren();
+    this.animationLayer.removeChildren();
+
+    // Clear layer registry
+    clearLayerRegistry();
 
     this.scene.reset();
   }

@@ -91,6 +91,21 @@ When exporting assets from Figma, always use **"Layer image size"** (NOT "Origin
 
 This ensures exported dimensions match the design and the manifest width/height values.
 
+## Figma to PixiJS Position Conversion
+
+Figma CSS positions (left, top) specify the **top-left corner** of elements. PixiJS sprites use **center-anchor** (0.5, 0.5) by default.
+
+**When converting Figma positions to PixiJS:**
+
+```
+pixiX = figmaLeft + (displayedWidth / 2)
+pixiY = figmaTop + (displayedHeight / 2)
+```
+
+**Example**: A 56×70px screw at Figma position (229, 493):
+- PixiJS center X = 229 + 28 = 257
+- PixiJS center Y = 493 + 35 = 528
+
 ## Common Commands
 
 ```bash

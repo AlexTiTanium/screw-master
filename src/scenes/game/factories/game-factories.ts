@@ -67,6 +67,58 @@ const TRAY_ASSET_MAP: Record<ScrewColor, string> = {
   [ScrewColor.Blue]: 'tray-blue',
 };
 
+/**
+ * Maps screw color to placeholder asset alias.
+ */
+const PLACEHOLDER_ASSET_MAP: Record<ScrewColor, string> = {
+  [ScrewColor.Red]: 'placeholder-red',
+  [ScrewColor.Yellow]: 'placeholder-yellow',
+  [ScrewColor.Green]: 'placeholder-green',
+  [ScrewColor.Blue]: 'placeholder-blue',
+};
+
+/**
+ * Tray sprite width for centering calculations.
+ * Updated for new Figma design (was 200, now 185).
+ */
+const TRAY_WIDTH = 185;
+
+/**
+ * Placeholder display width (new assets are 40x50, no scaling needed).
+ */
+const PLACEHOLDER_DISPLAY_WIDTH = 40;
+
+/**
+ * Spacing between placeholder sprite centers.
+ * Adjusted for smaller tray width.
+ */
+const PLACEHOLDER_SPACING = 40;
+
+/**
+ * Y position for placeholders within tray.
+ * Centered vertically in 150px tray height.
+ */
+const PLACEHOLDER_Y = 75;
+
+/**
+ * WeakMap registry for storing placeholder sprite references.
+ */
+const placeholderRegistry = new WeakMap<Entity2D, Sprite[]>();
+
+/**
+ * Gets the placeholder sprites from a tray entity.
+ *
+ * @param entity - The tray entity to get placeholders from
+ * @returns Array of placeholder sprites or undefined if not found
+ *
+ * @example
+ * const placeholders = getTrayPlaceholders(trayEntity);
+ * if (placeholders) placeholders[0].alpha = 0; // Hide first placeholder
+ */
+export function getTrayPlaceholders(entity: Entity2D): Sprite[] | undefined {
+  return placeholderRegistry.get(entity);
+}
+
 // ============================================================================
 // Screw Entity Factory
 // ============================================================================
@@ -104,7 +156,8 @@ export async function createScrewEntity(
   const state = options.state ?? 'inBoard';
 
   // Use short screw when in board, long screw when removed
-  const assetMap = state === 'inBoard' ? SHORT_SCREW_ASSET_MAP : LONG_SCREW_ASSET_MAP;
+  const assetMap =
+    state === 'inBoard' ? SHORT_SCREW_ASSET_MAP : LONG_SCREW_ASSET_MAP;
   const assetAlias = assetMap[options.color];
   const texture = await Assets.load<Texture>(assetAlias);
 
@@ -196,12 +249,15 @@ export interface TrayEntityOptions {
   position: Position;
   /** Maximum screw capacity (defaults to 3) */
   capacity?: number;
-  /** Whether the tray is hidden under a cover */
-  isHidden?: boolean;
+  /** Display order (0-3): 0-1 are visible, 2-3 are hidden */
+  displayOrder?: number;
 }
 
 /**
- * Creates a colored tray entity with its sprite.
+ * Creates a colored tray entity with its sprite and placeholder sprites.
+ *
+ * Placeholders are semi-transparent screw outlines that show where screws
+ * should be placed. They fade out when a screw is placed in their slot.
  *
  * @param options - Entity configuration
  * @returns Promise resolving to the created entity
@@ -210,32 +266,77 @@ export interface TrayEntityOptions {
  * const tray = await createTrayEntity({
  *   color: ScrewColor.Red,
  *   position: { x: 48, y: 175 },
- *   capacity: 3
+ *   capacity: 3,
+ *   displayOrder: 0
  * });
  * scene.addChild(tray);
  */
 export async function createTrayEntity(
   options: TrayEntityOptions
 ): Promise<Entity2D> {
-  const assetAlias = TRAY_ASSET_MAP[options.color];
-  const texture = await Assets.load<Texture>(assetAlias);
+  const capacity = options.capacity ?? 3;
+  const displayOrder = options.displayOrder ?? 0;
 
-  const entity = createEntity(TrayEntity, {
-    tray: {
-      color: options.color,
-      capacity: options.capacity ?? 3,
-      screwCount: 0,
-      isHidden: options.isHidden ?? false,
-    },
-  });
-
-  const sprite = new Sprite(texture);
-
-  gameVisualRegistry.set(entity, sprite);
-  entity.view.addChild(sprite);
+  const [trayTexture, placeholderTexture] = await loadTrayTextures(
+    options.color
+  );
+  const entity = createTrayEntityWithComponent(
+    options.color,
+    capacity,
+    displayOrder
+  );
+  setupTraySprite(entity, trayTexture);
+  setupPlaceholders(entity, placeholderTexture, capacity);
   entity.position.set(options.position.x, options.position.y);
 
   return entity;
+}
+
+function loadTrayTextures(color: ScrewColor): Promise<[Texture, Texture]> {
+  return Promise.all([
+    Assets.load<Texture>(TRAY_ASSET_MAP[color]),
+    Assets.load<Texture>(PLACEHOLDER_ASSET_MAP[color]),
+  ]);
+}
+
+function createTrayEntityWithComponent(
+  color: ScrewColor,
+  capacity: number,
+  displayOrder: number
+): Entity2D {
+  return createEntity(TrayEntity, {
+    tray: { color, capacity, screwCount: 0, displayOrder, isAnimating: false },
+  });
+}
+
+function setupTraySprite(entity: Entity2D, texture: Texture): void {
+  const traySprite = new Sprite(texture);
+  gameVisualRegistry.set(entity, traySprite);
+  entity.view.addChild(traySprite);
+}
+
+function setupPlaceholders(
+  entity: Entity2D,
+  texture: Texture,
+  capacity: number
+): void {
+  const placeholders: Sprite[] = [];
+
+  // Calculate centered positions for placeholders within tray
+  const totalWidth =
+    (capacity - 1) * PLACEHOLDER_SPACING + PLACEHOLDER_DISPLAY_WIDTH;
+  const startX = (TRAY_WIDTH - totalWidth) / 2 + PLACEHOLDER_DISPLAY_WIDTH / 2;
+
+  for (let i = 0; i < capacity; i++) {
+    const placeholder = new Sprite(texture);
+    placeholder.anchor.set(0.5);
+    // No scaling needed - new assets are already 40x50
+    placeholder.position.set(startX + i * PLACEHOLDER_SPACING, PLACEHOLDER_Y);
+    placeholder.alpha = 0.7;
+    entity.view.addChild(placeholder);
+    placeholders.push(placeholder);
+  }
+  placeholderRegistry.set(entity, placeholders);
 }
 
 // ============================================================================

@@ -111,14 +111,30 @@ interface ScrewPlacement {
 
 ### Tray Configuration
 
-Configures the 4 colored trays:
+Configures the 4 colored trays. **Array order determines display order:**
+- Index 0-1: Initially visible trays (left to right)
+- Index 2-3: Hidden trays (revealed when visible trays complete)
+
+When a visible tray is full:
+1. Full tray slides down and hides
+2. All remaining visible trays shift left
+3. Next hidden tray slides up to reveal
 
 ```typescript
 interface TrayConfig {
   color: ScrewColor;             // Which color this tray accepts
   capacity: number;              // Max screws (1-4)
-  hidden: boolean;               // Under the cover initially?
 }
+```
+
+**Example:**
+```json
+"trays": [
+  { "color": "red", "capacity": 3 },     // Visible at position 0 (left)
+  { "color": "blue", "capacity": 3 },    // Visible at position 1 (right)
+  { "color": "green", "capacity": 2 },   // Hidden, revealed when first tray fills
+  { "color": "yellow", "capacity": 2 }   // Hidden, revealed when second tray fills
+]
 ```
 
 ### Win Conditions
@@ -319,10 +335,10 @@ registerPart(slidingCover);
     }
   ],
   "trays": [
-    { "color": "red", "capacity": 4, "hidden": false },
-    { "color": "blue", "capacity": 2, "hidden": false },
-    { "color": "green", "capacity": 2, "hidden": true },
-    { "color": "yellow", "capacity": 2, "hidden": true }
+    { "color": "red", "capacity": 4 },
+    { "color": "blue", "capacity": 2 },
+    { "color": "green", "capacity": 2 },
+    { "color": "yellow", "capacity": 2 }
   ],
   "win": { "type": "allScrewsRemoved" }
 }
