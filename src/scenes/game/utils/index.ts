@@ -20,3 +20,4 @@ export {
   getColoredTrayLayer,
   clearLayerRegistry,
 } from './layerRegistry';
+export { GAME_LAYOUT } from './gameLayout';

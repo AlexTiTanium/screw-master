@@ -2,6 +2,65 @@
 
 Execute this guide periodically after major features to maintain code quality.
 
+---
+
+## IMPORTANT: Instructions for AI Agents
+
+**You MUST follow this process exactly. Do NOT skip steps or give superficial answers.**
+
+### Required Workflow
+
+1. **Create a TodoWrite todo list FIRST** before doing any work
+   - Add ALL sections from this guide as top-level todos
+   - Mark each section as `pending`
+
+2. **For EACH section**, you must:
+   - Mark the section as `in_progress`
+   - Run the grep/search commands listed
+   - Create sub-todos for EVERY issue found (with file:line references)
+   - Actually FIX each issue (edit the files)
+   - Mark sub-todos as `completed` only after fixing
+   - Mark section as `completed` only when ALL sub-todos are done
+
+3. **Report format** - After completing ALL sections, provide:
+   ```
+   ## Maintenance Report
+
+   ### Summary
+   - Sections completed: X/17
+   - Issues found: X
+   - Issues fixed: X
+   - Issues deferred: X (with reasons)
+
+   ### By Section
+   #### 1. Code Consistency Check
+   - [x] Found 3 TODO markers → Fixed 2, deferred 1 (requires design decision)
+     - src/GameScene.ts:219 - FIXED: Added win UI handler
+     - src/GameScene.ts:229 - FIXED: Added stuck UI handler
+     - src/utils/index.ts:45 - DEFERRED: Needs API design review
+
+   #### 2. API Improvement Analysis
+   ...
+
+   ### Validation Results
+   - npm run validate: PASS/FAIL
+   - npm run test:e2e: PASS/FAIL
+   - npm run build: PASS/FAIL
+   ```
+
+4. **DO NOT**:
+   - Skip sections because they "look fine"
+   - Report "no issues found" without running the actual commands
+   - Mark items complete without actually fixing them
+   - Give vague reports like "checked code quality"
+
+5. **If blocked**:
+   - Document WHY you're blocked
+   - Add to Known Technical Debt table
+   - Continue with other sections
+
+---
+
 ## 1. Code Consistency Check
 
 - [ ] Find and address empty functions/stubs (`TODO`, `FIXME` markers)
@@ -282,3 +341,39 @@ Track items that need future attention:
 |------|----------|----------|-------|
 | Win/stuck UI handlers | `GameScene.ts:219,229` | High | Currently just console.log - need actual UI |
 | Migrate systems to getComponents helper | Various systems | Low | `BaseSystem.getComponents<T>()` added - can migrate existing `as unknown as` casts |
+
+---
+
+## TodoWrite Template for Agents
+
+Copy this structure when starting maintenance:
+
+```
+Section 1: Code Consistency Check
+Section 2: API Improvement Analysis
+Section 3: Type Safety Audit
+Section 4: Code Comments Review
+Section 5: Test Coverage Analysis
+Section 6: Documentation Sync
+Section 7: ECS Architecture Review
+Section 8: Resource Management
+Section 9: Magic Numbers Audit
+Section 10: Production Readiness
+Section 11: Code Architecture (Prevent Spaghetti)
+Section 12: Test Quality Review
+Section 13: Bug Prevention Audit
+Section 14: Log Cleanup
+Section 15: Pattern Refactoring
+Section 16: Clean Code Practices
+Section 17: Final Validation
+```
+
+When issues are found, add sub-items like:
+```
+Section 1: Code Consistency Check
+  - Fix TODO at GameScene.ts:219
+  - Fix FIXME at utils/index.ts:45
+  - Remove eslint-disable at loader.ts:381
+```
+
+**Remember**: Mark `completed` ONLY after the fix is applied and verified.

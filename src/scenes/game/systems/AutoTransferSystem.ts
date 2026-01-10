@@ -46,21 +46,42 @@ export class AutoTransferSystem extends BaseSystem {
   /** Flag to prevent multiple simultaneous transfers */
   private isTransferring = false;
 
+  /** Bound handler for screw:removalComplete event */
+  private handleRemovalComplete = (): void => {
+    this.checkAutoTransfer();
+  };
+
+  /** Bound handler for screw:transferComplete event */
+  private handleTransferComplete = (): void => {
+    this.onTransferComplete();
+  };
+
+  /** Bound handler for tray:revealed event */
+  private handleTrayRevealed = (): void => {
+    this.checkAutoTransfer();
+  };
+
   /**
    * Initialize event listeners.
    * @example
    * system.init(); // Called automatically by ECS
    */
   init(): void {
-    gameEvents.on('screw:removalComplete', () => {
-      this.checkAutoTransfer();
-    });
-    gameEvents.on('screw:transferComplete', () => {
-      this.onTransferComplete();
-    });
-    gameEvents.on<TrayRevealedEvent>('tray:revealed', () => {
-      this.checkAutoTransfer();
-    });
+    gameEvents.on('screw:removalComplete', this.handleRemovalComplete);
+    gameEvents.on('screw:transferComplete', this.handleTransferComplete);
+    gameEvents.on<TrayRevealedEvent>('tray:revealed', this.handleTrayRevealed);
+  }
+
+  /**
+   * Clean up event listeners.
+   * @example
+   * system.destroy(); // Called automatically by ECS
+   */
+  destroy(): void {
+    gameEvents.off('screw:removalComplete', this.handleRemovalComplete);
+    gameEvents.off('screw:transferComplete', this.handleTransferComplete);
+    gameEvents.off('tray:revealed', this.handleTrayRevealed);
+    this.isTransferring = false;
   }
 
   /**

@@ -18,91 +18,27 @@ import type {
   TrayShiftEvent,
   TrayRevealEvent,
 } from './TrayManagementSystem';
-import { ScrewColor } from '@shared/types';
 import type { ScrewComponentAccess, TrayComponentAccess } from '../types';
+import type { ScrewColor } from '@shared/types';
+import {
+  type FlightParams,
+  type ScrewTransferEvent,
+  type ScrewRemovalCompleteEvent,
+  LONG_SCREW_ASSET_MAP,
+  TRAY_SLOT_SCALE,
+  BUFFER_SLOT_SCALE,
+  POP_OUT_SCALE,
+  POP_OUT_HEIGHT,
+  REMOVAL_ARC_HEIGHT,
+  TRANSFER_ARC_HEIGHT,
+} from './animation';
+import { bezierPosition } from './animation';
 
-/**
- * Event data emitted when a screw removal animation completes.
- */
-export interface ScrewRemovalCompleteEvent {
-  /** The screw entity that was removed */
-  screwEntity: Entity;
-}
-
-/**
- * Event data for screw transfer animation (buffer to colored tray).
- */
-export interface ScrewTransferEvent {
-  /** The screw entity being transferred */
-  screwEntity: Entity;
-  /** The target colored tray entity */
-  targetTray: Entity;
-  /** Slot index in the target tray */
-  slotIndex: number;
-}
-
-/**
- * Maps screw color to long screw asset alias.
- */
-const LONG_SCREW_ASSET_MAP: Record<ScrewColor, string> = {
-  [ScrewColor.Red]: 'screw-red',
-  [ScrewColor.Yellow]: 'screw-yellow',
-  [ScrewColor.Green]: 'screw-green',
-  [ScrewColor.Blue]: 'screw-blue',
-};
-
-/**
- * Scale factor for screws in colored tray slots.
- * Long screw is 80x100, tray slot is 50x50, so ~0.5 scale fits well.
- */
-const TRAY_SLOT_SCALE = 0.5;
-
-/**
- * Scale factor for screws in buffer tray.
- * Long screw is 80x100, Figma shows 56x70, so 0.7 scale.
- */
-const BUFFER_SLOT_SCALE = 0.7;
-
-/** Pop-out animation height in pixels. */
-const POP_OUT_HEIGHT = 20;
-
-/** Scale during pop-out phase. */
-const POP_OUT_SCALE = 0.8;
-
-/** Arc height offset for bezier control point. */
-const REMOVAL_ARC_HEIGHT = 130;
-
-/** Arc height offset for transfer bezier control point. */
-const TRANSFER_ARC_HEIGHT = 80;
-
-/**
- * Animation parameters for bezier curve flight.
- */
-interface FlightParams {
-  startX: number;
-  startY: number;
-  controlX: number;
-  controlY: number;
-  endX: number;
-  endY: number;
-  startScale: number;
-  endScale: number;
-}
-
-/**
- * Calculate quadratic bezier position at parameter t.
- * @param t - Parameter from 0 to 1
- * @param p0 - Start point
- * @param p1 - Control point
- * @param p2 - End point
- * @returns Position at parameter t
- * @example
- * const x = bezierPosition(0.5, 0, 100, 200); // Returns 100
- */
-function bezierPosition(t: number, p0: number, p1: number, p2: number): number {
-  const invT = 1 - t;
-  return invT * invT * p0 + 2 * invT * t * p1 + t * t * p2;
-}
+// Re-export types for external use
+export type {
+  ScrewRemovalCompleteEvent,
+  ScrewTransferEvent,
+} from './animation';
 
 /**
  * System for handling screw animations.
@@ -134,29 +70,68 @@ export class AnimationSystem extends BaseSystem {
   private activeTimelines = new Set<gsap.core.Timeline>();
 
   /**
+   * Bound handler for screw:startRemoval event.
+   * @param event - The removal event data
+   */
+  private handleRemovalEvent = (event: ScrewRemovalEvent): void => {
+    void this.handleRemoval(event);
+  };
+
+  /**
+   * Bound handler for screw:startTransfer event.
+   * @param event - The transfer event data
+   */
+  private handleTransferEvent = (event: ScrewTransferEvent): void => {
+    void this.handleTransfer(event);
+  };
+
+  /**
+   * Bound handler for tray:startHide event.
+   * @param event - The hide event data
+   */
+  private handleTrayHideEvent = (event: TrayHideEvent): void => {
+    void this.handleTrayHide(event);
+  };
+
+  /**
+   * Bound handler for tray:startShift event.
+   * @param event - The shift event data
+   */
+  private handleTrayShiftEvent = (event: TrayShiftEvent): void => {
+    void this.handleTrayShift(event);
+  };
+
+  /**
+   * Bound handler for tray:startReveal event.
+   * @param event - The reveal event data
+   */
+  private handleTrayRevealEvent = (event: TrayRevealEvent): void => {
+    void this.handleTrayReveal(event);
+  };
+
+  /**
    * Initialize event listeners.
    * @example
    * system.init(); // Called automatically by ECS
    */
   init(): void {
     // Screw animation events
-    gameEvents.on<ScrewRemovalEvent>('screw:startRemoval', (event) => {
-      void this.handleRemoval(event);
-    });
-    gameEvents.on<ScrewTransferEvent>('screw:startTransfer', (event) => {
-      void this.handleTransfer(event);
-    });
+    gameEvents.on<ScrewRemovalEvent>(
+      'screw:startRemoval',
+      this.handleRemovalEvent
+    );
+    gameEvents.on<ScrewTransferEvent>(
+      'screw:startTransfer',
+      this.handleTransferEvent
+    );
 
     // Tray animation events
-    gameEvents.on<TrayHideEvent>('tray:startHide', (event) => {
-      void this.handleTrayHide(event);
-    });
-    gameEvents.on<TrayShiftEvent>('tray:startShift', (event) => {
-      void this.handleTrayShift(event);
-    });
-    gameEvents.on<TrayRevealEvent>('tray:startReveal', (event) => {
-      void this.handleTrayReveal(event);
-    });
+    gameEvents.on<TrayHideEvent>('tray:startHide', this.handleTrayHideEvent);
+    gameEvents.on<TrayShiftEvent>('tray:startShift', this.handleTrayShiftEvent);
+    gameEvents.on<TrayRevealEvent>(
+      'tray:startReveal',
+      this.handleTrayRevealEvent
+    );
   }
 
   /**
@@ -703,11 +678,19 @@ export class AnimationSystem extends BaseSystem {
   }
 
   /**
-   * Clean up active timelines when system is destroyed.
+   * Clean up event listeners and active timelines when system is destroyed.
    * @example
    * system.destroy(); // Called automatically by ECS
    */
   destroy(): void {
+    // Unregister event listeners
+    gameEvents.off('screw:startRemoval', this.handleRemovalEvent);
+    gameEvents.off('screw:startTransfer', this.handleTransferEvent);
+    gameEvents.off('tray:startHide', this.handleTrayHideEvent);
+    gameEvents.off('tray:startShift', this.handleTrayShiftEvent);
+    gameEvents.off('tray:startReveal', this.handleTrayRevealEvent);
+
+    // Kill active timelines
     for (const timeline of this.activeTimelines) {
       timeline.kill();
     }

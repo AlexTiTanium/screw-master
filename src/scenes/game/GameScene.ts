@@ -26,9 +26,8 @@ import {
   gameEvents,
   TRAY_DISPLAY_POSITIONS,
   TRAY_HIDDEN_Y,
-  getCoverPositionForBucket,
   TRAY_FRAME_LAYOUT,
-  BUFFER_TRAY_LAYOUT,
+  GAME_LAYOUT,
   registerAnimationLayer,
   registerColoredTrayLayer,
   clearLayerRegistry,
@@ -41,40 +40,6 @@ export interface GameSceneOptions {
   /** The PixiJS container to use as the scene's stage */
   stage: Container;
 }
-
-/**
- * Layout coordinates from Figma design (1080x1920).
- * Updated from Figma node 28:14 using Layer image sizes.
- */
-const LAYOUT = {
-  // Background
-  background: { x: 0, y: 0, width: 1080, height: 1920 },
-
-  // Puzzle base (metal frame)
-  puzzleBase: { x: 32, y: 676, width: 1015, height: 1090 },
-
-  // Restart button
-  restartButton: { x: 918, y: 21, width: 140, height: 140 },
-
-  // Colored tray area (from TRAY_FRAME_LAYOUT)
-  coloredTrayFrame: {
-    x: TRAY_FRAME_LAYOUT.framePosition.x,
-    y: TRAY_FRAME_LAYOUT.framePosition.y,
-    width: TRAY_FRAME_LAYOUT.frame.width,
-    height: TRAY_FRAME_LAYOUT.frame.height,
-  },
-  // Covers for hidden tray slots (displayOrder 2, 3, 4)
-  // Positions calculated from TRAY_FRAME_LAYOUT bucket positions
-  trayCovers: [
-    getCoverPositionForBucket(2), // covers bucket 2
-    getCoverPositionForBucket(3), // covers bucket 3
-    getCoverPositionForBucket(4), // covers bucket 4
-  ],
-
-  // Buffer tray (from BUFFER_TRAY_LAYOUT)
-  bufferTrayFrame: BUFFER_TRAY_LAYOUT.frame,
-  bufferSlots: BUFFER_TRAY_LAYOUT.slotPositions,
-} as const;
 
 /**
  * Main game scene implementing the Figma design.
@@ -359,13 +324,13 @@ export class GameScene {
     // Scene background
     const bgTexture = await Assets.load<Texture>('scene-background');
     const background = new Sprite(bgTexture);
-    background.position.set(LAYOUT.background.x, LAYOUT.background.y);
+    background.position.set(GAME_LAYOUT.background.x, GAME_LAYOUT.background.y);
     this.backgroundLayer.addChild(background);
 
     // Puzzle base (metal frame)
     const baseTexture = await Assets.load<Texture>('puzzle-base');
     const puzzleBase = new Sprite(baseTexture);
-    puzzleBase.position.set(LAYOUT.puzzleBase.x, LAYOUT.puzzleBase.y);
+    puzzleBase.position.set(GAME_LAYOUT.puzzleBase.x, GAME_LAYOUT.puzzleBase.y);
     this.puzzleLayer.addChild(puzzleBase);
   }
 
@@ -391,8 +356,8 @@ export class GameScene {
     );
     bg.fill({ color: TRAY_FRAME_LAYOUT.background.color });
     bg.position.set(
-      LAYOUT.coloredTrayFrame.x + TRAY_FRAME_LAYOUT.background.offsetX,
-      LAYOUT.coloredTrayFrame.y + TRAY_FRAME_LAYOUT.background.offsetY
+      GAME_LAYOUT.coloredTrayFrame.x + TRAY_FRAME_LAYOUT.background.offsetX,
+      GAME_LAYOUT.coloredTrayFrame.y + TRAY_FRAME_LAYOUT.background.offsetY
     );
     this.uiLayer.addChild(bg);
 
@@ -401,7 +366,7 @@ export class GameScene {
 
     // 3. Tray covers (for hidden tray slots) - behind frame, on top of colored trays
     const coverTexture = await Assets.load<Texture>('tray-cover');
-    for (const coverPos of LAYOUT.trayCovers) {
+    for (const coverPos of GAME_LAYOUT.trayCovers) {
       const cover = new Sprite(coverTexture);
       cover.position.set(coverPos.x, coverPos.y);
       this.uiLayer.addChild(cover);
@@ -411,7 +376,10 @@ export class GameScene {
     // 4. Tray frame (always on top)
     const frameTexture = await Assets.load<Texture>('colored-tray-frame');
     const frame = new Sprite(frameTexture);
-    frame.position.set(LAYOUT.coloredTrayFrame.x, LAYOUT.coloredTrayFrame.y);
+    frame.position.set(
+      GAME_LAYOUT.coloredTrayFrame.x,
+      GAME_LAYOUT.coloredTrayFrame.y
+    );
     this.uiLayer.addChild(frame);
   }
 
@@ -466,7 +434,10 @@ export class GameScene {
   private async createBufferTray(): Promise<void> {
     const frameTexture = await Assets.load<Texture>('buffer-tray-frame');
     const frame = new Sprite(frameTexture);
-    frame.position.set(LAYOUT.bufferTrayFrame.x, LAYOUT.bufferTrayFrame.y);
+    frame.position.set(
+      GAME_LAYOUT.bufferTrayFrame.x,
+      GAME_LAYOUT.bufferTrayFrame.y
+    );
     this.uiLayer.addChild(frame);
   }
 
@@ -478,8 +449,8 @@ export class GameScene {
     const texture = await Assets.load<Texture>('restart-button');
     this.restartButton = new Sprite(texture);
     this.restartButton.position.set(
-      LAYOUT.restartButton.x,
-      LAYOUT.restartButton.y
+      GAME_LAYOUT.restartButton.x,
+      GAME_LAYOUT.restartButton.y
     );
 
     // Make interactive
@@ -630,7 +601,10 @@ export class GameScene {
    */
   private async createBufferTrayEntity(level: LevelDefinition): Promise<void> {
     this.bufferTrayEntity = await createBufferTrayEntity({
-      position: { x: LAYOUT.bufferTrayFrame.x, y: LAYOUT.bufferTrayFrame.y },
+      position: {
+        x: GAME_LAYOUT.bufferTrayFrame.x,
+        y: GAME_LAYOUT.bufferTrayFrame.y,
+      },
       capacity: level.bufferCapacity ?? 5,
     });
     this.scene.addChild(this.bufferTrayEntity);

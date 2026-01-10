@@ -32,18 +32,34 @@ export class WinConditionSystem extends BaseSystem {
     screws: { components: [ScrewComponent] },
   };
 
+  /** Bound handler for screw:removalComplete event */
+  private handleRemovalComplete = (): void => {
+    this.checkConditions();
+  };
+
+  /** Bound handler for screw:transferComplete event */
+  private handleTransferComplete = (): void => {
+    this.checkStuckCondition();
+  };
+
   /**
    * Initialize event listeners.
    * @example
    * system.init(); // Called automatically by ECS
    */
   init(): void {
-    gameEvents.on('screw:removalComplete', () => {
-      this.checkConditions();
-    });
-    gameEvents.on('screw:transferComplete', () => {
-      this.checkStuckCondition();
-    });
+    gameEvents.on('screw:removalComplete', this.handleRemovalComplete);
+    gameEvents.on('screw:transferComplete', this.handleTransferComplete);
+  }
+
+  /**
+   * Clean up event listeners.
+   * @example
+   * system.destroy(); // Called automatically by ECS
+   */
+  destroy(): void {
+    gameEvents.off('screw:removalComplete', this.handleRemovalComplete);
+    gameEvents.off('screw:transferComplete', this.handleTransferComplete);
   }
 
   /**
