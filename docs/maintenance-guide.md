@@ -181,7 +181,56 @@ grep -rn "^import.*from" src/ | cut -d: -f2 | sort | uniq -c | sort -rn | head -
 grep -rn "\.\w\+().\w\+().\w\+()" src/
 ```
 
-## 16. Final Validation
+## 16. Clean Code Practices
+
+### Naming
+- [ ] Variables describe what they hold, not how they're used (`screwCount` not `tempVar`)
+- [ ] Functions describe what they do (`calculateTotalScore` not `doStuff`)
+- [ ] Boolean variables read as questions (`isAnimating`, `hasCompleted`, `canPlace`)
+- [ ] Avoid abbreviations unless universally understood (`pos` → `position`)
+- [ ] Use consistent terminology across codebase (don't mix `remove`/`delete`/`destroy`)
+
+### Functions
+- [ ] Functions do one thing (single responsibility)
+- [ ] Functions are short (<30 lines preferred, <50 max)
+- [ ] No more than 3 parameters (use options object if more needed)
+- [ ] No side effects in query functions (getters shouldn't modify state)
+- [ ] Early returns instead of deep nesting
+- [ ] Avoid flag arguments (`render(true)` → `renderWithAnimation()`)
+
+### Conditionals
+- [ ] Positive conditions preferred (`if (isValid)` not `if (!isInvalid)`)
+- [ ] Complex conditions extracted to named variables or functions
+- [ ] No magic booleans in conditions (`if (count > MAX_SCREWS)` not `if (count > 5)`)
+- [ ] Switch/case statements have default handlers
+- [ ] Ternaries only for simple expressions (no nested ternaries)
+
+### Error Handling
+- [ ] Errors are handled at appropriate level (not swallowed)
+- [ ] Error messages are descriptive and actionable
+- [ ] No empty catch blocks
+- [ ] Fail fast - validate inputs early
+- [ ] Use specific error types when beneficial
+
+### Code Organization
+- [ ] Related code is grouped together
+- [ ] Public methods before private methods
+- [ ] Constants at top of file
+- [ ] Imports organized (external → internal → types)
+- [ ] No dead code or unreachable branches
+
+```bash
+# Find long functions (>50 lines between braces)
+awk '/\{/{start=NR} /\}/{if(NR-start>50)print FILENAME":"start"-"NR}' src/**/*.ts
+
+# Find functions with many parameters
+grep -rn "function.*,.*,.*,.*," src/
+
+# Find nested ternaries
+grep -rn "?.*?.*:" src/
+```
+
+## 17. Final Validation
 
 Run all checks to ensure nothing is broken:
 
