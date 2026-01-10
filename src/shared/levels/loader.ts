@@ -11,7 +11,13 @@ import type {
   ScrewPlacement,
 } from '@shared/types';
 import { getPart, hasPart } from '@shared/parts';
-import { isScrewInBounds, SCREW_RADIUS } from '@shared/utils';
+import {
+  isScrewInBounds,
+  SCREW_RADIUS,
+  isPartInPlayArea,
+  getPartBoundsInfo,
+  PLAY_AREA,
+} from '@shared/utils';
 
 /**
  * Validation error with context.
@@ -77,45 +83,115 @@ function validateScrewPlacement(
 }
 
 /**
- * Validate a part instance.
- *
+ * Get collision box dimensions from a part definition.
+ * @param partId - The part ID to look up
+ * @returns Width and height of the part's collision box
+ */
+function getPartDimensions(partId: string): { width: number; height: number } {
+  const partDef = getPart(partId);
+  if (partDef.collision.type === 'box') {
+    return { width: partDef.collision.width, height: partDef.collision.height };
+  }
+  // For polygon collisions, calculate bounding box
+  const points = partDef.collision.points;
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  return {
+    width: Math.max(...xs) - Math.min(...xs),
+    height: Math.max(...ys) - Math.min(...ys),
+  };
+}
+
+/**
+ * Format exceeded bounds into human-readable strings.
+ * @param info - Bounds info from getPartBoundsInfo
+ * @returns Array of exceeded boundary descriptions
+ */
+function formatExceededBounds(
+  info: ReturnType<typeof getPartBoundsInfo>
+): string[] {
+  const result: string[] = [];
+  if (info.exceedsLeft)
+    result.push(
+      `left (${String(info.leftEdge)} < ${String(PLAY_AREA.bounds.minX)})`
+    );
+  if (info.exceedsRight)
+    result.push(
+      `right (${String(info.rightEdge)} > ${String(PLAY_AREA.bounds.maxX)})`
+    );
+  if (info.exceedsTop)
+    result.push(
+      `top (${String(info.topEdge)} < ${String(PLAY_AREA.bounds.minY)})`
+    );
+  if (info.exceedsBottom)
+    result.push(
+      `bottom (${String(info.bottomEdge)} > ${String(PLAY_AREA.bounds.maxY)})`
+    );
+  return result;
+}
+
+/**
+ * Validate that a part instance fits within the play area boundaries.
+ * @param part - The part instance to validate
+ * @param partIndex - Index of the part in the level's parts array
+ * @returns Validation error if part exceeds boundaries, null if valid
+ */
+function validatePartPlayAreaBounds(
+  part: PartInstance,
+  partIndex: number
+): ValidationError | null {
+  const { width, height } = getPartDimensions(part.partId);
+  if (isPartInPlayArea(part.position, width, height)) return null;
+
+  const boundsInfo = getPartBoundsInfo(part.position, width, height);
+  const exceeded = formatExceededBounds(boundsInfo);
+  const pos = `(${String(part.position.x)}, ${String(part.position.y)})`;
+  const size = `${String(width)}x${String(height)}`;
+
+  return {
+    message: `Part "${part.partId}" at ${pos} with size ${size} exceeds play area bounds. Exceeded: ${exceeded.join(', ')}`,
+    path: `parts[${String(partIndex)}].position`,
+  };
+}
+
+/** Result type for part instance validation. */
+interface PartValidationResult {
+  errors: ValidationError[];
+  warnings: ValidationError[];
+}
+
+/**
+ * Validate a part instance for unknown parts, play area bounds, and screw positions.
  * @param part - The part instance to validate
  * @param partIndex - Index of the part in the level's parts array
  * @returns Object containing errors and warnings arrays
- *
- * @example
- * ```typescript
- * const result = validatePartInstance(part, 0);
- * console.log(result.errors, result.warnings);
- * ```
  */
 function validatePartInstance(
   part: PartInstance,
   partIndex: number
-): { errors: ValidationError[]; warnings: ValidationError[] } {
+): PartValidationResult {
   const errors: ValidationError[] = [];
   const warnings: ValidationError[] = [];
 
   if (!hasPart(part.partId)) {
-    errors.push({
-      message: `Unknown part "${part.partId}"`,
-      path: `parts[${String(partIndex)}].partId`,
-    });
+    const path = `parts[${String(partIndex)}].partId`;
+    errors.push({ message: `Unknown part "${part.partId}"`, path });
     return { errors, warnings };
   }
+
+  const boundsError = validatePartPlayAreaBounds(part, partIndex);
+  if (boundsError) errors.push(boundsError);
 
   const usedPositions = new Set<string>();
   part.screws.forEach((screw, i) => {
     const screwError = validateScrewPlacement(screw, part, i, partIndex);
     if (screwError) errors.push(screwError);
 
-    // Check for duplicate positions (screws at exact same location)
     const posKey = `${String(screw.position.x)},${String(screw.position.y)}`;
     if (usedPositions.has(posKey)) {
-      warnings.push({
-        message: `Multiple screws at position (${String(screw.position.x)}, ${String(screw.position.y)})`,
-        path: `parts[${String(partIndex)}].screws[${String(i)}].position`,
-      });
+      const path = `parts[${String(partIndex)}].screws[${String(i)}].position`;
+      const msg = `Multiple screws at position (${String(screw.position.x)}, ${String(screw.position.y)})`;
+      warnings.push({ message: msg, path });
     }
     usedPositions.add(posKey);
   });

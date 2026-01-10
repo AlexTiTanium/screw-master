@@ -72,12 +72,14 @@ Places a predefined part in the level:
 ```typescript
 interface PartInstance {
   partId: string;                // References a PartDefinition.id
-  position: { x: number; y: number };  // World position
+  position: { x: number; y: number };  // Local position (centered coordinate system)
   layer: number;                 // Z-order (higher = on top)
   rotation?: number;             // Initial rotation in degrees (default: 0)
   screws: ScrewPlacement[];      // Screws attached to this part
 }
 ```
+
+**Position uses a centered coordinate system** - see [Play Area Coordinate System](#play-area-coordinate-system) below.
 
 ### Screw Placement
 
@@ -99,7 +101,7 @@ interface ScrewPlacement {
 ```json
 {
   "partId": "board-walnut-square",
-  "position": { "x": 200, "y": 800 },
+  "position": { "x": -140, "y": 170 },
   "layer": 1,
   "screws": [
     { "position": { "x": 50, "y": 50 }, "color": "red" },
@@ -108,6 +110,8 @@ interface ScrewPlacement {
   ]
 }
 ```
+
+Note: Part position uses centered coordinates (x=-140, y=170 means 140px left of center, 170px below center).
 
 ### Tray Configuration
 
@@ -148,7 +152,75 @@ type WinCondition =
 
 ---
 
-## 4. Screw Types and Colors
+## 4. Play Area Coordinate System
+
+Parts are positioned using a **centered coordinate system** where `(0, 0)` is the center of the play area.
+
+### Play Area Dimensions
+
+| Property | Value |
+|----------|-------|
+| Play area size | 815 x 860 pixels |
+| X coordinate range | -407 to +407 |
+| Y coordinate range | -430 to +430 |
+
+### Coordinate Directions
+
+- **Positive X**: Right of center
+- **Negative X**: Left of center
+- **Positive Y**: Below center (down)
+- **Negative Y**: Above center (up)
+
+### Visual Layout
+
+```
+                    -407        0        +407
+                      │         │         │
+           ┌──────────┼─────────┼─────────┼──────────┐
+      -430 ─│         │         │         │         │
+           │         │    ↑    │         │         │
+           │         │    │    │         │         │
+           │    ←────┼────┼────┼────→    │         │
+         0 ─│         │    │    │         │         │
+           │         │    ↓    │         │         │
+           │         │         │         │         │
+      +430 ─│         │         │         │         │
+           └──────────┴─────────┴─────────┴──────────┘
+                    Play Area (815 x 860)
+```
+
+### Part Boundary Validation
+
+Parts must fit **entirely within** the play area. The validation considers the part's collision box dimensions:
+
+```
+Valid position range for a part with size (width, height):
+  minX = -407 + width/2
+  maxX = +407 - width/2
+  minY = -430 + height/2
+  maxY = +430 - height/2
+```
+
+**Example calculations:**
+
+| Part | Size | Valid X Range | Valid Y Range |
+|------|------|---------------|---------------|
+| board-walnut-square | 270x260 | [-272, 272] | [-300, 300] |
+| board-pine-horizontal | 501x317 | [-156, 156] | [-271, 271] |
+
+### Unit Tests
+
+Play area boundaries are enforced by unit tests in `tests/unit/shared/levels/playAreaValidation.test.ts`. These tests:
+
+1. Load all region JSON files from `assets/regions/`
+2. Validate every part in every level fits within bounds
+3. **Fail immediately** if any part exceeds the play area
+
+This ensures level designers cannot accidentally place parts outside the visible play area.
+
+---
+
+## 5. Screw Types and Colors
 
 ### Screw Visual States
 
@@ -179,7 +251,7 @@ Colors available (string enum for JSON readability):
 
 ---
 
-## 5. Part Definitions (TypeScript)
+## 6. Part Definitions (TypeScript)
 
 Parts are defined in TypeScript code, not JSON. Each part specifies properties that are constant for all instances.
 
@@ -278,7 +350,7 @@ interface ScrewMountDef {
 
 ---
 
-## 6. Complete Example
+## 7. Complete Example
 
 ### Part Definition (TypeScript)
 
@@ -318,7 +390,7 @@ registerPart(slidingCover);
   "parts": [
     {
       "partId": "base-plate",
-      "position": { "x": 540, "y": 960 },
+      "position": { "x": 0, "y": 100 },
       "layer": 0,
       "screws": [
         { "position": { "x": 270, "y": 480 }, "color": "blue" }
@@ -326,11 +398,11 @@ registerPart(slidingCover);
     },
     {
       "partId": "sliding-cover",
-      "position": { "x": 540, "y": 910 },
+      "position": { "x": 0, "y": -50 },
       "layer": 1,
       "screws": [
         { "position": { "x": 65, "y": 40 }, "color": "red" },
-        { "position": { "x": 185, "y": 40 }, "color": "red" }
+        { "position": { "x": 85, "y": 40 }, "color": "red" }
       ]
     }
   ],
@@ -344,21 +416,24 @@ registerPart(slidingCover);
 }
 ```
 
+Note: Part positions use centered coordinates where (0, 0) is the center of the play area.
+
 ---
 
-## 7. Validation Rules
+## 8. Validation Rules
 
 The level loader validates:
 
 1. **Part references** - Every `partId` must match a registered `PartDefinition`
-2. **Screw bounds** - Every screw position must be within the part's collision bounds (accounting for screw radius of 40px)
-3. **Tray count** - Exactly 4 trays required
-4. **Tray capacity** - Must be 1-4
-5. **Layer uniqueness** - Warning if multiple parts share the same layer (occlusion ambiguity)
+2. **Play area bounds** - Every part must fit entirely within the 815x860 play area (see section 4)
+3. **Screw bounds** - Every screw position must be within the part's collision bounds (accounting for screw radius of 40px)
+4. **Tray count** - Exactly 4 trays required
+5. **Tray capacity** - Must be 1-4
+6. **Layer uniqueness** - Warning if multiple parts share the same layer (occlusion ambiguity)
 
 ---
 
-## 8. File Organization
+## 9. File Organization
 
 ```
 src/shared/

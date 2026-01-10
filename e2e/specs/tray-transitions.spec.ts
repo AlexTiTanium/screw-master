@@ -70,7 +70,7 @@ test.describe('Tray Transitions', () => {
     const trays = await harness.queryByComponent('tray');
 
     // Each tray should have placeholder sprites as children
-    // Tray capacities in test level: 3, 3, 2, 2
+    // Tray capacities in test level: 3, 3, 3, 2 (red, blue, green, yellow)
     for (const tray of trays) {
       const capacity = (tray.components.tray as { capacity: number }).capacity;
       // Placeholders are children of the tray view
@@ -100,9 +100,11 @@ test.describe('Tray Transitions', () => {
       (redTray!.components.tray as { screwCount: number }).screwCount
     ).toBe(0);
 
-    // Tap the red screw at position (250, 850)
-    await harness.act({ type: 'pointerDown', x: 250, y: 850 });
-    await harness.act({ type: 'pointerUp', x: 250, y: 850 });
+    // Tap the red screw (using centered coordinates)
+    // Board 1 at world (400, 1369), red screw at local (50, 50)
+    // World position: (400-135+50, 1369-130+50) = (315, 1289)
+    await harness.act({ type: 'pointerDown', x: 315, y: 1289 });
+    await harness.act({ type: 'pointerUp', x: 315, y: 1289 });
 
     // Wait for animation to complete
     await page.waitForTimeout(800);
@@ -139,9 +141,11 @@ test.describe('Tray Transitions', () => {
     expect(initialScrewCount).toBe(0);
 
     // Yellow tray is hidden (displayOrder 3), so yellow screw should go to buffer
-    // Tap the yellow screw at position (685, 865)
-    await harness.act({ type: 'pointerDown', x: 685, y: 865 });
-    await harness.act({ type: 'pointerUp', x: 685, y: 865 });
+    // Tap the yellow screw (using centered coordinates)
+    // Board 2 at world (680, 1369), yellow screw at local (135, 65)
+    // World position: (680-135+135, 1369-130+65) = (680, 1304)
+    await harness.act({ type: 'pointerDown', x: 680, y: 1304 });
+    await harness.act({ type: 'pointerUp', x: 680, y: 1304 });
 
     // Wait for animation to complete
     await page.waitForTimeout(800);
@@ -176,17 +180,19 @@ test.describe('Tray Transitions', () => {
     expect(initialDisplayOrder).toBe(0); // Red tray starts at displayOrder 0
 
     // Red tray has capacity 3 in test level
-    // We have 2 red screws: (250, 850) and (600, 995)
-    // Need to fill the tray by tapping both red screws
+    // We have 3 red screws using centered coordinates:
+    // Board 1 red screw at world (315, 1289)
+    // Board 2 red screw at world (595, 1434)
+    // Board 3 red screw at world (400, 1169)
 
-    // First red screw
-    await harness.act({ type: 'pointerDown', x: 250, y: 850 });
-    await harness.act({ type: 'pointerUp', x: 250, y: 850 });
+    // First red screw (Board 1)
+    await harness.act({ type: 'pointerDown', x: 315, y: 1289 });
+    await harness.act({ type: 'pointerUp', x: 315, y: 1289 });
     await page.waitForTimeout(800);
 
-    // Second red screw
-    await harness.act({ type: 'pointerDown', x: 600, y: 995 });
-    await harness.act({ type: 'pointerUp', x: 600, y: 995 });
+    // Second red screw (Board 2)
+    await harness.act({ type: 'pointerDown', x: 595, y: 1434 });
+    await harness.act({ type: 'pointerUp', x: 595, y: 1434 });
     await page.waitForTimeout(800);
 
     // At this point, red tray has 2/3 screws (not full yet)

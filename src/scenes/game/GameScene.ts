@@ -5,7 +5,14 @@ import { Assets, Container, Graphics, Sprite, type Texture } from 'pixi.js';
 import { isTestMode } from '@shared/debug';
 import { loadRegion, getLevelByIndex } from '@shared/levels';
 import { getPart } from '@shared/parts';
-import type { LevelDefinition, ScrewColor } from '@shared/types';
+import type {
+  LevelDefinition,
+  ScrewColor,
+  PartInstance,
+  PartDefinition,
+  Position,
+} from '@shared/types';
+import { localToWorld } from '@shared/utils';
 
 import {
   createTrayEntity,
@@ -612,6 +619,11 @@ export class GameScene {
 
   /**
    * Creates part and screw entities from level definition.
+   *
+   * Level data uses centered local coordinates where (0,0) is the center
+   * of the play area. This method transforms those coordinates to world
+   * coordinates for rendering.
+   *
    * @param level - The level definition
    * @example
    * await this.createPartsAndScrews(level);
@@ -619,28 +631,59 @@ export class GameScene {
   private async createPartsAndScrews(level: LevelDefinition): Promise<void> {
     for (const partInstance of level.parts) {
       const partDef = getPart(partInstance.partId);
+      const partWorldPosition = localToWorld(partInstance.position);
+
       const partEntity = await createPartEntity({
         assetAlias: partDef.id,
         partDefinitionId: partDef.id,
-        position: partInstance.position,
+        position: partWorldPosition,
         layer: partInstance.layer,
       });
       this.scene.addChild(partEntity);
       this.partEntities.push(partEntity);
 
-      for (const screw of partInstance.screws) {
-        const worldPosition = {
-          x: partInstance.position.x + screw.position.x,
-          y: partInstance.position.y + screw.position.y,
-        };
-        const screwEntity = await createScrewEntity({
-          color: screw.color,
-          position: worldPosition,
-          partEntityId: String(partEntity.UID),
-        });
-        this.scene.addChild(screwEntity);
-        this.screwEntities.push(screwEntity);
-      }
+      await this.createScrewsForPart(
+        partInstance,
+        partDef,
+        partWorldPosition,
+        partEntity
+      );
+    }
+  }
+
+  /**
+   * Creates screw entities for a part instance.
+   * @param partInstance - The part instance from level data
+   * @param partDef - The part definition
+   * @param partWorldPosition - The part's world position
+   * @param partEntity - The created part entity
+   * @internal
+   */
+  private async createScrewsForPart(
+    partInstance: PartInstance,
+    partDef: PartDefinition,
+    partWorldPosition: Position,
+    partEntity: Entity2D
+  ): Promise<void> {
+    // Get part dimensions - screws are relative to part's top-left corner
+    const partWidth =
+      partDef.collision.type === 'box' ? partDef.collision.width : 0;
+    const partHeight =
+      partDef.collision.type === 'box' ? partDef.collision.height : 0;
+
+    for (const screw of partInstance.screws) {
+      // Convert to world position: partCenter - halfSize + screwLocal
+      const screwWorldPosition = {
+        x: partWorldPosition.x - partWidth / 2 + screw.position.x,
+        y: partWorldPosition.y - partHeight / 2 + screw.position.y,
+      };
+      const screwEntity = await createScrewEntity({
+        color: screw.color,
+        position: screwWorldPosition,
+        partEntityId: String(partEntity.UID),
+      });
+      this.scene.addChild(screwEntity);
+      this.screwEntities.push(screwEntity);
     }
   }
 

@@ -10,7 +10,7 @@
       "parts": [
         {
           "partId": "board-walnut-square",
-          "position": { "x": 200, "y": 800 },
+          "position": { "x": -140, "y": 170 },
           "layer": 1,
           "screws": [
             { "position": { "x": 50, "y": 50 }, "color": "red" },
@@ -20,19 +20,38 @@
         },
         {
           "partId": "board-birch-square",
-          "position": { "x": 550, "y": 800 },
+          "position": { "x": 140, "y": 170 },
           "layer": 2,
           "screws": [
             { "position": { "x": 135, "y": 65 }, "color": "yellow" },
             { "position": { "x": 50, "y": 195 }, "color": "red" },
             { "position": { "x": 220, "y": 195 }, "color": "blue" }
           ]
+        },
+        {
+          "partId": "board-mahogany-square",
+          "position": { "x": -140, "y": -100 },
+          "layer": 3,
+          "screws": [
+            { "position": { "x": 50, "y": 50 }, "color": "green" },
+            { "position": { "x": 220, "y": 50 }, "color": "yellow" },
+            { "position": { "x": 135, "y": 200 }, "color": "red" }
+          ]
+        },
+        {
+          "partId": "board-pine-horizontal",
+          "position": { "x": -30, "y": -250 },
+          "layer": 4,
+          "screws": [
+            { "position": { "x": 100, "y": 158 }, "color": "blue" },
+            { "position": { "x": 400, "y": 158 }, "color": "green" }
+          ]
         }
       ],
       "trays": [
         { "color": "red", "capacity": 3 },
         { "color": "blue", "capacity": 3 },
-        { "color": "green", "capacity": 2 },
+        { "color": "green", "capacity": 3 },
         { "color": "yellow", "capacity": 2 }
       ],
       "win": { "type": "allScrewsRemoved" }

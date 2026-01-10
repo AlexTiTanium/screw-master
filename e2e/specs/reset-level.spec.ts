@@ -39,9 +39,10 @@ test.describe('Level Reset', () => {
     expect(initialBufferComponent.screwIds.length).toBe(0);
 
     // Tap a yellow screw to move it to buffer (yellow tray is hidden initially)
-    // Yellow screw position from gameplay-demo: (685, 865)
-    await harness.act({ type: 'pointerDown', x: 685, y: 865 });
-    await harness.act({ type: 'pointerUp', x: 685, y: 865 });
+    // Using centered coordinates: Board 2 at world (680, 1369), yellow screw at local (135, 65)
+    // World position: (680-135+135, 1369-130+65) = (680, 1304)
+    await harness.act({ type: 'pointerDown', x: 680, y: 1304 });
+    await harness.act({ type: 'pointerUp', x: 680, y: 1304 });
 
     // Wait for animation to complete
     await page.waitForTimeout(800);
@@ -114,9 +115,10 @@ test.describe('Level Reset', () => {
     const initialScrewCount = initialScrews.length;
 
     // Tap a red screw to move it to the red tray (which is visible)
-    // Red screw position from gameplay-demo: (250, 850)
-    await harness.act({ type: 'pointerDown', x: 250, y: 850 });
-    await harness.act({ type: 'pointerUp', x: 250, y: 850 });
+    // Using centered coordinates: Board 1 at world (400, 1369), red screw at local (50, 50)
+    // World position: (400-135+50, 1369-130+50) = (315, 1289)
+    await harness.act({ type: 'pointerDown', x: 315, y: 1289 });
+    await harness.act({ type: 'pointerUp', x: 315, y: 1289 });
 
     // Wait for animation
     await page.waitForTimeout(800);
@@ -162,14 +164,16 @@ test.describe('Level Reset', () => {
 
     await page.waitForTimeout(300);
 
-    // Move a yellow screw to buffer tray
-    await harness.act({ type: 'pointerDown', x: 685, y: 865 });
-    await harness.act({ type: 'pointerUp', x: 685, y: 865 });
+    // Move a yellow screw to buffer tray (using centered coordinates)
+    // Yellow screw at world (680, 1304)
+    await harness.act({ type: 'pointerDown', x: 680, y: 1304 });
+    await harness.act({ type: 'pointerUp', x: 680, y: 1304 });
     await page.waitForTimeout(800);
 
-    // Move a green screw to buffer tray
-    await harness.act({ type: 'pointerDown', x: 335, y: 930 });
-    await harness.act({ type: 'pointerUp', x: 335, y: 930 });
+    // Move a green screw to buffer tray (using centered coordinates)
+    // Green screw at world (400, 1369) - Board 1 at (400,1369) - half(135,130) + screw(135,130)
+    await harness.act({ type: 'pointerDown', x: 400, y: 1369 });
+    await harness.act({ type: 'pointerUp', x: 400, y: 1369 });
     await page.waitForTimeout(800);
 
     // Now we have 2 screws in the buffer tray
@@ -210,13 +214,13 @@ test.describe('Level Reset', () => {
     const initialBufferTrays = await harness.queryByComponent('bufferTray');
     const initialTotalEntities = await harness.getEntityCount();
 
-    // Move some screws
-    await harness.act({ type: 'pointerDown', x: 250, y: 850 }); // Red
-    await harness.act({ type: 'pointerUp', x: 250, y: 850 });
+    // Move some screws (using centered coordinates)
+    await harness.act({ type: 'pointerDown', x: 315, y: 1289 }); // Red at (315, 1289)
+    await harness.act({ type: 'pointerUp', x: 315, y: 1289 });
     await page.waitForTimeout(800);
 
-    await harness.act({ type: 'pointerDown', x: 685, y: 865 }); // Yellow to buffer
-    await harness.act({ type: 'pointerUp', x: 685, y: 865 });
+    await harness.act({ type: 'pointerDown', x: 680, y: 1304 }); // Yellow to buffer at (680, 1304)
+    await harness.act({ type: 'pointerUp', x: 680, y: 1304 });
     await page.waitForTimeout(800);
 
     // Click restart
