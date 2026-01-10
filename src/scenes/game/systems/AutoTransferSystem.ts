@@ -46,17 +46,26 @@ export class AutoTransferSystem extends BaseSystem {
   /** Flag to prevent multiple simultaneous transfers */
   private isTransferring = false;
 
-  /** Bound handler for screw:removalComplete event */
+  /**
+   * Bound handler for screw:removalComplete event.
+   * @internal
+   */
   private handleRemovalComplete = (): void => {
     this.checkAutoTransfer();
   };
 
-  /** Bound handler for screw:transferComplete event */
+  /**
+   * Bound handler for screw:transferComplete event.
+   * @internal
+   */
   private handleTransferComplete = (): void => {
     this.onTransferComplete();
   };
 
-  /** Bound handler for tray:revealed event */
+  /**
+   * Bound handler for tray:revealed event.
+   * @internal
+   */
   private handleTrayRevealed = (): void => {
     this.checkAutoTransfer();
   };

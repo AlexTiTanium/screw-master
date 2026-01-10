@@ -451,14 +451,6 @@ test.describe('Level Loading - Free Position Screws', () => {
       return results;
     });
 
-    // Log sprite scales for debugging
-    console.log('Landed screw sprite scales:');
-    for (const screw of spriteScales) {
-      console.log(
-        `  ${screw.color} (${screw.state}): sprite.scale(${screw.spriteScaleX.toFixed(3)}, ${screw.spriteScaleY.toFixed(3)})`
-      );
-    }
-
     // Verify we have scale data for all 4 colors
     expect(spriteScales.length).toBe(4);
 
@@ -590,27 +582,6 @@ test.describe('Level Loading - Free Position Screws', () => {
       return results;
     });
 
-    // Log detailed information for debugging
-    console.log('Screw details in colored trays:');
-    for (const screw of screwDetails) {
-      console.log(`\n${screw.color.toUpperCase()} SCREW:`);
-      console.log(
-        `  Scale: (${screw.spriteScaleX.toFixed(3)}, ${screw.spriteScaleY.toFixed(3)})`
-      );
-      console.log(
-        `  Texture size: ${String(screw.textureWidth)}x${String(screw.textureHeight)}`
-      );
-      console.log(
-        `  Rendered bounds: ${screw.boundsWidth.toFixed(1)}x${screw.boundsHeight.toFixed(1)}`
-      );
-      console.log(
-        `  Anchor: (${screw.anchorX.toFixed(2)}, ${screw.anchorY.toFixed(2)})`
-      );
-      console.log(
-        `  World position: (${screw.worldX.toFixed(1)}, ${screw.worldY.toFixed(1)})`
-      );
-    }
-
     // Find red and blue screws
     const redScrew = screwDetails.find((s) => s.color === 'red');
     const blueScrew = screwDetails.find((s) => s.color === 'blue');
@@ -629,13 +600,6 @@ test.describe('Level Loading - Free Position Screws', () => {
 
       // Compare rendered bounds - should be very close
       const boundsTolerance = 1;
-      console.log(`\nBounds comparison:`);
-      console.log(
-        `  Red bounds: ${redScrew.boundsWidth.toFixed(1)}x${redScrew.boundsHeight.toFixed(1)}`
-      );
-      console.log(
-        `  Blue bounds: ${blueScrew.boundsWidth.toFixed(1)}x${blueScrew.boundsHeight.toFixed(1)}`
-      );
 
       expect(
         Math.abs(redScrew.boundsWidth - blueScrew.boundsWidth)

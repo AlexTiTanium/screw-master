@@ -71,6 +71,7 @@ export class AnimationSystem extends BaseSystem {
 
   /**
    * Bound handler for screw:startRemoval event.
+   * @internal
    * @param event - The removal event data
    */
   private handleRemovalEvent = (event: ScrewRemovalEvent): void => {
@@ -79,6 +80,7 @@ export class AnimationSystem extends BaseSystem {
 
   /**
    * Bound handler for screw:startTransfer event.
+   * @internal
    * @param event - The transfer event data
    */
   private handleTransferEvent = (event: ScrewTransferEvent): void => {
@@ -87,6 +89,7 @@ export class AnimationSystem extends BaseSystem {
 
   /**
    * Bound handler for tray:startHide event.
+   * @internal
    * @param event - The hide event data
    */
   private handleTrayHideEvent = (event: TrayHideEvent): void => {
@@ -95,6 +98,7 @@ export class AnimationSystem extends BaseSystem {
 
   /**
    * Bound handler for tray:startShift event.
+   * @internal
    * @param event - The shift event data
    */
   private handleTrayShiftEvent = (event: TrayShiftEvent): void => {
@@ -103,6 +107,7 @@ export class AnimationSystem extends BaseSystem {
 
   /**
    * Bound handler for tray:startReveal event.
+   * @internal
    * @param event - The reveal event data
    */
   private handleTrayRevealEvent = (event: TrayRevealEvent): void => {

@@ -36,23 +36,6 @@ async function getCanvasInfo(page: Page): Promise<CanvasInfo> {
   });
 }
 
-function logCanvasInfo(info: CanvasInfo, label: string): void {
-  console.log(`\n${label}:`);
-  console.log(
-    `  Viewport: ${String(info.viewportWidth)}x${String(info.viewportHeight)}`
-  );
-  console.log(
-    `  Canvas CSS size: ${String(info.clientWidth)}x${String(info.clientHeight)}`
-  );
-  console.log(
-    `  Canvas internal: ${String(info.width)}x${String(info.height)}`
-  );
-  console.log(`  Position: left=${String(info.left)}, top=${String(info.top)}`);
-  console.log(
-    `  Aspect ratio: ${(info.clientWidth / info.clientHeight).toFixed(3)}`
-  );
-}
-
 test.describe('Resize and centering', () => {
   test('centers canvas horizontally in wide viewport', async ({ page }) => {
     const telemetry = attachTelemetry(page);
@@ -64,7 +47,6 @@ test.describe('Resize and centering', () => {
     await harness.waitForReady();
 
     const info = await getCanvasInfo(page);
-    logCanvasInfo(info, 'Wide landscape (1920x1080)');
 
     // Canvas should fill height
     expect(info.clientHeight).toBeCloseTo(1080, -1);
@@ -90,7 +72,6 @@ test.describe('Resize and centering', () => {
     await harness.waitForReady();
 
     const info = await getCanvasInfo(page);
-    logCanvasInfo(info, 'Portrait (540x960)');
 
     // Should fill entire viewport (same aspect ratio as game)
     expect(info.clientWidth).toBeCloseTo(540, -1);
@@ -110,7 +91,6 @@ test.describe('Resize and centering', () => {
     await harness.waitForReady();
 
     const info = await getCanvasInfo(page);
-    logCanvasInfo(info, 'Square (800x800)');
 
     // Height should fill viewport
     expect(info.clientHeight).toBeCloseTo(800, -1);
@@ -137,7 +117,6 @@ test.describe('Resize and centering', () => {
 
     // Initial: portrait
     let info = await getCanvasInfo(page);
-    logCanvasInfo(info, 'Initial portrait (540x960)');
     expect(info.left).toBeCloseTo(0, 0);
 
     // Resize to wide landscape
@@ -145,7 +124,6 @@ test.describe('Resize and centering', () => {
     await page.waitForTimeout(100); // Wait for resize handler
 
     info = await getCanvasInfo(page);
-    logCanvasInfo(info, 'After resize to landscape (1920x1080)');
 
     // Should now be centered with letterboxing
     expect(info.left).toBeGreaterThan(100);
@@ -164,7 +142,6 @@ test.describe('Resize and centering', () => {
     await harness.waitForReady();
 
     const info = await getCanvasInfo(page);
-    logCanvasInfo(info, 'Ultra-wide (2560x1080)');
 
     // Canvas should fill height
     expect(info.clientHeight).toBeCloseTo(1080, -1);

@@ -32,12 +32,18 @@ export class WinConditionSystem extends BaseSystem {
     screws: { components: [ScrewComponent] },
   };
 
-  /** Bound handler for screw:removalComplete event */
+  /**
+   * Bound handler for screw:removalComplete event.
+   * @internal
+   */
   private handleRemovalComplete = (): void => {
     this.checkConditions();
   };
 
-  /** Bound handler for screw:transferComplete event */
+  /**
+   * Bound handler for screw:transferComplete event.
+   * @internal
+   */
   private handleTransferComplete = (): void => {
     this.checkStuckCondition();
   };
