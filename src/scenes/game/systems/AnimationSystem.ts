@@ -533,7 +533,8 @@ export class AnimationSystem extends BaseSystem {
     );
     const params = this.createTransferFlightParams(startPos, targetPos);
 
-    await this.animateFlight(timeline, entity, sprite, params, 0.4);
+    // Transfer animation: 1.5x faster than removal (0.4 / 1.5 ≈ 0.27s)
+    await this.animateFlight(timeline, entity, sprite, params, 0.27);
     await this.animateSettle(timeline, sprite, TRAY_SLOT_SCALE);
   }
 
