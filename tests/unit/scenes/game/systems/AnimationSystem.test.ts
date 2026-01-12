@@ -403,6 +403,11 @@ describe('AnimationSystem', () => {
   describe('handleTrayShift', () => {
     it('should emit tray:shiftComplete after animation', async () => {
       const tray = createMockTrayEntity(10, ScrewColor.Red);
+      // Mock getScrewsInTray to return empty array via queries
+      Object.defineProperty(system, 'queries', {
+        value: createMockQueryResults([]),
+        writable: true,
+      });
       const emitSpy = vi.spyOn(gameEvents, 'emit');
 
       await system['handleTrayShift']({ trayEntity: tray, newDisplayOrder: 0 });
@@ -420,6 +425,25 @@ describe('AnimationSystem', () => {
         trayEntity: tray,
         newDisplayOrder: 99,
       });
+
+      expect(emitSpy).toHaveBeenCalledWith('tray:shiftComplete', {
+        trayEntity: tray,
+      });
+    });
+
+    it('should animate screws in tray along with tray', async () => {
+      const tray = createMockTrayEntity(10, ScrewColor.Red);
+      const screw = createMockScrewEntity(20, ScrewColor.Red, 'inTray');
+      (screw.c.screw as { trayEntityId: string }).trayEntityId = '10'; // Match tray UID
+
+      // Mock queries to return the screw
+      Object.defineProperty(system, 'queries', {
+        value: createMockQueryResults([screw]),
+        writable: true,
+      });
+      const emitSpy = vi.spyOn(gameEvents, 'emit');
+
+      await system['handleTrayShift']({ trayEntity: tray, newDisplayOrder: 0 });
 
       expect(emitSpy).toHaveBeenCalledWith('tray:shiftComplete', {
         trayEntity: tray,

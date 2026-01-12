@@ -670,6 +670,7 @@ export class AnimationSystem extends BaseSystem {
 
   /**
    * Handle tray shift animation (slide left to new position).
+   * Also moves any screws currently in the tray so they stay aligned.
    * @param event - The tray shift event data
    * @example
    * // Triggered by tray:startShift event
@@ -685,20 +686,59 @@ export class AnimationSystem extends BaseSystem {
       return;
     }
 
+    const screwsInTray = this.getScrewsInTray(String(trayEntity.UID));
+    const deltaX = targetPos.x - entity2D.position.x;
+
     const timeline = gsap.timeline();
     this.activeTimelines.add(timeline);
 
     try {
-      await timeline.to(entity2D.position, {
-        x: targetPos.x,
-        duration: 0.3,
-        ease: 'power2.inOut',
-      });
+      this.addTrayShiftAnimations(
+        timeline,
+        entity2D,
+        targetPos.x,
+        screwsInTray,
+        deltaX
+      );
+      await timeline;
     } finally {
       this.activeTimelines.delete(timeline);
     }
 
     gameEvents.emit('tray:shiftComplete', { trayEntity });
+  }
+
+  /**
+   * Add tray and screw shift animations to a timeline.
+   * @param timeline - GSAP timeline
+   * @param trayEntity - The tray entity to animate
+   * @param targetX - Target X position for tray
+   * @param screws - Screws in the tray to move
+   * @param deltaX - X distance to move
+   * @example
+   * this.addTrayShiftAnimations(timeline, trayEntity, 57, screws, -195);
+   */
+  private addTrayShiftAnimations(
+    timeline: gsap.core.Timeline,
+    trayEntity: Entity2D,
+    targetX: number,
+    screws: Entity[],
+    deltaX: number
+  ): void {
+    timeline.to(
+      trayEntity.position,
+      { x: targetX, duration: 0.3, ease: 'power2.inOut' },
+      0
+    );
+
+    for (const screwEntity of screws) {
+      const screw2D = screwEntity as Entity2D;
+      timeline.to(
+        screw2D.position,
+        { x: screw2D.position.x + deltaX, duration: 0.3, ease: 'power2.inOut' },
+        0
+      );
+    }
   }
 
   /**
