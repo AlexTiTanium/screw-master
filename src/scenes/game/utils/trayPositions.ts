@@ -17,6 +17,15 @@ export const TRAY_DISPLAY_POSITIONS: Position[] =
 export const TRAY_HIDDEN_Y = 450;
 
 /**
+ * X position for trays entering from under the rightmost cover.
+ * This is the slot 4 position where the tray is hidden by a cover,
+ * then slides left into its target slot.
+ * Slot 4 X = frame.x(32) + slotOffsets[4].x(808) = 840
+ */
+export const TRAY_SPAWN_X =
+  TRAY_FRAME_LAYOUT.framePosition.x + TRAY_FRAME_LAYOUT.slotOffsets[4].x;
+
+/**
  * Tray sprite width for centering calculations.
  * Uses value from TRAY_FRAME_LAYOUT for consistency.
  */

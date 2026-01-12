@@ -3,6 +3,7 @@ export {
   getBufferSlotPosition,
   TRAY_DISPLAY_POSITIONS,
   TRAY_HIDDEN_Y,
+  TRAY_SPAWN_X,
 } from './trayPositions';
 export {
   TRAY_FRAME_LAYOUT,

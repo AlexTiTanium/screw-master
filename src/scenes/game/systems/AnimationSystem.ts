@@ -8,7 +8,7 @@ import {
   getTraySlotPosition,
   gameEvents,
   TRAY_DISPLAY_POSITIONS,
-  TRAY_HIDDEN_Y,
+  TRAY_SPAWN_X,
   getAnimationLayer,
   getColoredTrayLayer,
 } from '../utils';
@@ -578,26 +578,9 @@ export class AnimationSystem extends BaseSystem {
   }
 
   /**
-   * Reset tray and screw scales after hide animation.
-   * @param trayEntity - The tray entity to reset
-   * @param screwsInTray - Screws that were in the tray
-   * @example
-   * this.resetTrayAfterHide(tray, screws);
-   */
-  private resetTrayAfterHide(trayEntity: Entity2D, screwsInTray: Entity[]): void {
-    trayEntity.position.y = TRAY_HIDDEN_Y;
-    trayEntity.scale.x = 1;
-    trayEntity.scale.y = 1;
-    for (const screwEntity of screwsInTray) {
-      const screw2D = screwEntity as Entity2D;
-      screw2D.scale.x = 1;
-      screw2D.scale.y = 1;
-    }
-  }
-
-  /**
-   * Handle tray hide animation (scale to zero).
-   * Animates both the tray and all screws inside it.
+   * Handle tray hide animation with stepped scale-down effect.
+   * Reparents screws to tray view so they scale together, then animates
+   * the tray with a multi-step shrink animation matching the Figma design.
    * @param event - The tray hide event data
    * @example
    * // Triggered by tray:startHide event
@@ -608,21 +591,81 @@ export class AnimationSystem extends BaseSystem {
     const entity2D = trayEntity as Entity2D;
     const screwsInTray = this.getScrewsInTray(String(trayEntity.UID));
 
+    this.reparentScrewsToTray(screwsInTray, entity2D);
+    this.setupTrayPivotForCenterScale(entity2D);
+    await this.animateTrayScaleDown(entity2D);
+
+    gameEvents.emit('tray:hideComplete', { trayEntity, screwsInTray });
+  }
+
+  /**
+   * Set up tray pivot for center-based scaling animation.
+   * Adjusts position to compensate for pivot change.
+   * @param entity - The tray entity
+   */
+  private setupTrayPivotForCenterScale(entity: Entity2D): void {
+    // Tray dimensions: 185x150
+    const pivotX = 185 / 2;
+    const pivotY = 150 / 2;
+    entity.view.pivot.set(pivotX, pivotY);
+    entity.position.x += pivotX;
+    entity.position.y += pivotY;
+  }
+
+  /**
+   * Animate tray scale-down smoothly from 1 to 0.
+   * @param entity - The tray entity to animate
+   */
+  private async animateTrayScaleDown(entity: Entity2D): Promise<void> {
     const timeline = gsap.timeline();
     this.activeTimelines.add(timeline);
 
     try {
-      timeline.to(entity2D.scale, { x: 0, y: 0, duration: 0.3, ease: 'power2.in' });
-      for (const screwEntity of screwsInTray) {
-        timeline.to((screwEntity as Entity2D).scale, { x: 0, y: 0, duration: 0.3, ease: 'power2.in' }, '<');
-      }
-      await timeline;
-      this.resetTrayAfterHide(entity2D, screwsInTray);
+      // Single smooth scale animation from 1 → 0
+      await timeline.to(entity.scale, {
+        x: 0,
+        y: 0,
+        duration: 0.4,
+        ease: 'power2.in',
+      });
     } finally {
       this.activeTimelines.delete(timeline);
     }
+  }
 
-    gameEvents.emit('tray:hideComplete', { trayEntity });
+  /**
+   * Reparent screw visuals to tray view so they scale together.
+   * Converts screw positions to tray-local coordinates.
+   * @param screws - Array of screw entities to reparent
+   * @param trayEntity - The tray entity to parent screws to
+   * @example
+   * this.reparentScrewsToTray(screwsInTray, trayEntity);
+   */
+  private reparentScrewsToTray(screws: Entity[], trayEntity: Entity2D): void {
+    // Use trayEntity.view (the container) instead of the tray sprite
+    // This is because we scale trayEntity.scale, not the sprite
+    const trayView = trayEntity.view;
+
+    for (const screwEntity of screws) {
+      const screwEntity2D = screwEntity as Entity2D;
+      const screwVisual = getGameVisual(screwEntity2D);
+      if (!screwVisual) continue;
+
+      // Calculate local position relative to tray
+      // Screw is at entity world position, tray is at tray entity position
+      // Local position = screw world position - tray world position
+      const localX = screwEntity2D.position.x - trayEntity.position.x;
+      const localY = screwEntity2D.position.y - trayEntity.position.y;
+
+      // Remove from current parent first to avoid PixiJS warning
+      if (screwVisual.parent) {
+        screwVisual.parent.removeChild(screwVisual);
+      }
+
+      // Reparent visual to tray view container
+      screwVisual.position.set(localX, localY);
+      trayView.addChild(screwVisual);
+    }
   }
 
   /**
@@ -659,7 +702,7 @@ export class AnimationSystem extends BaseSystem {
   }
 
   /**
-   * Handle tray reveal animation (slide up from hidden position).
+   * Handle tray reveal animation (slide in from right).
    * @param event - The tray reveal event data
    * @example
    * // Triggered by tray:startReveal event
@@ -675,16 +718,16 @@ export class AnimationSystem extends BaseSystem {
       return;
     }
 
-    // Ensure tray starts at hidden Y and target X
-    entity2D.position.x = targetPos.x;
-    entity2D.position.y = TRAY_HIDDEN_Y;
+    // Start tray at rightmost covered slot position (hidden under cover)
+    entity2D.position.x = TRAY_SPAWN_X;
+    entity2D.position.y = targetPos.y;
 
     const timeline = gsap.timeline();
     this.activeTimelines.add(timeline);
 
     try {
       await timeline.to(entity2D.position, {
-        y: targetPos.y,
+        x: targetPos.x,
         duration: 0.3,
         ease: 'power2.out',
       });
