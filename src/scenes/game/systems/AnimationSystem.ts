@@ -425,7 +425,7 @@ export class AnimationSystem extends BaseSystem {
         coloredTrayLayer.addChild(screwEntity2D.view);
       }
       if (targetTray && slotIndex !== undefined) {
-        this.snapScrewToTraySlot(screwEntity2D, targetTray, slotIndex);
+        this.checkScrewPosition(screwEntity2D, targetTray, slotIndex);
         this.hidePlaceholder(targetTray as Entity2D, slotIndex);
       }
     }
@@ -435,27 +435,40 @@ export class AnimationSystem extends BaseSystem {
   }
 
   /**
-   * Snap a screw to its target slot position based on tray's displayOrder.
-   * Handles cases where the tray moved during animation.
-   * @param screwEntity - The screw entity to snap
+   * Check if screw position matches expected slot position.
+   * Logs warning if mismatch detected - this indicates a bug that should be fixed.
+   * Does NOT move the screw - the animation should have landed it correctly.
+   * @param screwEntity - The screw entity
    * @param targetTray - The target tray entity
-   * @param slotIndex - The slot index in the tray
+   * @param slotIndex - The slot index
    * @example
-   * this.snapScrewToTraySlot(screw, tray, 0);
+   * this.checkScrewPosition(screw, tray, 0);
    */
-  private snapScrewToTraySlot(
+  private checkScrewPosition(
     screwEntity: Entity2D,
     targetTray: Entity,
     slotIndex: number
   ): void {
+    const screw = this.getComponents<ScrewComponentAccess>(screwEntity).screw;
     const tray = this.getComponents<TrayComponentAccess>(targetTray).tray;
-    const finalPos = getTraySlotTargetPosition(
+    const expected = getTraySlotTargetPosition(
       tray.displayOrder,
       slotIndex,
       tray.capacity
     );
-    screwEntity.position.set(finalPos.x, finalPos.y);
-    screwEntity.view.position.set(finalPos.x, finalPos.y);
+    const dX = Math.abs(screwEntity.position.x - expected.x);
+    const dY = Math.abs(screwEntity.position.y - expected.y);
+
+    if (dX > 0.5 || dY > 0.5) {
+      // Position mismatch - this is a BUG, log for investigation
+      gameTick.warn(
+        'POSITION_MISMATCH',
+        `${screw.color} screw at (${screwEntity.position.x.toFixed(1)}, ${screwEntity.position.y.toFixed(1)}) ` +
+          `expected (${String(expected.x)}, ${String(expected.y)}) ` +
+          `delta=(${dX.toFixed(1)}, ${dY.toFixed(1)}) ` +
+          `tray.displayOrder=${String(tray.displayOrder)} tray.isAnimating=${String(tray.isAnimating)}`
+      );
+    }
   }
 
   /**
@@ -510,7 +523,14 @@ export class AnimationSystem extends BaseSystem {
   ): Promise<void> {
     const { targetTray, slotIndex } = event;
     const startPos = { x: entity.position.x, y: entity.position.y };
-    const targetPos = this.getSlotTargetPosition(targetTray, slotIndex, false);
+    // Use getTraySlotTargetPosition to get the FINAL position based on displayOrder
+    // This ensures correct targeting even when tray is mid-animation/shifting
+    const tray = this.getComponents<TrayComponentAccess>(targetTray).tray;
+    const targetPos = getTraySlotTargetPosition(
+      tray.displayOrder,
+      slotIndex,
+      tray.capacity
+    );
     const params = this.createTransferFlightParams(startPos, targetPos);
 
     await this.animateFlight(timeline, entity, sprite, params, 0.4);
@@ -559,35 +579,21 @@ export class AnimationSystem extends BaseSystem {
     slotIndex: number
   ): void {
     const screw = this.getComponents<ScrewComponentAccess>(screwEntity).screw;
-    const tray = this.getComponents<TrayComponentAccess>(targetTray).tray;
     screw.state = 'inTray';
     screw.trayEntityId = String(targetTray.UID);
     screw.slotIndex = slotIndex;
     screw.isAnimating = false;
 
-    // Use tray's displayOrder to calculate the TARGET position, not current animated position
-    // This ensures the screw ends up in the correct slot even if the tray is mid-animation
     const screwEntity2D = screwEntity as Entity2D;
-    const finalPos = getTraySlotTargetPosition(
-      tray.displayOrder,
-      slotIndex,
-      tray.capacity
-    );
-
-    gameTick.log(
-      'SNAP',
-      `${screw.color} screw to slot ${String(slotIndex)} at (${String(finalPos.x)}, ${String(finalPos.y)}) - tray displayOrder=${String(tray.displayOrder)}`
-    );
-
-    screwEntity2D.position.set(finalPos.x, finalPos.y);
-    // Also update the view position directly since it may be in a different container
-    screwEntity2D.view.position.set(finalPos.x, finalPos.y);
 
     // Move screw view to coloredTrayLayer after animation
     const coloredTrayLayer = getColoredTrayLayer();
     if (coloredTrayLayer) {
       coloredTrayLayer.addChild(screwEntity2D.view);
     }
+
+    // Check if position matches expected - logs warning if mismatch (bug indicator)
+    this.checkScrewPosition(screwEntity2D, targetTray, slotIndex);
 
     // Hide placeholder when screw lands in colored tray
     this.hidePlaceholder(targetTray as Entity2D, slotIndex);

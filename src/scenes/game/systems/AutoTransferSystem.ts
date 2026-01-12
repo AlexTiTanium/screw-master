@@ -49,26 +49,40 @@ export class AutoTransferSystem extends BaseSystem {
 
   /**
    * Bound handler for screw:removalComplete event.
+   * Defers check to allow TrayManagementSystem to process first.
    * @internal
    */
   private handleRemovalComplete = (): void => {
-    this.checkAutoTransfer();
+    // Defer to allow TrayManagementSystem to set isTransitioning first
+    // Both systems listen to screw:removalComplete - if a tray fills,
+    // we need TrayManagement to mark itself busy before we check
+    queueMicrotask(() => {
+      this.checkAutoTransfer();
+    });
   };
 
   /**
    * Bound handler for screw:transferComplete event.
+   * Defers check to allow TrayManagementSystem to process first.
    * @internal
    */
   private handleTransferComplete = (): void => {
-    this.onTransferComplete();
+    // Defer to allow TrayManagementSystem to process tray fullness first
+    queueMicrotask(() => {
+      this.onTransferComplete();
+    });
   };
 
   /**
    * Bound handler for tray:revealed event.
+   * Defers check to allow TrayManagementSystem to finalize first.
    * @internal
    */
   private handleTrayRevealed = (): void => {
-    this.checkAutoTransfer();
+    // Defer to ensure tray animations are fully complete
+    queueMicrotask(() => {
+      this.checkAutoTransfer();
+    });
   };
 
   /**
