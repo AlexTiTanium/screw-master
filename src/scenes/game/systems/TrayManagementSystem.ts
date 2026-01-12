@@ -1,4 +1,4 @@
-import type { Entity, Time } from '@play-co/odie';
+import type { Entity, Entity2D, Time } from '@play-co/odie';
 import { BaseSystem } from './BaseSystem';
 import { TrayComponent } from '../components';
 import { gameEvents } from '../utils';
@@ -11,6 +11,16 @@ import type { TrayComponentAccess } from '../types';
 export interface TrayHideEvent {
   /** The tray entity to hide */
   trayEntity: Entity;
+}
+
+/**
+ * Event data emitted when tray hide animation completes.
+ */
+export interface TrayHideCompleteEvent {
+  /** The tray entity that was hidden */
+  trayEntity: Entity;
+  /** Screws that were in the tray (for cleanup) */
+  screwsInTray: Entity[];
 }
 
 /**
@@ -226,14 +236,25 @@ export class TrayManagementSystem extends BaseSystem {
   }
 
   /**
-   * Hide a tray and wait for animation.
+   * Hide a tray, wait for animation, then clean up entities.
    * @param tray - The tray to hide
    * @example
    * await this.hideTray(trayEntity);
    */
   private async hideTray(tray: Entity): Promise<void> {
     gameEvents.emit('tray:startHide', { trayEntity: tray } as TrayHideEvent);
-    await this.waitForEvent('tray:hideComplete');
+    const event =
+      await this.waitForEventWithData<TrayHideCompleteEvent>(
+        'tray:hideComplete'
+      );
+
+    // Clean up screw entities from scene
+    for (const screw of event.screwsInTray) {
+      this.scene.removeChild(screw as Entity2D);
+    }
+
+    // Clean up tray entity from scene
+    this.scene.removeChild(tray as Entity2D);
   }
 
   /**
@@ -377,6 +398,23 @@ export class TrayManagementSystem extends BaseSystem {
       const handler = (): void => {
         gameEvents.off(eventName, handler);
         resolve();
+      };
+      gameEvents.on(eventName, handler);
+    });
+  }
+
+  /**
+   * Wait for a specific event and return its data.
+   * @param eventName - The name of the event to wait for
+   * @returns Promise resolving to the event data
+   * @example
+   * const event = await this.waitForEventWithData<TrayHideCompleteEvent>('tray:hideComplete');
+   */
+  private waitForEventWithData<T>(eventName: string): Promise<T> {
+    return new Promise((resolve) => {
+      const handler = (data: T): void => {
+        gameEvents.off(eventName, handler);
+        resolve(data);
       };
       gameEvents.on(eventName, handler);
     });

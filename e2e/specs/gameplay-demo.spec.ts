@@ -40,6 +40,7 @@ test.describe('Gameplay Demo', () => {
       { x: 400, y: 1369, delay: 800 }, // Green on Board 1 -> buffer (hidden)
       { x: 595, y: 1434, delay: 800 }, // Red on Board 2 -> red tray
       { x: 765, y: 1434, delay: 800 }, // Blue on Board 2 -> blue tray
+      { x: 400, y: 1169, delay: 1200 }, // Red on Board 3 -> fills red tray, triggers hide animation
       { x: 315, y: 1019, delay: 800 }, // Green on Board 3 -> buffer
       { x: 485, y: 1019, delay: 800 }, // Yellow on Board 3 -> buffer
     ];

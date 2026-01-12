@@ -7,15 +7,32 @@ import { gameEvents } from '@scenes/game/utils';
 import { getComponents } from '@scenes/game/types';
 import { ScrewColor } from '@shared/types';
 
-// Mock GSAP
-const mockTimeline = {
-  to: vi.fn().mockResolvedValue(undefined),
-  kill: vi.fn(),
+// Mock GSAP with chainable timeline
+const createMockTimeline = (): {
+  to: ReturnType<typeof vi.fn>;
+  kill: ReturnType<typeof vi.fn>;
+  then: ReturnType<typeof vi.fn>;
+} => {
+  const timeline: {
+    to: ReturnType<typeof vi.fn>;
+    kill: ReturnType<typeof vi.fn>;
+    then: ReturnType<typeof vi.fn>;
+  } = {
+    to: vi.fn(),
+    kill: vi.fn(),
+    then: vi.fn((resolve: () => void) => {
+      resolve();
+      return timeline;
+    }),
+  };
+  // Make timeline.to() chainable and thenable
+  timeline.to.mockImplementation(() => timeline);
+  return timeline;
 };
 
 vi.mock('gsap', () => ({
   default: {
-    timeline: vi.fn(() => mockTimeline),
+    timeline: vi.fn(() => createMockTimeline()),
     to: vi.fn().mockResolvedValue(undefined),
   },
 }));
@@ -96,7 +113,10 @@ function createMockTrayEntity(
       },
     },
     position: { x: 100, y: 500 },
-    view: {},
+    scale: { x: 1, y: 1 },
+    view: {
+      pivot: { set: vi.fn() },
+    },
   } as unknown as Entity2D;
 }
 
@@ -120,9 +140,6 @@ describe('AnimationSystem', () => {
     vi.clearAllMocks();
     system = new AnimationSystem();
     gameEvents.clear();
-
-    // Reset mock timeline
-    mockTimeline.to.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -365,14 +382,20 @@ describe('AnimationSystem', () => {
   });
 
   describe('handleTrayHide', () => {
-    it('should emit tray:hideComplete after animation', async () => {
+    it('should emit tray:hideComplete after animation with screwsInTray', async () => {
       const tray = createMockTrayEntity(10, ScrewColor.Red);
+      // Mock getScrewsInTray to return empty array via queries
+      Object.defineProperty(system, 'queries', {
+        value: createMockQueryResults([]),
+        writable: true,
+      });
       const emitSpy = vi.spyOn(gameEvents, 'emit');
 
       await system['handleTrayHide']({ trayEntity: tray });
 
       expect(emitSpy).toHaveBeenCalledWith('tray:hideComplete', {
         trayEntity: tray,
+        screwsInTray: [],
       });
     });
   });
@@ -433,19 +456,21 @@ describe('AnimationSystem', () => {
 
   describe('destroy', () => {
     it('should kill all active timelines', () => {
-      // Add a timeline to active set
+      // Add a mock timeline to active set
+      const localMockTimeline = createMockTimeline();
       system['activeTimelines'].add(
-        mockTimeline as unknown as gsap.core.Timeline
+        localMockTimeline as unknown as gsap.core.Timeline
       );
 
       system.destroy();
 
-      expect(mockTimeline.kill).toHaveBeenCalled();
+      expect(localMockTimeline.kill).toHaveBeenCalled();
     });
 
     it('should clear activeTimelines set', () => {
+      const localMockTimeline = createMockTimeline();
       system['activeTimelines'].add(
-        mockTimeline as unknown as gsap.core.Timeline
+        localMockTimeline as unknown as gsap.core.Timeline
       );
 
       system.destroy();

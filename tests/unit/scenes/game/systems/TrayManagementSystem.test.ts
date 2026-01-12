@@ -245,6 +245,11 @@ describe('TrayManagementSystem', () => {
         fullTray,
       ]);
 
+      // Mock scene for cleanup
+      (system as unknown as { scene: { removeChild: () => void } }).scene = {
+        removeChild: vi.fn(),
+      };
+
       const emitSpy = vi.spyOn(gameEvents, 'emit');
 
       // Queue the transition
@@ -261,8 +266,11 @@ describe('TrayManagementSystem', () => {
         expect.objectContaining({ trayEntity: fullTray })
       );
 
-      // Complete the animation to allow the promise to resolve
-      gameEvents.emit('tray:hideComplete', {});
+      // Complete the animation to allow the promise to resolve (with screwsInTray)
+      gameEvents.emit('tray:hideComplete', {
+        trayEntity: fullTray,
+        screwsInTray: [],
+      });
       await processPromise;
     });
 
@@ -311,14 +319,22 @@ describe('TrayManagementSystem', () => {
         fullTray,
       ];
 
+      // Mock scene for cleanup
+      (system as unknown as { scene: { removeChild: () => void } }).scene = {
+        removeChild: vi.fn(),
+      };
+
       const processPromise = system['processNextTransition']();
 
       const trayComponent = (fullTray.c as { tray: { isAnimating: boolean } })
         .tray;
       expect(trayComponent.isAnimating).toBe(true);
 
-      // Complete the animation
-      gameEvents.emit('tray:hideComplete', {});
+      // Complete the animation (with screwsInTray)
+      gameEvents.emit('tray:hideComplete', {
+        trayEntity: fullTray,
+        screwsInTray: [],
+      });
       await processPromise;
     });
 
@@ -334,11 +350,16 @@ describe('TrayManagementSystem', () => {
         fullTray,
       ];
 
+      // Mock scene for cleanup
+      (system as unknown as { scene: { removeChild: () => void } }).scene = {
+        removeChild: vi.fn(),
+      };
+
       const emitSpy = vi.spyOn(gameEvents, 'emit');
 
       const processPromise = system['processNextTransition']();
 
-      // Wait for hide event to be emitted, then complete it
+      // Wait for hide event to be emitted, then complete it (with screwsInTray)
       await vi.waitFor(
         () => {
           expect(emitSpy).toHaveBeenCalledWith(
@@ -348,7 +369,10 @@ describe('TrayManagementSystem', () => {
         },
         { timeout: 100 }
       );
-      gameEvents.emit('tray:hideComplete', {});
+      gameEvents.emit('tray:hideComplete', {
+        trayEntity: fullTray,
+        screwsInTray: [],
+      });
 
       // Wait for reveal event to be emitted, then complete it
       await vi.waitFor(
@@ -382,11 +406,16 @@ describe('TrayManagementSystem', () => {
         fullTray,
       ];
 
+      // Mock scene for cleanup
+      (system as unknown as { scene: { removeChild: () => void } }).scene = {
+        removeChild: vi.fn(),
+      };
+
       const emitSpy = vi.spyOn(gameEvents, 'emit');
 
       const processPromise = system['processNextTransition']();
 
-      // Wait for hide event to be emitted, then complete it
+      // Wait for hide event to be emitted, then complete it (with screwsInTray)
       await vi.waitFor(
         () => {
           expect(emitSpy).toHaveBeenCalledWith(
@@ -396,7 +425,10 @@ describe('TrayManagementSystem', () => {
         },
         { timeout: 100 }
       );
-      gameEvents.emit('tray:hideComplete', {});
+      gameEvents.emit('tray:hideComplete', {
+        trayEntity: fullTray,
+        screwsInTray: [],
+      });
 
       // Wait for reveal event to be emitted, then complete it
       await vi.waitFor(
@@ -428,9 +460,17 @@ describe('TrayManagementSystem', () => {
         fullTray,
       ];
 
+      // Mock scene for cleanup
+      (system as unknown as { scene: { removeChild: () => void } }).scene = {
+        removeChild: vi.fn(),
+      };
+
       const processPromise = system['processNextTransition']();
 
-      gameEvents.emit('tray:hideComplete', {});
+      gameEvents.emit('tray:hideComplete', {
+        trayEntity: fullTray,
+        screwsInTray: [],
+      });
 
       await processPromise;
 
