@@ -37,6 +37,7 @@ import { bezierPosition } from './animation';
 // Re-export types for external use
 export type {
   ScrewRemovalCompleteEvent,
+  ScrewTransferCompleteEvent,
   ScrewTransferEvent,
 } from './animation';
 

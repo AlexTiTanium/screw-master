@@ -2,7 +2,10 @@ import type { Entity, Entity2D, Time } from '@play-co/odie';
 import { BaseSystem } from './BaseSystem';
 import { TrayComponent, ScrewComponent } from '../components';
 import { gameEvents } from '../utils';
-import type { ScrewRemovalCompleteEvent } from './AnimationSystem';
+import type {
+  ScrewRemovalCompleteEvent,
+  ScrewTransferCompleteEvent,
+} from './AnimationSystem';
 import type { TrayComponentAccess } from '../types';
 
 /**
@@ -104,6 +107,11 @@ export class TrayManagementSystem extends BaseSystem {
       'screw:removalComplete',
       this.handleScrewRemovalComplete
     );
+    // Also check tray fullness when buffer transfers complete
+    gameEvents.on<ScrewTransferCompleteEvent>(
+      'screw:transferComplete',
+      this.handleScrewTransferComplete
+    );
 
     // Listen for animation completion events
     gameEvents.on('tray:hideComplete', this.handleAnimationComplete);
@@ -152,6 +160,20 @@ export class TrayManagementSystem extends BaseSystem {
       }
       this.queueTransition(tray);
     }
+  };
+
+  /**
+   * Handle screw transfer completion - check if target tray is now full.
+   * Buffer transfers also fill tray slots, so we need to check for hide.
+   * @param event - The screw transfer complete event
+   * @example
+   * // Called via event listener
+   */
+  private handleScrewTransferComplete = (
+    event: ScrewTransferCompleteEvent
+  ): void => {
+    // Reuse the same logic as removal complete
+    this.handleScrewRemovalComplete(event);
   };
 
   /**
@@ -523,6 +545,7 @@ export class TrayManagementSystem extends BaseSystem {
    */
   destroy(): void {
     gameEvents.off('screw:removalComplete', this.handleScrewRemovalComplete);
+    gameEvents.off('screw:transferComplete', this.handleScrewTransferComplete);
     gameEvents.off('tray:hideComplete', this.handleAnimationComplete);
     gameEvents.off('tray:shiftComplete', this.handleAnimationComplete);
     gameEvents.off('tray:revealComplete', this.handleRevealComplete);

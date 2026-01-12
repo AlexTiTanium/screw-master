@@ -10,6 +10,14 @@ export interface ScrewRemovalCompleteEvent {
 }
 
 /**
+ * Event data emitted when a screw transfer animation completes.
+ */
+export interface ScrewTransferCompleteEvent {
+  /** The screw entity that was transferred */
+  screwEntity: Entity;
+}
+
+/**
  * Event data for screw transfer animation (buffer to colored tray).
  */
 export interface ScrewTransferEvent {
