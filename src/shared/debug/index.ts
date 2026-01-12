@@ -109,8 +109,36 @@ export type {
   RenderSignature,
   ECSAccess,
   TickAccess,
+  RecordedAction,
 } from './types';
 export { getTestParams, isTestMode } from './urlParams';
+
+// Console capture exports
+export {
+  initConsoleCapture,
+  getCapturedLogs,
+  clearCapturedLogs,
+  formatLogsAsText,
+  type CapturedLog,
+} from './consoleCapture';
+
+// Action recording exports
+export { getRecordedActions, clearRecordedActions } from './harness/actionDsl';
+
+// Bug report exports
+export {
+  captureScreenshot,
+  collectBugReport,
+  submitBugReport,
+  showBugReportModal,
+  type BugReport,
+  type BugReportResponse,
+  type RenderState,
+  type DisplayObjectSnapshot,
+} from './bugReport';
+
+// Debug console UI
+export { createDebugConsole } from './ui/debugConsole';
 
 /** Internal state for the harness. */
 interface HarnessState {

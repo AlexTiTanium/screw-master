@@ -245,6 +245,25 @@ export type TestAction =
   | { type: 'wait'; ms: number };
 
 /**
+ * Represents a recorded user action with timing information.
+ * Used for including user input history in bug reports.
+ *
+ * @example
+ * // Recorded actions can be replayed in E2E tests
+ * for (const { action } of recordedActions) {
+ *   await harness.act(action);
+ * }
+ */
+export interface RecordedAction {
+  /** The action that was executed */
+  action: TestAction;
+  /** Game tick when the action occurred (-1 if not available) */
+  tick: number;
+  /** Performance timestamp when the action occurred (ms since page load) */
+  timestamp: number;
+}
+
+/**
  * Result of executing a test action.
  *
  * @example

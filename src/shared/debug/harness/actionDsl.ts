@@ -21,7 +21,78 @@
  * @module
  */
 
-import type { TestAction, ActionResult } from '../types';
+import type { TestAction, ActionResult, RecordedAction } from '../types';
+
+// ============================================================================
+// Action Recording for Bug Reports
+// ============================================================================
+
+/** Maximum number of actions to retain in the recording buffer */
+const MAX_RECORDED_ACTIONS = 200;
+
+/** Storage for recorded actions */
+let recordedActions: RecordedAction[] = [];
+
+/**
+ * Record an action for later inclusion in bug reports.
+ * Only records pointer and keyboard actions (not entity manipulation).
+ *
+ * @param action - The action that was executed
+ * @internal
+ */
+function recordAction(action: TestAction): void {
+  // Only record user input actions, not entity manipulation
+  const inputTypes = [
+    'pointerDown',
+    'pointerUp',
+    'pointerMove',
+    'keyDown',
+    'keyUp',
+  ];
+  if (!inputTypes.includes(action.type)) {
+    return;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  const tick = window.__gameTest?.tick?.current ?? -1;
+  const entry: RecordedAction = {
+    action,
+    tick,
+    timestamp: performance.now(),
+  };
+
+  recordedActions.push(entry);
+
+  // Trim to max size (circular buffer behavior)
+  if (recordedActions.length > MAX_RECORDED_ACTIONS) {
+    recordedActions = recordedActions.slice(-MAX_RECORDED_ACTIONS);
+  }
+}
+
+/**
+ * Get a copy of all recorded actions.
+ * Used for including user input history in bug reports.
+ *
+ * @returns Array of recorded action entries
+ *
+ * @example
+ * const actions = getRecordedActions();
+ * console.log(`Recorded ${actions.length} user actions`);
+ */
+export function getRecordedActions(): RecordedAction[] {
+  return [...recordedActions];
+}
+
+/**
+ * Clear all recorded actions.
+ *
+ * @example
+ * // Clear after submitting bug report
+ * clearRecordedActions();
+ */
+export function clearRecordedActions(): void {
+  recordedActions = [];
+}
 
 /**
  * Finds an entity by ID in the ODIE scene.
@@ -485,6 +556,8 @@ export function createActionExecutor(
 ): (action: TestAction) => Promise<ActionResult> {
   return async (action: TestAction): Promise<ActionResult> => {
     try {
+      // Record action for bug reports (only records user input actions)
+      recordAction(action);
       return await dispatchAction(action, getScene, getCanvas);
     } catch (err) {
       return {
