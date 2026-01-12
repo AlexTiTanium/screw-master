@@ -49,6 +49,7 @@ import type {
   GameTestError,
   TestAction,
   ActionResult,
+  TickAccess,
 } from './types';
 import { setupErrorCapture } from './errorCapture';
 import { isTestMode, getTestParams } from './urlParams';
@@ -58,6 +59,47 @@ import {
   createActionExecutor,
 } from './harness';
 
+/** Reference to gameTick, set via registerTickCounter */
+let tickCounterRef: TickAccess | null = null;
+
+/**
+ * Creates a tick access wrapper.
+ * Returns a proxy that delegates to the registered tick counter.
+ * @returns TickAccess interface
+ * @example
+ * const tick = createTickAccess();
+ * console.log(tick.current); // 42
+ */
+function createTickAccess(): TickAccess {
+  return {
+    get current(): number {
+      return tickCounterRef?.current ?? 0;
+    },
+    reset(): void {
+      tickCounterRef?.reset();
+    },
+    setLoggingEnabled(enabled: boolean): void {
+      tickCounterRef?.setLoggingEnabled(enabled);
+    },
+  };
+}
+
+/**
+ * Register the gameTick counter with the test harness.
+ * Called by GameScene or TickSystem to expose tick counter to E2E tests.
+ *
+ * @param tick - The gameTick object from game utils
+ *
+ * @example
+ * import { registerTickCounter } from '@shared/debug';
+ * import { gameTick } from './utils';
+ *
+ * registerTickCounter(gameTick);
+ */
+export function registerTickCounter(tick: TickAccess): void {
+  tickCounterRef = tick;
+}
+
 export type {
   GameTestHarness,
   GameTestError,
@@ -66,6 +108,7 @@ export type {
   EntitySnapshot,
   RenderSignature,
   ECSAccess,
+  TickAccess,
 } from './types';
 export { getTestParams, isTestMode } from './urlParams';
 
@@ -236,6 +279,7 @@ function createHarness(): GameTestHarness {
     ...createLifecycleMethods(state, ecsAccess),
     metrics: {},
     ecs: ecsAccess,
+    tick: createTickAccess(),
     getRenderSignature: createRenderSignatureGenerator(
       () => ecsAccess.getEntities(),
       () => state.sceneState,

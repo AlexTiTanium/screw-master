@@ -443,6 +443,39 @@ export interface GameTestHarness {
    * Includes all entities and a hash for quick comparisons.
    */
   getRenderSignature(): RenderSignature;
+
+  /**
+   * Access to the game tick counter for deterministic logging and replay.
+   * Use tick.current to get the current frame number.
+   */
+  tick: TickAccess;
+}
+
+// ============================================================================
+// Tick Counter Access
+// ============================================================================
+
+/**
+ * Interface for accessing the game tick counter.
+ *
+ * The tick counter provides frame-based timing for deterministic debug logging
+ * and replay capabilities. Each tick corresponds to one frame of game logic.
+ *
+ * @example
+ * // Get current tick in E2E test
+ * const tick = await page.evaluate(() => window.__gameTest?.tick.current);
+ *
+ * @example
+ * // Reset tick counter for deterministic testing
+ * await page.evaluate(() => window.__gameTest?.tick.reset());
+ */
+export interface TickAccess {
+  /** Get the current tick number */
+  readonly current: number;
+  /** Reset the tick counter to zero */
+  reset(): void;
+  /** Enable or disable tick-based logging */
+  setLoggingEnabled(enabled: boolean): void;
 }
 
 /**

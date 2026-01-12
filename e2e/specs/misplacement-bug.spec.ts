@@ -555,7 +555,12 @@ test.describe('Misplacement Bug', () => {
       { x: 765, y: 1434, delay: 50, comment: 'blue → blue [1]' },
       { x: 660, y: 949, delay: 50, comment: 'green → buffer [2]' },
       { x: 360, y: 949, delay: 50, comment: 'blue → blue [2] - FILLS BLUE' },
-      { x: 400, y: 1169, delay: 50, comment: 'red → buffer (during transition)' },
+      {
+        x: 400,
+        y: 1169,
+        delay: 50,
+        comment: 'red → buffer (during transition)',
+      },
     ];
 
     console.log('\n=== ACTION SEQUENCE ===');
@@ -609,7 +614,9 @@ test.describe('Misplacement Bug', () => {
       ).toBe(false);
     }
 
-    console.log('\n✓ Red tray correctly hidden after filling via buffer transfer');
+    console.log(
+      '\n✓ Red tray correctly hidden after filling via buffer transfer'
+    );
   });
 
   test('slow vs fast input speed should produce identical final state', async ({
@@ -689,7 +696,9 @@ test.describe('Misplacement Bug', () => {
       }[] = [];
 
       for (const s of finalScrews) {
-        const sc = s.components as { screw?: { state?: string; color?: string } };
+        const sc = s.components as {
+          screw?: { state?: string; color?: string };
+        };
         if (sc.screw?.state !== 'inTray') continue;
 
         // Find nearest colored tray
@@ -791,8 +800,14 @@ test.describe('Misplacement Bug', () => {
       fastByScrewColor.set(s.color, (fastByScrewColor.get(s.color) ?? 0) + 1);
     }
 
-    console.log('SLOW screw counts by color:', Object.fromEntries(slowByScrewColor));
-    console.log('FAST screw counts by color:', Object.fromEntries(fastByScrewColor));
+    console.log(
+      'SLOW screw counts by color:',
+      Object.fromEntries(slowByScrewColor)
+    );
+    console.log(
+      'FAST screw counts by color:',
+      Object.fromEntries(fastByScrewColor)
+    );
 
     // The counts should match (same number of each color screw ended up in trays)
     for (const [color, slowCount] of slowByScrewColor) {
@@ -817,6 +832,8 @@ test.describe('Misplacement Bug', () => {
       ).toBe(slowTray.screwCount);
     }
 
-    console.log('\n✓ Slow and fast input speeds produced identical final state!');
+    console.log(
+      '\n✓ Slow and fast input speeds produced identical final state!'
+    );
   });
 });

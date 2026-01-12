@@ -530,9 +530,9 @@ describe('ScrewInteractionSystem', () => {
         'screw:startRemoval',
         expect.anything()
       );
-      // Should log blocked message with state info
+      // Should log blocked message with state info (tick-prefixed)
       expect(consoleSpy).toHaveBeenCalledWith(
-        'BLOCKED: bufferFull=true animating=true busy=false'
+        '[T0] BLOCKED: bufferFull=true animating=true busy=false'
       );
 
       consoleSpy.mockRestore();

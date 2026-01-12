@@ -1,7 +1,7 @@
 import type { Entity, Entity2D, Time } from '@play-co/odie';
 import { BaseSystem } from './BaseSystem';
 import { TrayComponent, ScrewComponent } from '../components';
-import { gameEvents } from '../utils';
+import { gameEvents, gameTick } from '../utils';
 import type {
   ScrewRemovalCompleteEvent,
   ScrewTransferCompleteEvent,
@@ -152,9 +152,9 @@ export class TrayManagementSystem extends BaseSystem {
     if (trayComponent.screwCount >= trayComponent.capacity) {
       const inFlightToThisTray = this.countScrewsInFlightToTray(trayEntityId);
       if (inFlightToThisTray > 0) {
-        // eslint-disable-next-line no-console
-        console.log(
-          `TRAY: ${trayComponent.color} tray full but ${String(inFlightToThisTray)} screws still in-flight, waiting...`
+        gameTick.log(
+          'TRAY',
+          `${trayComponent.color} tray full but ${String(inFlightToThisTray)} screws still in-flight, waiting...`
         );
         return;
       }
@@ -309,8 +309,7 @@ export class TrayManagementSystem extends BaseSystem {
    */
   private async hideTray(tray: Entity): Promise<void> {
     const trayComp = this.getComponents<TrayComponentAccess>(tray).tray;
-    // eslint-disable-next-line no-console
-    console.log(`TRAY: ${trayComp.color} tray hidden (was full)`);
+    gameTick.log('TRAY', `${trayComp.color} tray hidden (was full)`);
 
     gameEvents.emit('tray:startHide', { trayEntity: tray } as TrayHideEvent);
     const event =
@@ -415,9 +414,9 @@ export class TrayManagementSystem extends BaseSystem {
     nextComp.displayOrder = newDisplayOrder;
     nextComp.isAnimating = true;
 
-    // eslint-disable-next-line no-console
-    console.log(
-      `TRAY: ${nextComp.color} tray revealed at position ${String(newDisplayOrder)}`
+    gameTick.log(
+      'TRAY',
+      `${nextComp.color} tray revealed at position ${String(newDisplayOrder)}`
     );
 
     const promise = this.waitForEvent('tray:revealComplete');
@@ -437,14 +436,15 @@ export class TrayManagementSystem extends BaseSystem {
    * @example
    * this.finalizeTransition(comp, shifted, revealed);
    */
+  // eslint-disable-next-line max-lines-per-function -- debug logging adds lines
   private finalizeTransition(
     fullTrayComponent: TrayComponentAccess['tray'],
     traysToShift: Entity[],
     nextHiddenTray: Entity | undefined
   ): void {
-    // eslint-disable-next-line no-console
-    console.log(
-      `TRAY_FINALIZE: queueLen=${String(this.transitionQueue.length)} isTransitioning=${String(this.isTransitioning)}`
+    gameTick.log(
+      'TRAY_FINALIZE',
+      `queueLen=${String(this.transitionQueue.length)} isTransitioning=${String(this.isTransitioning)}`
     );
 
     fullTrayComponent.displayOrder = 99;
@@ -465,9 +465,9 @@ export class TrayManagementSystem extends BaseSystem {
     // This ensures AutoTransferSystem.checkAutoTransfer() doesn't skip the transfer
     this.isTransitioning = false;
 
-    // eslint-disable-next-line no-console
-    console.log(
-      `TRAY_FINALIZE: → isTransitioning=false, emitting tray:revealed, then processNextTransition`
+    gameTick.log(
+      'TRAY_FINALIZE',
+      '→ isTransitioning=false, emitting tray:revealed, then processNextTransition'
     );
 
     if (nextHiddenTray) {

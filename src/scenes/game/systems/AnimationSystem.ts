@@ -8,6 +8,7 @@ import {
   getTraySlotPosition,
   getTraySlotTargetPosition,
   gameEvents,
+  gameTick,
   TRAY_DISPLAY_POSITIONS,
   TRAY_SPAWN_X,
   getAnimationLayer,
@@ -573,9 +574,9 @@ export class AnimationSystem extends BaseSystem {
       tray.capacity
     );
 
-    // eslint-disable-next-line no-console
-    console.log(
-      `SNAP: ${screw.color} screw to slot ${String(slotIndex)} at (${String(finalPos.x)}, ${String(finalPos.y)}) - tray displayOrder=${String(tray.displayOrder)}`
+    gameTick.log(
+      'SNAP',
+      `${screw.color} screw to slot ${String(slotIndex)} at (${String(finalPos.x)}, ${String(finalPos.y)}) - tray displayOrder=${String(tray.displayOrder)}`
     );
 
     screwEntity2D.position.set(finalPos.x, finalPos.y);

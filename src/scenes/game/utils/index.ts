@@ -23,3 +23,4 @@ export {
   clearLayerRegistry,
 } from './layerRegistry';
 export { GAME_LAYOUT } from './gameLayout';
+export { gameTick } from './GameTick';
