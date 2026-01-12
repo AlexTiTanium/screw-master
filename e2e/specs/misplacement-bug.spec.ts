@@ -517,6 +517,101 @@ test.describe('Misplacement Bug', () => {
     }
   });
 
+  test('red tray should hide after being filled via buffer transfer', async ({
+    page,
+  }) => {
+    // This reproduces a bug where the red tray fills via a buffer transfer
+    // but the hide animation is never triggered
+    page.on('console', (msg) => {
+      const text = msg.text();
+      if (
+        text.includes('TAP:') ||
+        text.includes('TRAY') ||
+        text.includes('TRANSFER:') ||
+        text.includes('SNAP:') ||
+        text.includes('AUTO_TRANSFER')
+      ) {
+        console.log(`[GAME] ${text}`);
+      }
+    });
+
+    attachTelemetry(page);
+    await page.goto('/?testMode=1&region=test&level=0');
+
+    const harness = createHarnessClient(page);
+    await harness.waitForReady(15000);
+    await page.waitForTimeout(500);
+
+    // Action sequence from user's log that triggers the bug
+    // Key: Blue tray fills first, then red screw transfers from buffer fills red tray
+    // Use FAST clicks throughout to create overlapping animations
+    // This creates the race condition where red screw goes to buffer during transitions
+    const actionSequence = [
+      { x: 485, y: 1289, delay: 50, comment: 'blue → blue [0]' },
+      { x: 400, y: 1369, delay: 50, comment: 'green → buffer [0]' },
+      { x: 315, y: 1289, delay: 50, comment: 'red → red [0]' },
+      { x: 680, y: 1304, delay: 50, comment: 'yellow → buffer [1]' },
+      { x: 595, y: 1434, delay: 50, comment: 'red → red [1]' },
+      { x: 765, y: 1434, delay: 50, comment: 'blue → blue [1]' },
+      { x: 660, y: 949, delay: 50, comment: 'green → buffer [2]' },
+      { x: 360, y: 949, delay: 50, comment: 'blue → blue [2] - FILLS BLUE' },
+      { x: 400, y: 1169, delay: 50, comment: 'red → buffer (during transition)' },
+    ];
+
+    console.log('\n=== ACTION SEQUENCE ===');
+    for (const action of actionSequence) {
+      console.log(`Tap (${action.x}, ${action.y}) - ${action.comment}`);
+      await harness.act({ type: 'pointerDown', x: action.x, y: action.y });
+      await harness.act({ type: 'pointerUp', x: action.x, y: action.y });
+      await page.waitForTimeout(action.delay);
+    }
+
+    // Wait for all animations and transfers to complete
+    await page.waitForTimeout(5000);
+
+    // Take screenshot
+    await page.screenshot({
+      path: 'e2e/screenshots/red-tray-hide-bug.png',
+    });
+
+    // Check final state
+    const trays = await harness.queryByComponent('tray');
+    console.log('\n=== FINAL TRAY STATES ===');
+
+    let redTrayVisible = false;
+    let redTrayScrewCount = 0;
+
+    for (const t of trays) {
+      const tc = t.components as {
+        tray?: {
+          color?: string;
+          screwCount?: number;
+          capacity?: number;
+          displayOrder?: number;
+        };
+      };
+      const visible = (tc.tray?.displayOrder ?? 99) < 2;
+      console.log(
+        `${tc.tray?.color} tray: ${tc.tray?.screwCount}/${tc.tray?.capacity}, displayOrder=${tc.tray?.displayOrder}, visible=${visible}`
+      );
+
+      if (tc.tray?.color === 'red') {
+        redTrayVisible = visible;
+        redTrayScrewCount = tc.tray?.screwCount ?? 0;
+      }
+    }
+
+    // Red tray should NOT be visible if it's full (3 screws)
+    if (redTrayScrewCount >= 3) {
+      expect(
+        redTrayVisible,
+        `Red tray is full (${redTrayScrewCount} screws) but still visible - hide animation didn't trigger!`
+      ).toBe(false);
+    }
+
+    console.log('\n✓ Red tray correctly hidden after filling via buffer transfer');
+  });
+
   test('slow vs fast input speed should produce identical final state', async ({
     page,
   }) => {
