@@ -560,7 +560,44 @@ export class AnimationSystem extends BaseSystem {
   // ============================================================================
 
   /**
-   * Handle tray hide animation (slide down).
+   * Find all screw entities currently in a specific tray.
+   * @param trayUID - The UID of the tray to search
+   * @returns Array of screw entities in the tray
+   * @example
+   * const screws = this.getScrewsInTray('123');
+   */
+  private getScrewsInTray(trayUID: string): Entity[] {
+    const screws: Entity[] = [];
+    this.forEachEntity('screws', (entity) => {
+      const screw = this.getComponents<ScrewComponentAccess>(entity).screw;
+      if (screw.state === 'inTray' && screw.trayEntityId === trayUID) {
+        screws.push(entity);
+      }
+    });
+    return screws;
+  }
+
+  /**
+   * Reset tray and screw scales after hide animation.
+   * @param trayEntity - The tray entity to reset
+   * @param screwsInTray - Screws that were in the tray
+   * @example
+   * this.resetTrayAfterHide(tray, screws);
+   */
+  private resetTrayAfterHide(trayEntity: Entity2D, screwsInTray: Entity[]): void {
+    trayEntity.position.y = TRAY_HIDDEN_Y;
+    trayEntity.scale.x = 1;
+    trayEntity.scale.y = 1;
+    for (const screwEntity of screwsInTray) {
+      const screw2D = screwEntity as Entity2D;
+      screw2D.scale.x = 1;
+      screw2D.scale.y = 1;
+    }
+  }
+
+  /**
+   * Handle tray hide animation (scale to zero).
+   * Animates both the tray and all screws inside it.
    * @param event - The tray hide event data
    * @example
    * // Triggered by tray:startHide event
@@ -569,16 +606,18 @@ export class AnimationSystem extends BaseSystem {
   private async handleTrayHide(event: TrayHideEvent): Promise<void> {
     const { trayEntity } = event;
     const entity2D = trayEntity as Entity2D;
+    const screwsInTray = this.getScrewsInTray(String(trayEntity.UID));
 
     const timeline = gsap.timeline();
     this.activeTimelines.add(timeline);
 
     try {
-      await timeline.to(entity2D.position, {
-        y: TRAY_HIDDEN_Y,
-        duration: 0.3,
-        ease: 'power2.out',
-      });
+      timeline.to(entity2D.scale, { x: 0, y: 0, duration: 0.3, ease: 'power2.in' });
+      for (const screwEntity of screwsInTray) {
+        timeline.to((screwEntity as Entity2D).scale, { x: 0, y: 0, duration: 0.3, ease: 'power2.in' }, '<');
+      }
+      await timeline;
+      this.resetTrayAfterHide(entity2D, screwsInTray);
     } finally {
       this.activeTimelines.delete(timeline);
     }
