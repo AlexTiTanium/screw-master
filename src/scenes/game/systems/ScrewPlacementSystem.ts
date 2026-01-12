@@ -11,6 +11,7 @@ import type {
   TrayComponentAccess,
   BufferTrayComponentAccess,
 } from '../types';
+import { TrayManagementSystem } from './TrayManagementSystem';
 
 /**
  * Placement target information.
@@ -56,7 +57,7 @@ export class ScrewPlacementSystem extends BaseSystem {
    * Find a valid placement target for a screw of the given color.
    *
    * Visible trays have displayOrder < 2 (positions 0 and 1).
-   * Trays that are animating are skipped.
+   * During tray animations, screws are forced to buffer to prevent misplacement.
    *
    * @param color - The screw color to find placement for
    * @returns PlacementTarget if found, null if no valid placement
@@ -64,13 +65,109 @@ export class ScrewPlacementSystem extends BaseSystem {
    * const target = system.findPlacementTarget(ScrewColor.Red);
    */
   findPlacementTarget(color: ScrewColor): PlacementTarget | null {
-    const coloredTarget = this.findColoredTrayTarget(color);
-    if (coloredTarget) return coloredTarget;
+    const animating = this.anyTrayAnimating();
+    const busy = this.trayManagementBusy();
+
+    // eslint-disable-next-line no-console
+    console.log(
+      `PLACEMENT: ${color} screw → animating=${String(animating)} busy=${String(busy)}`
+    );
+
+    // During tray animations OR transition queue processing, force buffer-only
+    // This prevents race conditions when transitions are queued but not yet started
+    if (!animating && !busy) {
+      const coloredTarget = this.findColoredTrayTarget(color);
+      if (coloredTarget) {
+        const tray = this.getComponents<TrayComponentAccess>(
+          coloredTarget.tray
+        ).tray;
+        // eslint-disable-next-line no-console
+        console.log(
+          `PLACEMENT: → ${tray.color} tray [slot ${String(coloredTarget.slotIndex)}]`
+        );
+        return coloredTarget;
+      }
+    }
 
     const bufferTarget = this.findBufferTrayTarget();
-    if (bufferTarget) return bufferTarget;
+    if (bufferTarget) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `PLACEMENT: → buffer [slot ${String(bufferTarget.slotIndex)}]`
+      );
+    } else {
+      // eslint-disable-next-line no-console
+      console.log('PLACEMENT: → NO VALID TARGET');
+    }
+    return bufferTarget;
+  }
 
-    return null;
+  /**
+   * Check if TrayManagementSystem is processing or has pending transitions.
+   * @returns True if tray management is busy
+   * @example
+   * if (system.trayManagementBusy()) { ... }
+   */
+  trayManagementBusy(): boolean {
+    const trayManagement = this.scene.getSystem(TrayManagementSystem);
+    return trayManagement.isBusy();
+  }
+
+  /**
+   * Check if any colored tray is currently animating.
+   * When true, screws should go to buffer instead of colored trays.
+   * @returns True if any tray is animating
+   * @example
+   * if (system.anyTrayAnimating()) { ... }
+   */
+  anyTrayAnimating(): boolean {
+    const coloredTrays = this.getEntities('coloredTrays');
+    return coloredTrays.some((entity) => {
+      const tray = this.getComponents<TrayComponentAccess>(entity).tray;
+      return tray.isAnimating;
+    });
+  }
+
+  /**
+   * Check if buffer tray is full, including screws in-flight to buffer.
+   * Counts both screws already in buffer AND screws animating toward it.
+   * @returns True if buffer cannot accept more screws
+   * @example
+   * if (system.isBufferFull()) { ... }
+   */
+  isBufferFull(): boolean {
+    const bufferTray = this.getFirstEntity('bufferTrays');
+    if (!bufferTray) return true;
+
+    const buffer =
+      this.getComponents<BufferTrayComponentAccess>(bufferTray).bufferTray;
+    const inBuffer = buffer.screwIds.length;
+    const inFlight = this.countScrewsAnimatingToBuffer();
+
+    return inBuffer + inFlight >= buffer.capacity;
+  }
+
+  /**
+   * Count screws currently animating toward the buffer tray.
+   * @returns Number of screws in-flight to buffer
+   * @example
+   * const inFlight = this.countScrewsAnimatingToBuffer();
+   */
+  private countScrewsAnimatingToBuffer(): number {
+    const bufferTray = this.getFirstEntity('bufferTrays');
+    if (!bufferTray) return 0;
+
+    const bufferUid = String(bufferTray.UID);
+    const screws = this.getEntities('screws');
+
+    return screws.filter((entity) => {
+      const screw = this.getComponents<ScrewComponentAccess>(entity).screw;
+      return (
+        screw.isAnimating &&
+        screw.state === 'dragging' &&
+        screw.trayEntityId === bufferUid
+      );
+    }).length;
   }
 
   /**

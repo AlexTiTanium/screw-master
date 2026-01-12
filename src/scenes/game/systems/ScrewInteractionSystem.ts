@@ -4,7 +4,11 @@ import { BaseSystem } from './BaseSystem';
 import { ScrewComponent, GameStateComponent } from '../components';
 import { ScrewPlacementSystem } from './ScrewPlacementSystem';
 import { gameEvents } from '../utils';
-import type { ScrewComponentAccess, GameStateComponentAccess } from '../types';
+import type {
+  ScrewComponentAccess,
+  GameStateComponentAccess,
+  TrayComponentAccess,
+} from '../types';
 
 // Re-export component access types for use in other systems
 export type { ScrewComponentAccess, GameStateComponentAccess };
@@ -107,8 +111,12 @@ export class ScrewInteractionSystem extends BaseSystem {
     if (!this.canInteractWithScrew(screw)) return;
 
     const placementSystem = this.scene.getSystem(ScrewPlacementSystem);
+    if (this.isInteractionBlocked(placementSystem)) return;
+
     const target = placementSystem.findPlacementTarget(screw.color);
     if (!target) return;
+
+    this.logTapAction(entity, screw.color, target);
 
     placementSystem.reserveSlot(target, entity);
     screw.isAnimating = true;
@@ -120,6 +128,57 @@ export class ScrewInteractionSystem extends BaseSystem {
       slotIndex: target.slotIndex,
       isBuffer: target.type === 'buffer',
     } as ScrewRemovalEvent);
+  }
+
+  /**
+   * Check if interaction is blocked due to buffer full + tray transitions.
+   * @param placementSystem - The placement system
+   * @returns True if interaction should be blocked
+   * @example
+   * if (this.isInteractionBlocked(placementSystem)) return;
+   */
+  private isInteractionBlocked(placementSystem: ScrewPlacementSystem): boolean {
+    const bufferFull = placementSystem.isBufferFull();
+    const traysAnimating = placementSystem.anyTrayAnimating();
+    const traysBusy = placementSystem.trayManagementBusy();
+
+    if (bufferFull && (traysAnimating || traysBusy)) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `BLOCKED: bufferFull=${String(bufferFull)} animating=${String(traysAnimating)} busy=${String(traysBusy)}`
+      );
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Log tap action for debugging/test reproduction.
+   * @param entity - The screw entity
+   * @param color - The screw color
+   * @param target - The placement target
+   * @param target.type - The target type (colored or buffer)
+   * @param target.tray - The target tray entity
+   * @param target.slotIndex - The slot index in the tray
+   * @example
+   * this.logTapAction(entity, screw.color, target);
+   */
+  private logTapAction(
+    entity: Entity,
+    color: string,
+    target: { type: string; tray: Entity; slotIndex: number }
+  ): void {
+    const entity2d = entity as Entity2D;
+    const x = Math.round(entity2d.position.x);
+    const y = Math.round(entity2d.position.y);
+    const trayColor =
+      target.type === 'colored'
+        ? this.getComponents<TrayComponentAccess>(target.tray).tray.color
+        : 'buffer';
+    // eslint-disable-next-line no-console
+    console.log(
+      `TAP: (${String(x)}, ${String(y)}) → ${color} screw → ${trayColor} tray [slot ${String(target.slotIndex)}]`
+    );
   }
 
   /**

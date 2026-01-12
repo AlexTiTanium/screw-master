@@ -83,6 +83,17 @@ export class TrayManagementSystem extends BaseSystem {
   private isTransitioning = false;
 
   /**
+   * Check if the system is currently processing or has pending transitions.
+   * Used by AutoTransferSystem to avoid starting transfers during tray animations.
+   * @returns True if transitions are in progress or queued
+   * @example
+   * if (trayManagementSystem.isBusy()) return;
+   */
+  public isBusy(): boolean {
+    return this.isTransitioning || this.transitionQueue.length > 0;
+  }
+
+  /**
    * Initialize event listeners.
    * @example
    * system.init(); // Called automatically by ECS
@@ -242,6 +253,10 @@ export class TrayManagementSystem extends BaseSystem {
    * await this.hideTray(trayEntity);
    */
   private async hideTray(tray: Entity): Promise<void> {
+    const trayComp = this.getComponents<TrayComponentAccess>(tray).tray;
+    // eslint-disable-next-line no-console
+    console.log(`TRAY: ${trayComp.color} tray hidden (was full)`);
+
     gameEvents.emit('tray:startHide', { trayEntity: tray } as TrayHideEvent);
     const event =
       await this.waitForEventWithData<TrayHideCompleteEvent>(
@@ -345,6 +360,11 @@ export class TrayManagementSystem extends BaseSystem {
     nextComp.displayOrder = newDisplayOrder;
     nextComp.isAnimating = true;
 
+    // eslint-disable-next-line no-console
+    console.log(
+      `TRAY: ${nextComp.color} tray revealed at position ${String(newDisplayOrder)}`
+    );
+
     const promise = this.waitForEvent('tray:revealComplete');
     gameEvents.emit('tray:startReveal', {
       trayEntity: nextHiddenTray,
@@ -367,6 +387,11 @@ export class TrayManagementSystem extends BaseSystem {
     traysToShift: Entity[],
     nextHiddenTray: Entity | undefined
   ): void {
+    // eslint-disable-next-line no-console
+    console.log(
+      `TRAY_FINALIZE: queueLen=${String(this.transitionQueue.length)} isTransitioning=${String(this.isTransitioning)}`
+    );
+
     fullTrayComponent.displayOrder = 99;
     fullTrayComponent.isAnimating = false;
 
@@ -379,12 +404,22 @@ export class TrayManagementSystem extends BaseSystem {
       const nextComp =
         this.getComponents<TrayComponentAccess>(nextHiddenTray).tray;
       nextComp.isAnimating = false;
+    }
+
+    // Mark transition complete BEFORE emitting tray:revealed
+    // This ensures AutoTransferSystem.checkAutoTransfer() doesn't skip the transfer
+    this.isTransitioning = false;
+
+    // eslint-disable-next-line no-console
+    console.log(
+      `TRAY_FINALIZE: → isTransitioning=false, emitting tray:revealed, then processNextTransition`
+    );
+
+    if (nextHiddenTray) {
       gameEvents.emit('tray:revealed', {
         trayEntity: nextHiddenTray,
       } as TrayRevealedEvent);
     }
-
-    this.isTransitioning = false;
   }
 
   /**

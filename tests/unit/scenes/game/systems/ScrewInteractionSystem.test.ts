@@ -105,6 +105,9 @@ describe('ScrewInteractionSystem', () => {
   let mockPlacementSystem: {
     findPlacementTarget: ReturnType<typeof vi.fn>;
     reserveSlot: ReturnType<typeof vi.fn>;
+    isBufferFull: ReturnType<typeof vi.fn>;
+    anyTrayAnimating: ReturnType<typeof vi.fn>;
+    trayManagementBusy: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
@@ -112,6 +115,9 @@ describe('ScrewInteractionSystem', () => {
     mockPlacementSystem = {
       findPlacementTarget: vi.fn(),
       reserveSlot: vi.fn(),
+      isBufferFull: vi.fn().mockReturnValue(false),
+      anyTrayAnimating: vi.fn().mockReturnValue(false),
+      trayManagementBusy: vi.fn().mockReturnValue(false),
     };
 
     // Mock scene.getSystem
@@ -495,6 +501,101 @@ describe('ScrewInteractionSystem', () => {
       }>(screw).screw;
       expect(screwComponent.isAnimating).toBe(true);
       expect(screwComponent.state).toBe('dragging');
+    });
+
+    it('should block tap when buffer is full and trays are animating', () => {
+      const screw = createMockScrewEntity(1, ScrewColor.Red, 'inBoard');
+      const gameState = createMockGameStateEntity('playing');
+
+      (system as { queries: QueryResults }).queries = createMockQueryResults(
+        [screw],
+        gameState
+      );
+
+      // Simulate buffer full AND trays animating
+      mockPlacementSystem.isBufferFull.mockReturnValue(true);
+      mockPlacementSystem.anyTrayAnimating.mockReturnValue(true);
+
+      const emitSpy = vi.spyOn(gameEvents, 'emit');
+      const consoleSpy = vi
+        .spyOn(console, 'log')
+        .mockImplementation((): void => {
+          // Intentionally empty - suppress console output during test
+        });
+
+      system['handleScrewTap'](screw);
+
+      // Should not emit removal event
+      expect(emitSpy).not.toHaveBeenCalledWith(
+        'screw:startRemoval',
+        expect.anything()
+      );
+      // Should log blocked message with state info
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'BLOCKED: bufferFull=true animating=true busy=false'
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should allow tap when buffer is full but trays are not animating', () => {
+      const screw = createMockScrewEntity(1, ScrewColor.Red, 'inBoard');
+      const tray = createMockTrayEntity(10, ScrewColor.Red);
+      const gameState = createMockGameStateEntity('playing');
+
+      (system as { queries: QueryResults }).queries = createMockQueryResults(
+        [screw],
+        gameState
+      );
+
+      // Buffer full but trays NOT animating - colored tray available
+      mockPlacementSystem.isBufferFull.mockReturnValue(true);
+      mockPlacementSystem.anyTrayAnimating.mockReturnValue(false);
+      mockPlacementSystem.findPlacementTarget.mockReturnValue({
+        tray,
+        slotIndex: 0,
+        type: 'colored',
+      });
+
+      const emitSpy = vi.spyOn(gameEvents, 'emit');
+
+      system['handleScrewTap'](screw);
+
+      // Should emit removal event
+      expect(emitSpy).toHaveBeenCalledWith(
+        'screw:startRemoval',
+        expect.anything()
+      );
+    });
+
+    it('should allow tap when trays are animating but buffer has space', () => {
+      const screw = createMockScrewEntity(1, ScrewColor.Red, 'inBoard');
+      const tray = createMockTrayEntity(10, ScrewColor.Red);
+      const gameState = createMockGameStateEntity('playing');
+
+      (system as { queries: QueryResults }).queries = createMockQueryResults(
+        [screw],
+        gameState
+      );
+
+      // Trays animating but buffer has space
+      mockPlacementSystem.isBufferFull.mockReturnValue(false);
+      mockPlacementSystem.anyTrayAnimating.mockReturnValue(true);
+      mockPlacementSystem.findPlacementTarget.mockReturnValue({
+        tray,
+        slotIndex: 0,
+        type: 'buffer',
+      });
+
+      const emitSpy = vi.spyOn(gameEvents, 'emit');
+
+      system['handleScrewTap'](screw);
+
+      // Should emit removal event (goes to buffer)
+      expect(emitSpy).toHaveBeenCalledWith(
+        'screw:startRemoval',
+        expect.objectContaining({ isBuffer: true })
+      );
     });
   });
 
