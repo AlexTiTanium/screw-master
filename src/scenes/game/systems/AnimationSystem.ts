@@ -10,7 +10,6 @@ import {
   gameEvents,
   TRAY_DISPLAY_POSITIONS,
   TRAY_SPAWN_X,
-  TRAY_HIDDEN_Y,
   getAnimationLayer,
   getColoredTrayLayer,
 } from '../utils';
@@ -618,9 +617,8 @@ export class AnimationSystem extends BaseSystem {
 
   /**
    * Handle tray hide animation with stepped scale-down effect.
-   * Moves tray off-screen first to avoid visual overlap with shifting trays,
-   * then reparents screws to tray view so they scale together, and animates
-   * the tray with a scale-down animation.
+   * Reparents screws to tray view so they scale together, then animates
+   * the tray with a multi-step shrink animation matching the Figma design.
    * @param event - The tray hide event data
    * @example
    * // Triggered by tray:startHide event
@@ -631,35 +629,11 @@ export class AnimationSystem extends BaseSystem {
     const entity2D = trayEntity as Entity2D;
     const screwsInTray = this.getScrewsInTray(String(trayEntity.UID));
 
-    // Move tray off-screen IMMEDIATELY before any animation
-    // This prevents visual overlap when other trays shift into this position
-    this.moveTrayOffScreen(entity2D, screwsInTray);
-
     this.reparentScrewsToTray(screwsInTray, entity2D);
     this.setupTrayPivotForCenterScale(entity2D);
     await this.animateTrayScaleDown(entity2D);
 
     gameEvents.emit('tray:hideComplete', { trayEntity, screwsInTray });
-  }
-
-  /**
-   * Move tray and its screws off-screen to avoid visual overlap.
-   * @param trayEntity - The tray entity to move
-   * @param screws - Screws in the tray to move with it
-   * @example
-   * this.moveTrayOffScreen(trayEntity, screwsInTray);
-   */
-  private moveTrayOffScreen(trayEntity: Entity2D, screws: Entity[]): void {
-    const deltaY = TRAY_HIDDEN_Y - trayEntity.position.y;
-    trayEntity.position.y = TRAY_HIDDEN_Y;
-
-    // Move screws with the tray (before reparenting)
-    for (const screwEntity of screws) {
-      const screw2D = screwEntity as Entity2D;
-      screw2D.position.y += deltaY;
-      // Also update view position for screws in coloredTrayLayer
-      screw2D.view.position.y = screw2D.position.y;
-    }
   }
 
   /**
