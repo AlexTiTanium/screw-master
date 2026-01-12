@@ -44,15 +44,17 @@ Contains metadata and user actions:
 ```
 
 #### render-graph.json
-Contains the PixiJS display object tree with entity UIDs for correlation:
+Contains the PixiJS display object tree with UIDs for correlation:
 ```json
 {
   "type": "Container",
+  "uid": "1",
   "position": { "x": 0, "y": 0 },
   "visible": true,
   "children": [
     {
       "type": "ScrewEntity",
+      "uid": "456",
       "entityUid": "123",
       "position": { "x": 595, "y": 1434 },
       "texture": "screw-red",
@@ -62,7 +64,9 @@ Contains the PixiJS display object tree with entity UIDs for correlation:
 }
 ```
 
-The `entityUid` field links display objects to ECS entities in game-state.json.
+**Correlation keys:**
+- `uid` - PixiJS internal uid, matches `view2d.viewUid` in game-state.json
+- `entityUid` - ODIE entity UID, matches `entities[].id` in game-state.json
 
 #### game-state.json
 Contains ECS entities with their components:
@@ -279,8 +283,8 @@ Bug reports provide two views of game objects that can be correlated:
 ### render-graph.json → game-state.json
 Display objects with `entityUid` link to ECS entities:
 ```
-render-graph.json:  { "type": "ScrewEntity", "entityUid": "123", ... }
-                                                    ↓
+render-graph.json:  { "type": "ScrewEntity", "uid": "456", "entityUid": "123", ... }
+                                                                ↓
 game-state.json:    { "id": "123", "type": "ScrewEntity", "components": {...} }
 ```
 
@@ -289,7 +293,7 @@ ECS entities with `view2d.viewUid` link back to display objects:
 ```
 game-state.json:    { "components": { "view2d": { "viewUid": "456" } } }
                                                        ↓
-render-graph.json:  (find display object with matching internal uid)
+render-graph.json:  { "type": "ScrewEntity", "uid": "456", ... }
 ```
 
 ### When to use which file
