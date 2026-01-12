@@ -96,6 +96,45 @@ export function getTraySlotPosition(
 }
 
 /**
+ * Calculate the target (final) position for a screw slot in a colored tray.
+ *
+ * Unlike getTraySlotPosition which uses the tray's current position,
+ * this function uses the tray's displayOrder to calculate where the tray
+ * WILL be after animations complete. Use this when you need the final
+ * position even if the tray is currently animating.
+ *
+ * @param displayOrder - The tray's display order (0-4)
+ * @param slotIndex - The slot index within the tray (0-based)
+ * @param trayCapacity - The tray's capacity (needed for centering calculation)
+ * @returns The target world position for the slot
+ *
+ * @example
+ * const pos = getTraySlotTargetPosition(0, 1, 3);
+ * // Returns final position for slot 1 in a 3-capacity tray at displayOrder 0
+ */
+export function getTraySlotTargetPosition(
+  displayOrder: number,
+  slotIndex: number,
+  trayCapacity: number
+): Position {
+  // Get the fixed position for this display slot
+  const trayPosition = TRAY_DISPLAY_POSITIONS[displayOrder];
+  if (!trayPosition) {
+    throw new Error(`Invalid displayOrder: ${String(displayOrder)}`);
+  }
+
+  // Calculate centered slot position based on capacity
+  const totalWidth =
+    (trayCapacity - 1) * COLORED_TRAY_SLOT_SPACING + SLOT_DISPLAY_WIDTH;
+  const startX = (TRAY_WIDTH - totalWidth) / 2 + SLOT_DISPLAY_WIDTH / 2;
+
+  return {
+    x: trayPosition.x + startX + slotIndex * COLORED_TRAY_SLOT_SPACING,
+    y: trayPosition.y + COLORED_TRAY_Y_OFFSET,
+  };
+}
+
+/**
  * Get the next available buffer slot position.
  *
  * @param slotIndex - The slot index (0-based)

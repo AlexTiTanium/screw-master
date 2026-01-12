@@ -50,17 +50,19 @@ vi.mock('@scenes/game/factories', () => ({
   getTrayPlaceholders: vi.fn().mockReturnValue([]),
 }));
 
-// Mock utils
+// Mock utils - getTraySlotPosition mock must be inline since vi.mock is hoisted
 vi.mock('@scenes/game/utils', async (importOriginal) => {
   const original = (await importOriginal()) as object;
   return {
     ...original,
-    getTraySlotPosition: vi.fn().mockReturnValue({ x: 150, y: 500 }),
+    getTraySlotPosition: vi.fn(() => ({ x: 150, y: 500 })),
+    getTraySlotTargetPosition: vi.fn(() => ({ x: 150, y: 500 })),
     TRAY_DISPLAY_POSITIONS: [
       { x: 48, y: 175 },
       { x: 158, y: 175 },
     ],
     TRAY_HIDDEN_Y: 800,
+    TRAY_SPAWN_X: 840,
     getAnimationLayer: vi.fn().mockReturnValue({
       addChild: vi.fn(),
     }),
@@ -76,6 +78,14 @@ function createMockScrewEntity(
   color: ScrewColor,
   state: 'inBoard' | 'inTray' | 'inBuffer' | 'dragging' = 'inBoard'
 ): Entity2D {
+  const position = {
+    x: 100,
+    y: 100,
+    set(x: number, y: number): void {
+      this.x = x;
+      this.y = y;
+    },
+  };
   return {
     UID: uid,
     c: {
@@ -90,8 +100,16 @@ function createMockScrewEntity(
     view: {
       eventMode: 'none',
       cursor: 'default',
+      position: {
+        x: 100,
+        y: 100,
+        set(x: number, y: number): void {
+          this.x = x;
+          this.y = y;
+        },
+      },
     },
-    position: { x: 100, y: 100 },
+    position,
   } as unknown as Entity2D;
 }
 

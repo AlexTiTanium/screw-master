@@ -1,5 +1,6 @@
 export {
   getTraySlotPosition,
+  getTraySlotTargetPosition,
   getBufferSlotPosition,
   TRAY_DISPLAY_POSITIONS,
   TRAY_HIDDEN_Y,

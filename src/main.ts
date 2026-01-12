@@ -9,8 +9,24 @@ if (import.meta.env.DEV || isTestMode()) {
   const debugLog = document.createElement('div');
   debugLog.id = 'debug-log';
   debugLog.style.cssText =
-    'position:fixed;bottom:0;left:0;right:0;max-height:200px;overflow:auto;background:#111;color:#0f0;font-family:monospace;font-size:12px;padding:10px;z-index:9999;';
+    'position:fixed;bottom:0;left:0;right:0;max-height:200px;overflow:auto;background:#111;color:#0f0;font-family:monospace;font-size:12px;padding:10px;padding-top:30px;z-index:9999;';
   document.body.appendChild(debugLog);
+
+  // Create copy button
+  const copyBtn = document.createElement('button');
+  copyBtn.textContent = 'Copy';
+  copyBtn.style.cssText =
+    'position:absolute;top:5px;right:5px;padding:2px 8px;background:#333;color:#0f0;border:1px solid #0f0;cursor:pointer;font-family:monospace;font-size:11px;';
+  copyBtn.onclick = (): void => {
+    const text = debugLog.innerText;
+    void navigator.clipboard.writeText(text).then(() => {
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => {
+        copyBtn.textContent = 'Copy';
+      }, 1000);
+    });
+  };
+  debugLog.appendChild(copyBtn);
 
   /* eslint-disable no-console */
   const originalConsole = {
