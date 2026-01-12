@@ -37,3 +37,6 @@ vite.config.ts.timestamp-*
 
 # PR screenshots (generated, upload manually to GitHub)
 screenshots/
+
+# Bug reports (generated locally during development)
+bug-reports/

@@ -41,31 +41,98 @@ export interface ECSAccessInternal extends ECSAccess {
  * @example
  * shouldSkipProperty('_internal', {}); // true
  */
+/** Properties to skip entirely during component serialization */
+const SKIP_PROPERTIES = new Set([
+  'constructor',
+  'entity', // Circular ref: component → entity (not needed, entity ID is in parent)
+  'scene', // Circular ref to scene
+  'parent', // Circular ref to parent container
+  'children', // Can be huge and redundant with display tree
+]);
+
+/** Properties to convert to UID references */
+const UID_REF_PROPERTIES = new Set([
+  'view', // Convert view (display object) to viewUid reference
+]);
+
 function shouldSkipProperty(key: string, value: unknown): boolean {
   return (
-    typeof value === 'function' || key.startsWith('_') || key === 'constructor'
+    typeof value === 'function' ||
+    key.startsWith('_') ||
+    SKIP_PROPERTIES.has(key)
   );
 }
 
 /**
+ * Extracts serializable value from a property.
+ * @param v - The value to extract
+ * @param depth - Current recursion depth
+ * @returns Object with include flag and extracted value
+ */
+function extractPropertyValue(
+  v: unknown,
+  depth: number
+): { include: boolean; value: unknown } {
+  if (v === null || v === undefined) return { include: true, value: v };
+  if (typeof v !== 'object') return { include: true, value: v };
+  if (Array.isArray(v) && (v.length === 0 || typeof v[0] !== 'object')) {
+    return { include: true, value: v };
+  }
+  if (!Array.isArray(v)) {
+    const nested = serializeObjectValue(v, depth + 1);
+    if (nested !== '[max depth]') return { include: true, value: nested };
+  }
+  return { include: false, value: null };
+}
+
+/**
  * Serializes an object value with fallback handling.
+ * For complex objects that can't be directly serialized, extracts primitive values.
  *
  * @param value - The object to serialize
+ * @param depth - Current recursion depth (max 3)
  * @returns Serialized representation of the value
  *
  * @example
  * serializeObjectValue({ x: 1, y: 2 }); // { x: 1, y: 2 }
  */
-function serializeObjectValue(value: unknown): unknown {
+function serializeObjectValue(value: unknown, depth = 0): unknown {
+  if (depth > 3) return '[max depth]';
+
+  // Try direct JSON serialization first
   try {
     return JSON.parse(JSON.stringify(value)) as unknown;
   } catch {
-    try {
-      return JSON.stringify(value);
-    } catch {
-      return '[object]';
-    }
+    // Fall through to manual extraction
   }
+
+  if (typeof value !== 'object' || value === null) return value;
+
+  const obj = value as Record<string, unknown>;
+  const result: Record<string, unknown> = {};
+
+  for (const key of Object.keys(obj)) {
+    if (shouldSkipProperty(key, obj[key])) continue;
+    const { include, value: v } = extractPropertyValue(obj[key], depth);
+    if (include) result[key] = v;
+  }
+
+  return Object.keys(result).length > 0 ? result : '[complex object]';
+}
+
+/**
+ * Extracts UID from a display object if available.
+ * @param obj - The object to extract UID from
+ * @returns The UID string or null
+ */
+function extractUid(obj: unknown): string | null {
+  if (obj && typeof obj === 'object') {
+    const o = obj as Record<string, unknown>;
+    const uid = o.uid ?? o.UID;
+    if (typeof uid === 'string') return uid;
+    if (typeof uid === 'number') return uid.toString();
+  }
+  return null;
 }
 
 /**
@@ -88,6 +155,14 @@ function serializeComponent(component: unknown): unknown {
   for (const key of Object.keys(comp)) {
     const value = comp[key];
     if (shouldSkipProperty(key, value)) {
+      continue;
+    }
+    // Convert view to viewUid reference
+    if (UID_REF_PROPERTIES.has(key)) {
+      const uid = extractUid(value);
+      if (uid !== null) {
+        result[`${key}Uid`] = uid;
+      }
       continue;
     }
     if (value === null || typeof value !== 'object') {

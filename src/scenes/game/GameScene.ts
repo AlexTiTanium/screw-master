@@ -2,7 +2,6 @@ import { Scene2D, createEntity, type Entity2D } from '@play-co/odie';
 import { TouchInput } from '@play-co/astro';
 import { Assets, Container, Graphics, Sprite, type Texture } from 'pixi.js';
 
-import { isTestMode } from '@shared/debug';
 import { loadRegion, getLevelByIndex } from '@shared/levels';
 import { getPart } from '@shared/parts';
 import type {
@@ -124,8 +123,8 @@ export class GameScene {
       return;
     }
 
-    // Register scene with test harness for ECS access
-    if (isTestMode() && window.__gameTest) {
+    // Register scene with test harness for ECS access (even in dev mode for bug reports)
+    if (window.__gameTest) {
       window.__gameTest.registerScene(this.scene);
     }
 

@@ -1,7 +1,9 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'node:path';
+import { bugReportPlugin } from './vite/plugins/bugReportPlugin';
 
 export default defineConfig({
+  plugins: [bugReportPlugin()],
   root: 'src',
   publicDir: resolve(__dirname, 'assets'),
   resolve: {
