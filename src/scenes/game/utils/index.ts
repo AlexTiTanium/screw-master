@@ -1,5 +1,6 @@
 export {
   getTraySlotPosition,
+  getTraySlotTargetPosition,
   getBufferSlotPosition,
   TRAY_DISPLAY_POSITIONS,
   TRAY_HIDDEN_Y,
@@ -22,3 +23,4 @@ export {
   clearLayerRegistry,
 } from './layerRegistry';
 export { GAME_LAYOUT } from './gameLayout';
+export { gameTick } from './GameTick';

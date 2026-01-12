@@ -12,6 +12,7 @@ import type {
   BufferTrayComponentAccess,
 } from '../types';
 import { TrayManagementSystem } from './TrayManagementSystem';
+import { gameTick } from '../utils';
 
 /**
  * Placement target information.
@@ -64,13 +65,14 @@ export class ScrewPlacementSystem extends BaseSystem {
    * @example
    * const target = system.findPlacementTarget(ScrewColor.Red);
    */
+  // eslint-disable-next-line max-lines-per-function -- debug logging adds lines
   findPlacementTarget(color: ScrewColor): PlacementTarget | null {
     const animating = this.anyTrayAnimating();
     const busy = this.trayManagementBusy();
 
-    // eslint-disable-next-line no-console
-    console.log(
-      `PLACEMENT: ${color} screw → animating=${String(animating)} busy=${String(busy)}`
+    gameTick.log(
+      'PLACEMENT',
+      `${color} screw → animating=${String(animating)} busy=${String(busy)}`
     );
 
     // During tray animations OR transition queue processing, force buffer-only
@@ -81,9 +83,9 @@ export class ScrewPlacementSystem extends BaseSystem {
         const tray = this.getComponents<TrayComponentAccess>(
           coloredTarget.tray
         ).tray;
-        // eslint-disable-next-line no-console
-        console.log(
-          `PLACEMENT: → ${tray.color} tray [slot ${String(coloredTarget.slotIndex)}]`
+        gameTick.log(
+          'PLACEMENT',
+          `→ ${tray.color} tray [slot ${String(coloredTarget.slotIndex)}]`
         );
         return coloredTarget;
       }
@@ -91,13 +93,12 @@ export class ScrewPlacementSystem extends BaseSystem {
 
     const bufferTarget = this.findBufferTrayTarget();
     if (bufferTarget) {
-      // eslint-disable-next-line no-console
-      console.log(
-        `PLACEMENT: → buffer [slot ${String(bufferTarget.slotIndex)}]`
+      gameTick.log(
+        'PLACEMENT',
+        `→ buffer [slot ${String(bufferTarget.slotIndex)}]`
       );
     } else {
-      // eslint-disable-next-line no-console
-      console.log('PLACEMENT: → NO VALID TARGET');
+      gameTick.log('PLACEMENT', '→ NO VALID TARGET');
     }
     return bufferTarget;
   }

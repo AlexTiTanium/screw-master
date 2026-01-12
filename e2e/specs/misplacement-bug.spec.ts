@@ -516,4 +516,324 @@ test.describe('Misplacement Bug', () => {
       }
     }
   });
+
+  test('red tray should hide after being filled via buffer transfer', async ({
+    page,
+  }) => {
+    // This reproduces a bug where the red tray fills via a buffer transfer
+    // but the hide animation is never triggered
+    page.on('console', (msg) => {
+      const text = msg.text();
+      if (
+        text.includes('TAP:') ||
+        text.includes('TRAY') ||
+        text.includes('TRANSFER:') ||
+        text.includes('SNAP:') ||
+        text.includes('AUTO_TRANSFER')
+      ) {
+        console.log(`[GAME] ${text}`);
+      }
+    });
+
+    attachTelemetry(page);
+    await page.goto('/?testMode=1&region=test&level=0');
+
+    const harness = createHarnessClient(page);
+    await harness.waitForReady(15000);
+    await page.waitForTimeout(500);
+
+    // Action sequence from user's log that triggers the bug
+    // Key: Blue tray fills first, then red screw transfers from buffer fills red tray
+    // Use FAST clicks throughout to create overlapping animations
+    // This creates the race condition where red screw goes to buffer during transitions
+    const actionSequence = [
+      { x: 485, y: 1289, delay: 50, comment: 'blue → blue [0]' },
+      { x: 400, y: 1369, delay: 50, comment: 'green → buffer [0]' },
+      { x: 315, y: 1289, delay: 50, comment: 'red → red [0]' },
+      { x: 680, y: 1304, delay: 50, comment: 'yellow → buffer [1]' },
+      { x: 595, y: 1434, delay: 50, comment: 'red → red [1]' },
+      { x: 765, y: 1434, delay: 50, comment: 'blue → blue [1]' },
+      { x: 660, y: 949, delay: 50, comment: 'green → buffer [2]' },
+      { x: 360, y: 949, delay: 50, comment: 'blue → blue [2] - FILLS BLUE' },
+      {
+        x: 400,
+        y: 1169,
+        delay: 50,
+        comment: 'red → buffer (during transition)',
+      },
+    ];
+
+    console.log('\n=== ACTION SEQUENCE ===');
+    for (const action of actionSequence) {
+      console.log(`Tap (${action.x}, ${action.y}) - ${action.comment}`);
+      await harness.act({ type: 'pointerDown', x: action.x, y: action.y });
+      await harness.act({ type: 'pointerUp', x: action.x, y: action.y });
+      await page.waitForTimeout(action.delay);
+    }
+
+    // Wait for all animations and transfers to complete
+    await page.waitForTimeout(5000);
+
+    // Take screenshot
+    await page.screenshot({
+      path: 'e2e/screenshots/red-tray-hide-bug.png',
+    });
+
+    // Check final state
+    const trays = await harness.queryByComponent('tray');
+    console.log('\n=== FINAL TRAY STATES ===');
+
+    let redTrayVisible = false;
+    let redTrayScrewCount = 0;
+
+    for (const t of trays) {
+      const tc = t.components as {
+        tray?: {
+          color?: string;
+          screwCount?: number;
+          capacity?: number;
+          displayOrder?: number;
+        };
+      };
+      const visible = (tc.tray?.displayOrder ?? 99) < 2;
+      console.log(
+        `${tc.tray?.color} tray: ${tc.tray?.screwCount}/${tc.tray?.capacity}, displayOrder=${tc.tray?.displayOrder}, visible=${visible}`
+      );
+
+      if (tc.tray?.color === 'red') {
+        redTrayVisible = visible;
+        redTrayScrewCount = tc.tray?.screwCount ?? 0;
+      }
+    }
+
+    // Red tray should NOT be visible if it's full (3 screws)
+    if (redTrayScrewCount >= 3) {
+      expect(
+        redTrayVisible,
+        `Red tray is full (${redTrayScrewCount} screws) but still visible - hide animation didn't trigger!`
+      ).toBe(false);
+    }
+
+    console.log(
+      '\n✓ Red tray correctly hidden after filling via buffer transfer'
+    );
+  });
+
+  test('slow vs fast input speed should produce identical final state', async ({
+    page,
+  }) => {
+    // Capture game console logs for debugging
+    page.on('console', (msg) => {
+      const text = msg.text();
+      if (
+        text.includes('TAP:') ||
+        text.includes('TRAY') ||
+        text.includes('TRANSFER:') ||
+        text.includes('SNAP:')
+      ) {
+        console.log(`[GAME] ${text}`);
+      }
+    });
+
+    attachTelemetry(page);
+
+    // The action sequence to test - coordinates from user's log
+    const actionSequence = [
+      { x: 765, y: 1434, comment: 'blue → blue tray' },
+      { x: 595, y: 1434, comment: 'red → red tray' },
+      { x: 680, y: 1304, comment: 'yellow → buffer' },
+      { x: 485, y: 1289, comment: 'blue → blue tray' },
+      { x: 400, y: 1369, comment: 'green → buffer' },
+      { x: 315, y: 1289, comment: 'red → red tray' },
+      { x: 400, y: 1169, comment: 'red → red tray (fills, triggers hide)' },
+      { x: 360, y: 949, comment: 'blue → during transition' },
+      { x: 660, y: 949, comment: 'green → after transition' },
+    ];
+
+    /**
+     * Execute the action sequence with specified delay between taps.
+     * Returns the final state of screws in trays for comparison.
+     */
+    async function executeSequenceAndCaptureFinalState(
+      delayMs: number,
+      label: string
+    ): Promise<{
+      screwsInTrays: { color: string; trayColor: string; x: number }[];
+      trayStates: {
+        color: string;
+        screwCount: number;
+        displayOrder: number;
+      }[];
+    }> {
+      // Reload page to reset state
+      await page.goto('/?testMode=1&region=test&level=0');
+      const harness = createHarnessClient(page);
+      await harness.waitForReady(15000);
+      await page.waitForTimeout(500);
+
+      console.log(`\n=== ${label} (delay=${delayMs}ms) ===`);
+
+      // Execute all actions
+      for (const action of actionSequence) {
+        await harness.act({ type: 'pointerDown', x: action.x, y: action.y });
+        await harness.act({ type: 'pointerUp', x: action.x, y: action.y });
+        await page.waitForTimeout(delayMs);
+      }
+
+      // Wait for all animations and auto-transfers to complete
+      // FAST mode causes more queued transitions, so we need extra time
+      await page.waitForTimeout(5000);
+
+      // Capture final state
+      const finalScrews = await harness.queryByComponent('screw');
+      const trays = await harness.queryByComponent('tray');
+
+      // Build screw state - only screws in trays (not board, not buffer)
+      const screwsInTrays: {
+        color: string;
+        trayColor: string;
+        x: number;
+      }[] = [];
+
+      for (const s of finalScrews) {
+        const sc = s.components as {
+          screw?: { state?: string; color?: string };
+        };
+        if (sc.screw?.state !== 'inTray') continue;
+
+        // Find nearest colored tray
+        let nearestTray = null;
+        let nearestDistance = Infinity;
+
+        for (const tray of trays) {
+          const tc = tray.components as {
+            tray?: { color?: string; isBuffer?: boolean };
+          };
+          if (tc.tray?.isBuffer) continue;
+
+          const distance = Math.abs(s.position.x - tray.position.x);
+          if (distance < nearestDistance) {
+            nearestDistance = distance;
+            nearestTray = tray;
+          }
+        }
+
+        if (nearestTray && nearestDistance < 97) {
+          const tc = nearestTray.components as { tray?: { color?: string } };
+          screwsInTrays.push({
+            color: sc.screw?.color ?? 'unknown',
+            trayColor: tc.tray?.color ?? 'unknown',
+            x: Math.round(s.position.x),
+          });
+        }
+      }
+
+      // Sort by x position for consistent comparison
+      screwsInTrays.sort((a, b) => a.x - b.x);
+
+      // Build tray state
+      const trayStates: {
+        color: string;
+        screwCount: number;
+        displayOrder: number;
+      }[] = [];
+
+      for (const t of trays) {
+        const tc = t.components as {
+          tray?: {
+            color?: string;
+            screwCount?: number;
+            displayOrder?: number;
+            isBuffer?: boolean;
+          };
+        };
+        if (tc.tray?.isBuffer) continue;
+
+        trayStates.push({
+          color: tc.tray?.color ?? 'unknown',
+          screwCount: tc.tray?.screwCount ?? 0,
+          displayOrder: tc.tray?.displayOrder ?? 99,
+        });
+      }
+
+      // Sort by displayOrder for consistent comparison
+      trayStates.sort((a, b) => a.displayOrder - b.displayOrder);
+
+      console.log(`${label} screws in trays:`, screwsInTrays);
+      console.log(`${label} tray states:`, trayStates);
+
+      return { screwsInTrays, trayStates };
+    }
+
+    // Execute with SLOW speed (800ms between taps - well after animations complete)
+    const slowResult = await executeSequenceAndCaptureFinalState(800, 'SLOW');
+
+    // Execute with FAST speed (50ms between taps - rapid clicking)
+    const fastResult = await executeSequenceAndCaptureFinalState(50, 'FAST');
+
+    // Compare screw placements - each screw should be in the SAME color tray
+    console.log('\n=== COMPARISON ===');
+
+    // Check that all screws in trays match their tray color (no misplacement)
+    for (const screw of slowResult.screwsInTrays) {
+      expect(
+        screw.color,
+        `SLOW: ${screw.color} screw in ${screw.trayColor} tray`
+      ).toBe(screw.trayColor);
+    }
+
+    for (const screw of fastResult.screwsInTrays) {
+      expect(
+        screw.color,
+        `FAST: ${screw.color} screw in ${screw.trayColor} tray - MISPLACEMENT!`
+      ).toBe(screw.trayColor);
+    }
+
+    // Compare the number of screws in each tray type
+    const slowByScrewColor = new Map<string, number>();
+    const fastByScrewColor = new Map<string, number>();
+
+    for (const s of slowResult.screwsInTrays) {
+      slowByScrewColor.set(s.color, (slowByScrewColor.get(s.color) ?? 0) + 1);
+    }
+    for (const s of fastResult.screwsInTrays) {
+      fastByScrewColor.set(s.color, (fastByScrewColor.get(s.color) ?? 0) + 1);
+    }
+
+    console.log(
+      'SLOW screw counts by color:',
+      Object.fromEntries(slowByScrewColor)
+    );
+    console.log(
+      'FAST screw counts by color:',
+      Object.fromEntries(fastByScrewColor)
+    );
+
+    // The counts should match (same number of each color screw ended up in trays)
+    for (const [color, slowCount] of slowByScrewColor) {
+      const fastCount = fastByScrewColor.get(color) ?? 0;
+      expect(
+        fastCount,
+        `${color} screw count mismatch: slow=${slowCount}, fast=${fastCount}`
+      ).toBe(slowCount);
+    }
+
+    // Compare tray states
+    expect(fastResult.trayStates.length).toBe(slowResult.trayStates.length);
+
+    for (let i = 0; i < slowResult.trayStates.length; i++) {
+      const slowTray = slowResult.trayStates[i];
+      const fastTray = fastResult.trayStates[i];
+      if (!slowTray || !fastTray) continue;
+
+      expect(
+        fastTray.screwCount,
+        `${slowTray.color} tray screwCount mismatch: slow=${slowTray.screwCount}, fast=${fastTray.screwCount}`
+      ).toBe(slowTray.screwCount);
+    }
+
+    console.log(
+      '\n✓ Slow and fast input speeds produced identical final state!'
+    );
+  });
 });

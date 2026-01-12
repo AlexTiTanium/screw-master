@@ -9,7 +9,7 @@ import { ScrewPlacementSystem } from './ScrewPlacementSystem';
 import { TrayManagementSystem } from './TrayManagementSystem';
 import type { ScrewTransferEvent } from './AnimationSystem';
 import type { TrayRevealedEvent } from './TrayManagementSystem';
-import { gameEvents } from '../utils';
+import { gameEvents, gameTick } from '../utils';
 import type {
   ScrewComponentAccess,
   TrayComponentAccess,
@@ -119,8 +119,7 @@ export class AutoTransferSystem extends BaseSystem {
     const buffer =
       this.getComponents<BufferTrayComponentAccess>(bufferTray).bufferTray;
     if (buffer.screwIds.length === 0) {
-      // eslint-disable-next-line no-console
-      console.log('AUTO_TRANSFER_CHECK: → skipped (buffer empty)');
+      gameTick.log('AUTO_TRANSFER_CHECK', '→ skipped (buffer empty)');
       return;
     }
 
@@ -138,24 +137,21 @@ export class AutoTransferSystem extends BaseSystem {
     const animating = this.anyTrayAnimating();
     const busy = this.trayManagementBusy();
 
-    // eslint-disable-next-line no-console
-    console.log(
-      `AUTO_TRANSFER_CHECK: transferring=${String(transferring)} animating=${String(animating)} busy=${String(busy)}`
+    gameTick.log(
+      'AUTO_TRANSFER_CHECK',
+      `transferring=${String(transferring)} animating=${String(animating)} busy=${String(busy)}`
     );
 
     if (transferring) {
-      // eslint-disable-next-line no-console
-      console.log('AUTO_TRANSFER_CHECK: → skipped (already transferring)');
+      gameTick.log('AUTO_TRANSFER_CHECK', '→ skipped (already transferring)');
       return true;
     }
     if (animating) {
-      // eslint-disable-next-line no-console
-      console.log('AUTO_TRANSFER_CHECK: → skipped (trays animating)');
+      gameTick.log('AUTO_TRANSFER_CHECK', '→ skipped (trays animating)');
       return true;
     }
     if (busy) {
-      // eslint-disable-next-line no-console
-      console.log('AUTO_TRANSFER_CHECK: → skipped (tray management busy)');
+      gameTick.log('AUTO_TRANSFER_CHECK', '→ skipped (tray management busy)');
       return true;
     }
     return false;
@@ -250,9 +246,9 @@ export class AutoTransferSystem extends BaseSystem {
     tray.screwCount++;
 
     // Log transfer action for debugging/test reproduction
-    // eslint-disable-next-line no-console
-    console.log(
-      `TRANSFER: ${screw.color} screw from buffer → ${tray.color} tray [slot ${String(slotIndex)}]`
+    gameTick.log(
+      'TRANSFER',
+      `${screw.color} screw from buffer → ${tray.color} tray [slot ${String(slotIndex)}]`
     );
 
     // Update screw state

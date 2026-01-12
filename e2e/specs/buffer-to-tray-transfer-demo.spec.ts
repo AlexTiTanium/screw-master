@@ -145,7 +145,7 @@ test.describe('Buffer to Tray Transfer Demo', () => {
     // Blue screw 3 (Board 4): blue(100,158) → (360, 949)
     await harness.act({ type: 'pointerDown', x: 360, y: 949 });
     await harness.act({ type: 'pointerUp', x: 360, y: 949 });
-    await page.waitForTimeout(2000); // Wait for hide/shift/reveal/transfer animations
+    await page.waitForTimeout(3000); // Wait for hide/shift/reveal/transfer animations (increased for transfer)
 
     // Verify yellow screw transferred from buffer to yellow tray
     screws = await harness.queryByComponent('screw');

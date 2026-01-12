@@ -3,7 +3,7 @@ import { TouchInput } from '@play-co/astro';
 import { BaseSystem } from './BaseSystem';
 import { ScrewComponent, GameStateComponent } from '../components';
 import { ScrewPlacementSystem } from './ScrewPlacementSystem';
-import { gameEvents } from '../utils';
+import { gameEvents, gameTick } from '../utils';
 import type {
   ScrewComponentAccess,
   GameStateComponentAccess,
@@ -143,9 +143,9 @@ export class ScrewInteractionSystem extends BaseSystem {
     const traysBusy = placementSystem.trayManagementBusy();
 
     if (bufferFull && (traysAnimating || traysBusy)) {
-      // eslint-disable-next-line no-console
-      console.log(
-        `BLOCKED: bufferFull=${String(bufferFull)} animating=${String(traysAnimating)} busy=${String(traysBusy)}`
+      gameTick.log(
+        'BLOCKED',
+        `bufferFull=${String(bufferFull)} animating=${String(traysAnimating)} busy=${String(traysBusy)}`
       );
       return true;
     }
@@ -175,9 +175,9 @@ export class ScrewInteractionSystem extends BaseSystem {
       target.type === 'colored'
         ? this.getComponents<TrayComponentAccess>(target.tray).tray.color
         : 'buffer';
-    // eslint-disable-next-line no-console
-    console.log(
-      `TAP: (${String(x)}, ${String(y)}) → ${color} screw → ${trayColor} tray [slot ${String(target.slotIndex)}]`
+    gameTick.log(
+      'TAP',
+      `(${String(x)}, ${String(y)}) → ${color} screw → ${trayColor} tray [slot ${String(target.slotIndex)}]`
     );
   }
 
