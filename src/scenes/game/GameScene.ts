@@ -22,6 +22,7 @@ import {
 } from './factories';
 import { GameStateEntity } from './entities';
 import {
+  TickSystem,
   ScrewPlacementSystem,
   ScrewInteractionSystem,
   AnimationSystem,
@@ -31,6 +32,7 @@ import {
 } from './systems';
 import {
   gameEvents,
+  gameTick,
   TRAY_DISPLAY_POSITIONS,
   TRAY_HIDDEN_Y,
   TRAY_FRAME_LAYOUT,
@@ -153,6 +155,8 @@ export class GameScene {
    * @private
    */
   private registerSystems(): void {
+    // TickSystem must be first to update tick counter before other systems
+    this.scene.addSystem(TickSystem);
     // Order matters: placement system first (no dependencies)
     this.scene.addSystem(ScrewPlacementSystem);
     this.scene.addSystem(AnimationSystem);
@@ -695,6 +699,9 @@ export class GameScene {
    * @private
    */
   private clearLevel(): void {
+    // Reset tick counter for new level
+    gameTick.reset();
+
     // Remove game state entity
     if (this.gameStateEntity) {
       this.scene.removeChild(this.gameStateEntity);

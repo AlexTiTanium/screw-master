@@ -4,6 +4,7 @@ import type { Entity, QueryResults } from '@play-co/odie';
 
 import { AutoTransferSystem } from '@scenes/game/systems/AutoTransferSystem';
 import { ScrewPlacementSystem } from '@scenes/game/systems/ScrewPlacementSystem';
+import { TrayManagementSystem } from '@scenes/game/systems/TrayManagementSystem';
 import { gameEvents } from '@scenes/game/utils';
 import { ScrewColor } from '@shared/types';
 
@@ -104,12 +105,18 @@ describe('AutoTransferSystem', () => {
     findScrewByUid: ReturnType<typeof vi.fn>;
     findAvailableColoredTray: ReturnType<typeof vi.fn>;
   };
+  let mockTrayManagementSystem: {
+    isBusy: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     system = new AutoTransferSystem();
     mockPlacementSystem = {
       findScrewByUid: vi.fn(),
       findAvailableColoredTray: vi.fn(),
+    };
+    mockTrayManagementSystem = {
+      isBusy: vi.fn().mockReturnValue(false),
     };
 
     // Mock scene.getSystem
@@ -119,6 +126,9 @@ describe('AutoTransferSystem', () => {
       getSystem: (SystemClass: unknown): unknown => {
         if (SystemClass === ScrewPlacementSystem) {
           return mockPlacementSystem;
+        }
+        if (SystemClass === TrayManagementSystem) {
+          return mockTrayManagementSystem;
         }
         return null;
       },

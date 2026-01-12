@@ -1,8 +1,11 @@
 import type { Entity, Entity2D, Time } from '@play-co/odie';
 import { BaseSystem } from './BaseSystem';
-import { TrayComponent } from '../components';
-import { gameEvents } from '../utils';
-import type { ScrewRemovalCompleteEvent } from './AnimationSystem';
+import { TrayComponent, ScrewComponent } from '../components';
+import { gameEvents, gameTick } from '../utils';
+import type {
+  ScrewRemovalCompleteEvent,
+  ScrewTransferCompleteEvent,
+} from './AnimationSystem';
 import type { TrayComponentAccess } from '../types';
 
 /**
@@ -74,6 +77,7 @@ export class TrayManagementSystem extends BaseSystem {
   static readonly NAME = 'trayManagement';
   static Queries = {
     trays: { components: [TrayComponent] },
+    screws: { components: [ScrewComponent] },
   };
 
   /** Queue of full trays waiting to be processed */
@@ -81,6 +85,17 @@ export class TrayManagementSystem extends BaseSystem {
 
   /** Whether a transition is currently in progress */
   private isTransitioning = false;
+
+  /**
+   * Check if the system is currently processing or has pending transitions.
+   * Used by AutoTransferSystem to avoid starting transfers during tray animations.
+   * @returns True if transitions are in progress or queued
+   * @example
+   * if (trayManagementSystem.isBusy()) return;
+   */
+  public isBusy(): boolean {
+    return this.isTransitioning || this.transitionQueue.length > 0;
+  }
 
   /**
    * Initialize event listeners.
@@ -91,6 +106,11 @@ export class TrayManagementSystem extends BaseSystem {
     gameEvents.on<ScrewRemovalCompleteEvent>(
       'screw:removalComplete',
       this.handleScrewRemovalComplete
+    );
+    // Also check tray fullness when buffer transfers complete
+    gameEvents.on<ScrewTransferCompleteEvent>(
+      'screw:transferComplete',
+      this.handleScrewTransferComplete
     );
 
     // Listen for animation completion events
@@ -126,11 +146,57 @@ export class TrayManagementSystem extends BaseSystem {
 
     const trayComponent = this.getComponents<TrayComponentAccess>(tray).tray;
 
-    // Check if tray is now full
+    // Check if tray is now full AND no screws are still in-flight to this tray
+    // We must wait for all in-flight screws to land before hiding the tray,
+    // otherwise those screws won't be reparented and will remain visible
     if (trayComponent.screwCount >= trayComponent.capacity) {
+      const inFlightToThisTray = this.countScrewsInFlightToTray(trayEntityId);
+      if (inFlightToThisTray > 0) {
+        gameTick.log(
+          'TRAY',
+          `${trayComponent.color} tray full but ${String(inFlightToThisTray)} screws still in-flight, waiting...`
+        );
+        return;
+      }
       this.queueTransition(tray);
     }
   };
+
+  /**
+   * Handle screw transfer completion - check if target tray is now full.
+   * Buffer transfers also fill tray slots, so we need to check for hide.
+   * @param event - The screw transfer complete event
+   * @example
+   * // Called via event listener
+   */
+  private handleScrewTransferComplete = (
+    event: ScrewTransferCompleteEvent
+  ): void => {
+    // Reuse the same logic as removal complete
+    this.handleScrewRemovalComplete(event);
+  };
+
+  /**
+   * Count screws currently animating toward a specific tray.
+   * These are screws with state='dragging', isAnimating=true, and trayEntityId matching.
+   * @param trayUID - The tray entity UID
+   * @returns Number of screws in-flight to this tray
+   * @example
+   * const inFlight = this.countScrewsInFlightToTray('123');
+   */
+  private countScrewsInFlightToTray(trayUID: string): number {
+    const screws = this.getEntities('screws');
+    return screws.filter((entity) => {
+      const screw = this.getComponents<{
+        screw: { trayEntityId: string; state: string; isAnimating: boolean };
+      }>(entity).screw;
+      return (
+        screw.isAnimating &&
+        screw.state === 'dragging' &&
+        screw.trayEntityId === trayUID
+      );
+    }).length;
+  }
 
   /**
    * Find a tray entity by its UID.
@@ -242,6 +308,9 @@ export class TrayManagementSystem extends BaseSystem {
    * await this.hideTray(trayEntity);
    */
   private async hideTray(tray: Entity): Promise<void> {
+    const trayComp = this.getComponents<TrayComponentAccess>(tray).tray;
+    gameTick.log('TRAY', `${trayComp.color} tray hidden (was full)`);
+
     gameEvents.emit('tray:startHide', { trayEntity: tray } as TrayHideEvent);
     const event =
       await this.waitForEventWithData<TrayHideCompleteEvent>(
@@ -345,6 +414,11 @@ export class TrayManagementSystem extends BaseSystem {
     nextComp.displayOrder = newDisplayOrder;
     nextComp.isAnimating = true;
 
+    gameTick.log(
+      'TRAY',
+      `${nextComp.color} tray revealed at position ${String(newDisplayOrder)}`
+    );
+
     const promise = this.waitForEvent('tray:revealComplete');
     gameEvents.emit('tray:startReveal', {
       trayEntity: nextHiddenTray,
@@ -362,11 +436,17 @@ export class TrayManagementSystem extends BaseSystem {
    * @example
    * this.finalizeTransition(comp, shifted, revealed);
    */
+  // eslint-disable-next-line max-lines-per-function -- debug logging adds lines
   private finalizeTransition(
     fullTrayComponent: TrayComponentAccess['tray'],
     traysToShift: Entity[],
     nextHiddenTray: Entity | undefined
   ): void {
+    gameTick.log(
+      'TRAY_FINALIZE',
+      `queueLen=${String(this.transitionQueue.length)} isTransitioning=${String(this.isTransitioning)}`
+    );
+
     fullTrayComponent.displayOrder = 99;
     fullTrayComponent.isAnimating = false;
 
@@ -379,12 +459,22 @@ export class TrayManagementSystem extends BaseSystem {
       const nextComp =
         this.getComponents<TrayComponentAccess>(nextHiddenTray).tray;
       nextComp.isAnimating = false;
+    }
+
+    // Mark transition complete BEFORE emitting tray:revealed
+    // This ensures AutoTransferSystem.checkAutoTransfer() doesn't skip the transfer
+    this.isTransitioning = false;
+
+    gameTick.log(
+      'TRAY_FINALIZE',
+      '→ isTransitioning=false, emitting tray:revealed, then processNextTransition'
+    );
+
+    if (nextHiddenTray) {
       gameEvents.emit('tray:revealed', {
         trayEntity: nextHiddenTray,
       } as TrayRevealedEvent);
     }
-
-    this.isTransitioning = false;
   }
 
   /**
@@ -455,6 +545,7 @@ export class TrayManagementSystem extends BaseSystem {
    */
   destroy(): void {
     gameEvents.off('screw:removalComplete', this.handleScrewRemovalComplete);
+    gameEvents.off('screw:transferComplete', this.handleScrewTransferComplete);
     gameEvents.off('tray:hideComplete', this.handleAnimationComplete);
     gameEvents.off('tray:shiftComplete', this.handleAnimationComplete);
     gameEvents.off('tray:revealComplete', this.handleRevealComplete);

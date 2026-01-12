@@ -6,9 +6,10 @@ import {
   BufferTrayComponent,
 } from '../components';
 import { ScrewPlacementSystem } from './ScrewPlacementSystem';
+import { TrayManagementSystem } from './TrayManagementSystem';
 import type { ScrewTransferEvent } from './AnimationSystem';
 import type { TrayRevealedEvent } from './TrayManagementSystem';
-import { gameEvents } from '../utils';
+import { gameEvents, gameTick } from '../utils';
 import type {
   ScrewComponentAccess,
   TrayComponentAccess,
@@ -110,38 +111,107 @@ export class AutoTransferSystem extends BaseSystem {
    * this.checkAutoTransfer();
    */
   private checkAutoTransfer(): void {
-    // Skip if already transferring
-    if (this.isTransferring) return;
+    if (this.shouldSkipTransferCheck()) return;
 
     const bufferTray = this.getFirstEntity('bufferTrays');
     if (!bufferTray) return;
 
     const buffer =
       this.getComponents<BufferTrayComponentAccess>(bufferTray).bufferTray;
-    if (buffer.screwIds.length === 0) return;
+    if (buffer.screwIds.length === 0) {
+      gameTick.log('AUTO_TRANSFER_CHECK', '→ skipped (buffer empty)');
+      return;
+    }
 
-    // Get placement system for finding available trays
+    this.processBufferScrews(buffer.screwIds, bufferTray);
+  }
+
+  /**
+   * Check if transfer check should be skipped and log reason.
+   * @returns True if should skip
+   * @example
+   * if (this.shouldSkipTransferCheck()) return;
+   */
+  private shouldSkipTransferCheck(): boolean {
+    const transferring = this.isTransferring;
+    const animating = this.anyTrayAnimating();
+    const busy = this.trayManagementBusy();
+
+    gameTick.log(
+      'AUTO_TRANSFER_CHECK',
+      `transferring=${String(transferring)} animating=${String(animating)} busy=${String(busy)}`
+    );
+
+    if (transferring) {
+      gameTick.log('AUTO_TRANSFER_CHECK', '→ skipped (already transferring)');
+      return true;
+    }
+    if (animating) {
+      gameTick.log('AUTO_TRANSFER_CHECK', '→ skipped (trays animating)');
+      return true;
+    }
+    if (busy) {
+      gameTick.log('AUTO_TRANSFER_CHECK', '→ skipped (tray management busy)');
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Process buffer screws in FIFO order, initiating transfer if possible.
+   * @param screwIds - Array of screw UIDs in buffer
+   * @param bufferTray - The buffer tray entity
+   * @example
+   * this.processBufferScrews(buffer.screwIds, bufferTray);
+   */
+  private processBufferScrews(screwIds: string[], bufferTray: Entity): void {
     const placementSystem = this.scene.getSystem(ScrewPlacementSystem);
 
-    // Process buffer screws in FIFO order
-    for (const screwId of buffer.screwIds) {
+    for (const screwId of screwIds) {
       const screwEntity = placementSystem.findScrewByUid(screwId);
       if (!screwEntity) continue;
 
       const screw = this.getComponents<ScrewComponentAccess>(screwEntity).screw;
-
-      // Skip if screw is already animating
       if (screw.isAnimating) continue;
 
-      const color = screw.color;
-      const matchingTray = placementSystem.findAvailableColoredTray(color);
-
+      const matchingTray = placementSystem.findAvailableColoredTray(
+        screw.color
+      );
       if (matchingTray) {
-        // Found a matching tray with space - initiate transfer
         this.initiateTransfer(screwEntity, matchingTray, bufferTray);
         return; // Only one transfer at a time
       }
     }
+  }
+
+  /**
+   * Check if any colored tray is currently animating.
+   * Used to prevent transfers while trays are shifting/revealing.
+   * @returns True if any tray is animating
+   * @example
+   * if (this.anyTrayAnimating()) return;
+   */
+  private anyTrayAnimating(): boolean {
+    const coloredTrays = this.getEntities('coloredTrays');
+    for (const tray of coloredTrays) {
+      const trayComp = this.getComponents<TrayComponentAccess>(tray).tray;
+      if (trayComp.isAnimating) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Check if TrayManagementSystem is processing or has pending transitions.
+   * This prevents starting transfers when more tray shifts may occur.
+   * @returns True if tray management is busy
+   * @example
+   * if (this.trayManagementBusy()) return;
+   */
+  private trayManagementBusy(): boolean {
+    const trayManagement = this.scene.getSystem(TrayManagementSystem);
+    return trayManagement.isBusy();
   }
 
   /**
@@ -174,6 +244,12 @@ export class AutoTransferSystem extends BaseSystem {
     // Reserve slot in colored tray
     const slotIndex = tray.screwCount;
     tray.screwCount++;
+
+    // Log transfer action for debugging/test reproduction
+    gameTick.log(
+      'TRANSFER',
+      `${screw.color} screw from buffer → ${tray.color} tray [slot ${String(slotIndex)}]`
+    );
 
     // Update screw state
     screw.isAnimating = true;

@@ -43,3 +43,4 @@ export type {
   TrayRevealEvent,
   TrayRevealedEvent,
 } from './TrayManagementSystem';
+export { TickSystem } from './TickSystem';

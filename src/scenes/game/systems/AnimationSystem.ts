@@ -6,7 +6,9 @@ import { ScrewComponent } from '../components';
 import { getGameVisual, getTrayPlaceholders } from '../factories';
 import {
   getTraySlotPosition,
+  getTraySlotTargetPosition,
   gameEvents,
+  gameTick,
   TRAY_DISPLAY_POSITIONS,
   TRAY_SPAWN_X,
   getAnimationLayer,
@@ -23,7 +25,6 @@ import type { ScrewColor } from '@shared/types';
 import {
   type FlightParams,
   type ScrewTransferEvent,
-  type ScrewRemovalCompleteEvent,
   LONG_SCREW_ASSET_MAP,
   TRAY_SLOT_SCALE,
   BUFFER_SLOT_SCALE,
@@ -37,6 +38,7 @@ import { bezierPosition } from './animation';
 // Re-export types for external use
 export type {
   ScrewRemovalCompleteEvent,
+  ScrewTransferCompleteEvent,
   ScrewTransferEvent,
 } from './animation';
 
@@ -415,25 +417,45 @@ export class AnimationSystem extends BaseSystem {
     screw.state = isBuffer ? 'inBuffer' : 'inTray';
     screw.isAnimating = false;
 
-    // Move screw view to appropriate layer after animation
     const screwEntity2D = screwEntity as Entity2D;
     if (!isBuffer) {
-      // Colored tray: move to coloredTrayLayer
+      // Colored tray: move to layer and snap to final position
       const coloredTrayLayer = getColoredTrayLayer();
       if (coloredTrayLayer) {
         coloredTrayLayer.addChild(screwEntity2D.view);
       }
+      if (targetTray && slotIndex !== undefined) {
+        this.snapScrewToTraySlot(screwEntity2D, targetTray, slotIndex);
+        this.hidePlaceholder(targetTray as Entity2D, slotIndex);
+      }
     }
-    // Buffer tray: leave in animation layer (it's above uiLayer, which is fine)
-    // The screw will stay visible above the buffer tray frame
+    // Buffer tray: leave in animation layer (above uiLayer)
 
-    // Hide placeholder when screw lands in colored tray
-    if (!isBuffer && targetTray && slotIndex !== undefined) {
-      this.hidePlaceholder(targetTray as Entity2D, slotIndex);
-    }
+    gameEvents.emit('screw:removalComplete', { screwEntity });
+  }
 
-    const completeEvent: ScrewRemovalCompleteEvent = { screwEntity };
-    gameEvents.emit('screw:removalComplete', completeEvent);
+  /**
+   * Snap a screw to its target slot position based on tray's displayOrder.
+   * Handles cases where the tray moved during animation.
+   * @param screwEntity - The screw entity to snap
+   * @param targetTray - The target tray entity
+   * @param slotIndex - The slot index in the tray
+   * @example
+   * this.snapScrewToTraySlot(screw, tray, 0);
+   */
+  private snapScrewToTraySlot(
+    screwEntity: Entity2D,
+    targetTray: Entity,
+    slotIndex: number
+  ): void {
+    const tray = this.getComponents<TrayComponentAccess>(targetTray).tray;
+    const finalPos = getTraySlotTargetPosition(
+      tray.displayOrder,
+      slotIndex,
+      tray.capacity
+    );
+    screwEntity.position.set(finalPos.x, finalPos.y);
+    screwEntity.view.position.set(finalPos.x, finalPos.y);
   }
 
   /**
@@ -537,13 +559,31 @@ export class AnimationSystem extends BaseSystem {
     slotIndex: number
   ): void {
     const screw = this.getComponents<ScrewComponentAccess>(screwEntity).screw;
+    const tray = this.getComponents<TrayComponentAccess>(targetTray).tray;
     screw.state = 'inTray';
     screw.trayEntityId = String(targetTray.UID);
     screw.slotIndex = slotIndex;
     screw.isAnimating = false;
 
-    // Move screw view to coloredTrayLayer after animation
+    // Use tray's displayOrder to calculate the TARGET position, not current animated position
+    // This ensures the screw ends up in the correct slot even if the tray is mid-animation
     const screwEntity2D = screwEntity as Entity2D;
+    const finalPos = getTraySlotTargetPosition(
+      tray.displayOrder,
+      slotIndex,
+      tray.capacity
+    );
+
+    gameTick.log(
+      'SNAP',
+      `${screw.color} screw to slot ${String(slotIndex)} at (${String(finalPos.x)}, ${String(finalPos.y)}) - tray displayOrder=${String(tray.displayOrder)}`
+    );
+
+    screwEntity2D.position.set(finalPos.x, finalPos.y);
+    // Also update the view position directly since it may be in a different container
+    screwEntity2D.view.position.set(finalPos.x, finalPos.y);
+
+    // Move screw view to coloredTrayLayer after animation
     const coloredTrayLayer = getColoredTrayLayer();
     if (coloredTrayLayer) {
       coloredTrayLayer.addChild(screwEntity2D.view);
@@ -602,6 +642,7 @@ export class AnimationSystem extends BaseSystem {
    * Set up tray pivot for center-based scaling animation.
    * Adjusts position to compensate for pivot change.
    * @param entity - The tray entity
+   * @example
    */
   private setupTrayPivotForCenterScale(entity: Entity2D): void {
     // Tray dimensions: 185x150
@@ -615,6 +656,7 @@ export class AnimationSystem extends BaseSystem {
   /**
    * Animate tray scale-down smoothly from 1 to 0.
    * @param entity - The tray entity to animate
+   * @example
    */
   private async animateTrayScaleDown(entity: Entity2D): Promise<void> {
     const timeline = gsap.timeline();

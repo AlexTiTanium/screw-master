@@ -86,6 +86,7 @@ function validateScrewPlacement(
  * Get collision box dimensions from a part definition.
  * @param partId - The part ID to look up
  * @returns Width and height of the part's collision box
+ * @example
  */
 function getPartDimensions(partId: string): { width: number; height: number } {
   const partDef = getPart(partId);
@@ -106,6 +107,7 @@ function getPartDimensions(partId: string): { width: number; height: number } {
  * Format exceeded bounds into human-readable strings.
  * @param info - Bounds info from getPartBoundsInfo
  * @returns Array of exceeded boundary descriptions
+ * @example
  */
 function formatExceededBounds(
   info: ReturnType<typeof getPartBoundsInfo>
@@ -135,6 +137,7 @@ function formatExceededBounds(
  * @param part - The part instance to validate
  * @param partIndex - Index of the part in the level's parts array
  * @returns Validation error if part exceeds boundaries, null if valid
+ * @example
  */
 function validatePartPlayAreaBounds(
   part: PartInstance,
@@ -165,6 +168,7 @@ interface PartValidationResult {
  * @param part - The part instance to validate
  * @param partIndex - Index of the part in the level's parts array
  * @returns Object containing errors and warnings arrays
+ * @example
  */
 function validatePartInstance(
   part: PartInstance,

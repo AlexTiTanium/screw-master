@@ -99,9 +99,20 @@ function createMockQueryResults(
 
 describe('ScrewPlacementSystem', () => {
   let system: ScrewPlacementSystem;
+  let mockTrayManagementSystem: { isBusy: () => boolean };
 
   beforeEach(() => {
     system = new ScrewPlacementSystem();
+
+    // Mock TrayManagementSystem
+    mockTrayManagementSystem = {
+      isBusy: (): boolean => false, // Default: not busy
+    };
+
+    // Mock scene.getSystem to return our mock TrayManagementSystem
+    (system as unknown as { scene: { getSystem: () => unknown } }).scene = {
+      getSystem: (): unknown => mockTrayManagementSystem,
+    };
   });
 
   describe('findPlacementTarget', () => {
@@ -225,6 +236,25 @@ describe('ScrewPlacementSystem', () => {
       const target = system.findPlacementTarget(ScrewColor.Red);
 
       expect(target?.type).toBe('colored');
+    });
+
+    it('should route to buffer when trayManagementBusy returns true', () => {
+      const redTray = createMockTrayEntity(1, ScrewColor.Red, 3, 0, 0);
+      const bufferTray = createMockBufferTrayEntity(2, 5, []);
+
+      (system as { queries: QueryResults }).queries = createMockQueryResults(
+        [redTray],
+        [bufferTray],
+        []
+      );
+
+      // Make trayManagementBusy return true
+      mockTrayManagementSystem.isBusy = (): boolean => true;
+
+      const target = system.findPlacementTarget(ScrewColor.Red);
+
+      expect(target).not.toBeNull();
+      expect(target?.type).toBe('buffer');
     });
   });
 
