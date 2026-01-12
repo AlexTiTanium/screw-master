@@ -1,6 +1,6 @@
 import type { Entity, Entity2D, Time } from '@play-co/odie';
 import { BaseSystem } from './BaseSystem';
-import { TrayComponent } from '../components';
+import { TrayComponent, ScrewComponent } from '../components';
 import { gameEvents } from '../utils';
 import type { ScrewRemovalCompleteEvent } from './AnimationSystem';
 import type { TrayComponentAccess } from '../types';
@@ -74,6 +74,7 @@ export class TrayManagementSystem extends BaseSystem {
   static readonly NAME = 'trayManagement';
   static Queries = {
     trays: { components: [TrayComponent] },
+    screws: { components: [ScrewComponent] },
   };
 
   /** Queue of full trays waiting to be processed */
@@ -137,11 +138,43 @@ export class TrayManagementSystem extends BaseSystem {
 
     const trayComponent = this.getComponents<TrayComponentAccess>(tray).tray;
 
-    // Check if tray is now full
+    // Check if tray is now full AND no screws are still in-flight to this tray
+    // We must wait for all in-flight screws to land before hiding the tray,
+    // otherwise those screws won't be reparented and will remain visible
     if (trayComponent.screwCount >= trayComponent.capacity) {
+      const inFlightToThisTray = this.countScrewsInFlightToTray(trayEntityId);
+      if (inFlightToThisTray > 0) {
+        // eslint-disable-next-line no-console
+        console.log(
+          `TRAY: ${trayComponent.color} tray full but ${String(inFlightToThisTray)} screws still in-flight, waiting...`
+        );
+        return;
+      }
       this.queueTransition(tray);
     }
   };
+
+  /**
+   * Count screws currently animating toward a specific tray.
+   * These are screws with state='dragging', isAnimating=true, and trayEntityId matching.
+   * @param trayUID - The tray entity UID
+   * @returns Number of screws in-flight to this tray
+   * @example
+   * const inFlight = this.countScrewsInFlightToTray('123');
+   */
+  private countScrewsInFlightToTray(trayUID: string): number {
+    const screws = this.getEntities('screws');
+    return screws.filter((entity) => {
+      const screw = this.getComponents<{
+        screw: { trayEntityId: string; state: string; isAnimating: boolean };
+      }>(entity).screw;
+      return (
+        screw.isAnimating &&
+        screw.state === 'dragging' &&
+        screw.trayEntityId === trayUID
+      );
+    }).length;
+  }
 
   /**
    * Find a tray entity by its UID.
