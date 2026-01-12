@@ -629,7 +629,10 @@ export class GameScene {
    * await this.createPartsAndScrews(level);
    */
   private async createPartsAndScrews(level: LevelDefinition): Promise<void> {
-    for (const partInstance of level.parts) {
+    // Sort parts by layer (low to high) so higher layers render on top and block clicks
+    const sortedParts = [...level.parts].sort((a, b) => a.layer - b.layer);
+
+    for (const partInstance of sortedParts) {
       const partDef = getPart(partInstance.partId);
       const partWorldPosition = localToWorld(partInstance.position);
 

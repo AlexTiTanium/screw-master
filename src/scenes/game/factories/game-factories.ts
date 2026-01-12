@@ -228,6 +228,7 @@ export async function createPartEntity(
 
   const sprite = new Sprite(texture);
   sprite.anchor.set(0.5); // Center anchor for centered coordinate system
+  sprite.eventMode = 'static'; // Block clicks from reaching screws underneath
 
   gameVisualRegistry.set(entity, sprite);
   entity.view.addChild(sprite);
