@@ -7,7 +7,12 @@
 
 import { test, expect } from '@playwright/test';
 import { attachTelemetry } from '../helpers/telemetry';
-import { createHarnessClient } from '../helpers/harness';
+import {
+  createHarnessClient,
+  waitForPartDestroyed,
+  waitForPartState,
+  waitForScrewState,
+} from '../helpers/harness';
 
 // Video recording for demo
 const recordVideo = process.env.RECORD_VIDEO === '1';
@@ -25,7 +30,6 @@ test.describe('Physics: Part Gravity', () => {
 
     const harness = createHarnessClient(page);
     await harness.waitForReady(15000);
-    await page.waitForTimeout(500);
 
     // Get initial part positions
     const initialParts = await harness.queryByComponent('part');
@@ -55,18 +59,26 @@ test.describe('Physics: Part Gravity', () => {
         x: screw.position.x,
         y: screw.position.y,
       });
-      await page.waitForTimeout(800); // Wait for removal animation
+      // Wait for screw to leave board state
+      await waitForScrewState(
+        harness,
+        page,
+        (screw.components.screw as { color: string }).color,
+        'inTray',
+        { timeout: 3000 }
+      ).catch(() => {
+        // Screw may go to buffer instead - that's okay
+      });
     }
 
-    // Wait briefly for physics to take effect (short wait to catch falling before destroy)
-    await page.waitForTimeout(500);
+    // Wait for part to start falling or be destroyed
+    await page.waitForTimeout(300);
 
     // Get updated part position
     const updatedParts = await harness.queryByComponent('part');
     const updatedPart = updatedParts.find((p) => p.id === targetPart?.id);
 
-    // Part should have fallen (Y increased toward screen bottom)
-    // If part already destroyed, the test still passes via the destroy test
+    // Part should have fallen (Y increased) or already been destroyed
     if (updatedPart) {
       expect(updatedPart.position.y).toBeGreaterThan(initialY + 20);
     } else {
@@ -83,7 +95,6 @@ test.describe('Physics: Part Gravity', () => {
 
     const harness = createHarnessClient(page);
     await harness.waitForReady(15000);
-    await page.waitForTimeout(500);
 
     // Get parts and their screws
     const parts = await harness.queryByComponent('part');
@@ -110,11 +121,13 @@ test.describe('Physics: Part Gravity', () => {
         x: screw.position.x,
         y: screw.position.y,
       });
-      await page.waitForTimeout(800);
+      await page.waitForTimeout(500);
     }
 
-    // Wait for part to fall, fade, and be destroyed
-    await page.waitForTimeout(3000);
+    // Wait for part to be destroyed using condition-based wait
+    await waitForPartDestroyed(harness, page, targetPart!.id, {
+      timeout: 5000,
+    });
 
     // Check that part has been destroyed (removed from scene)
     const finalParts = await harness.queryByComponent('part');
@@ -129,80 +142,62 @@ test.describe('Physics: Part Gravity', () => {
   test('physics should be deterministic across runs', async ({ page }) => {
     attachTelemetry(page);
 
-    // First run
-    await page.goto('/?testMode=1&region=test&level=0&seed=12345');
+    async function runPhysicsSequence(seed: number): Promise<{
+      targetDestroyed: boolean;
+      finalCount: number;
+      expectedCount: number;
+    }> {
+      await page.goto(`/?testMode=1&region=test&level=0&seed=${String(seed)}`);
+      const harness = createHarnessClient(page);
+      await harness.waitForReady(15000);
 
-    const harness = createHarnessClient(page);
-    await harness.waitForReady(15000);
-    await page.waitForTimeout(500);
+      const initialParts = await harness.queryByComponent('part');
+      const targetPart = initialParts[0];
+      const initialPartCount = initialParts.length;
 
-    // Get initial state
-    const initialParts = await harness.queryByComponent('part');
-    const targetPart = initialParts[0];
-    const initialPartCount = initialParts.length;
-
-    // Remove screws
-    const screws = await harness.queryByComponent('screw');
-    const partScrews = screws.filter((s) => {
-      const sc = s.components.screw as { partEntityId?: string };
-      return sc.partEntityId === String(targetPart?.id);
-    });
-
-    for (const screw of partScrews) {
-      await harness.act({
-        type: 'pointerDown',
-        x: screw.position.x,
-        y: screw.position.y,
+      // Remove screws from target part
+      const screws = await harness.queryByComponent('screw');
+      const partScrews = screws.filter((s) => {
+        const sc = s.components.screw as { partEntityId?: string };
+        return sc.partEntityId === String(targetPart?.id);
       });
-      await harness.act({
-        type: 'pointerUp',
-        x: screw.position.x,
-        y: screw.position.y,
+
+      for (const screw of partScrews) {
+        await harness.act({
+          type: 'pointerDown',
+          x: screw.position.x,
+          y: screw.position.y,
+        });
+        await harness.act({
+          type: 'pointerUp',
+          x: screw.position.x,
+          y: screw.position.y,
+        });
+        await page.waitForTimeout(500);
+      }
+
+      // Wait for part to be destroyed
+      await waitForPartDestroyed(harness, page, targetPart!.id, {
+        timeout: 5000,
       });
-      await page.waitForTimeout(800);
+      const finalParts = await harness.queryByComponent('part');
+
+      return {
+        targetDestroyed: !finalParts.find((p) => p.id === targetPart?.id),
+        finalCount: finalParts.length,
+        expectedCount: initialPartCount - 1,
+      };
     }
 
-    // Wait for part to fall and be destroyed
-    await page.waitForTimeout(3000);
-    const partsAfterRun1 = await harness.queryByComponent('part');
-    const partRun1Found = partsAfterRun1.find((p) => p.id === targetPart?.id);
+    // Run twice with same seed
+    const result1 = await runPhysicsSequence(12345);
+    const result2 = await runPhysicsSequence(12345);
 
-    // Reload and run again with same seed
-    await page.goto('/?testMode=1&region=test&level=0&seed=12345');
-    await harness.waitForReady(15000);
-    await page.waitForTimeout(500);
-
-    // Repeat the same actions
-    const screws2 = await harness.queryByComponent('screw');
-    const partScrews2 = screws2.filter((s) => {
-      const sc = s.components.screw as { partEntityId?: string };
-      return sc.partEntityId === String(targetPart?.id);
-    });
-
-    for (const screw of partScrews2) {
-      await harness.act({
-        type: 'pointerDown',
-        x: screw.position.x,
-        y: screw.position.y,
-      });
-      await harness.act({
-        type: 'pointerUp',
-        x: screw.position.x,
-        y: screw.position.y,
-      });
-      await page.waitForTimeout(800);
-    }
-
-    await page.waitForTimeout(3000);
-    const partsAfterRun2 = await harness.queryByComponent('part');
-    const partRun2Found = partsAfterRun2.find((p) => p.id === targetPart?.id);
-
-    // Both runs should result in the part being destroyed (deterministic)
-    expect(partRun1Found).toBeUndefined();
-    expect(partRun2Found).toBeUndefined();
-    // Part counts should be identical
-    expect(partsAfterRun1.length).toBe(initialPartCount - 1);
-    expect(partsAfterRun2.length).toBe(initialPartCount - 1);
+    // Both runs should produce identical results (deterministic)
+    expect(result1.targetDestroyed).toBe(true);
+    expect(result2.targetDestroyed).toBe(true);
+    expect(result1.finalCount).toBe(result1.expectedCount);
+    expect(result2.finalCount).toBe(result2.expectedCount);
   });
 
   test('part state should change to free when screwCount reaches 0', async ({
@@ -214,7 +209,6 @@ test.describe('Physics: Part Gravity', () => {
 
     const harness = createHarnessClient(page);
     await harness.waitForReady(15000);
-    await page.waitForTimeout(500);
 
     // Get parts and screws
     const parts = await harness.queryByComponent('part');
@@ -243,10 +237,13 @@ test.describe('Physics: Part Gravity', () => {
         x: screw.position.x,
         y: screw.position.y,
       });
-      await page.waitForTimeout(800);
+      await page.waitForTimeout(500);
     }
 
-    await page.waitForTimeout(500);
+    // Wait for part to reach 'free' state
+    await waitForPartState(harness, page, targetPart!.id, 'free', {
+      timeout: 3000,
+    });
 
     // Get updated part state
     const updatedParts = await harness.queryByComponent('part');

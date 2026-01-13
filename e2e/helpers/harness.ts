@@ -334,6 +334,58 @@ export async function waitForBufferState(
 }
 
 /**
+ * Wait for a part to be destroyed (removed from scene).
+ */
+export async function waitForPartDestroyed(
+  harness: HarnessClient,
+  page: Page,
+  partId: string | number,
+  options: { timeout?: number } = {}
+): Promise<void> {
+  const { timeout = 5000 } = options;
+
+  await waitForCondition(
+    page,
+    async () => {
+      const parts = await harness.queryByComponent('part');
+      return !parts.find((p) => p.id === partId);
+    },
+    {
+      timeout,
+      message: `Expected part ${String(partId)} to be destroyed`,
+    }
+  );
+}
+
+/**
+ * Wait for a part to reach a specific state.
+ */
+export async function waitForPartState(
+  harness: HarnessClient,
+  page: Page,
+  partId: string | number,
+  targetState: 'static' | 'free',
+  options: { timeout?: number } = {}
+): Promise<void> {
+  const { timeout = 5000 } = options;
+
+  await waitForCondition(
+    page,
+    async () => {
+      const parts = await harness.queryByComponent('part');
+      const part = parts.find((p) => p.id === partId);
+      if (!part) return false;
+      const pc = part.components.part as { state?: string };
+      return pc.state === targetState;
+    },
+    {
+      timeout,
+      message: `Expected part ${String(partId)} to reach state ${targetState}`,
+    }
+  );
+}
+
+/**
  * Wait for animations to settle (no position changes for a period).
  */
 export async function waitForAnimationsToSettle(
