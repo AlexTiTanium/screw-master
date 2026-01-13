@@ -2,6 +2,7 @@ import { Scene2D, createEntity, type Entity2D } from '@play-co/odie';
 import { TouchInput } from '@play-co/astro';
 import { Assets, Container, Graphics, Sprite, type Texture } from 'pixi.js';
 
+import { PhysicsWorldManager } from '@physics';
 import { loadRegion, getLevelByIndex } from '@shared/levels';
 import { getPart } from '@shared/parts';
 import type {
@@ -28,6 +29,8 @@ import {
   AutoTransferSystem,
   WinConditionSystem,
   TrayManagementSystem,
+  PartStateSystem,
+  PhysicsSystem,
 } from './systems';
 import {
   gameEvents,
@@ -160,6 +163,10 @@ export class GameScene {
     this.scene.addSystem(ScrewPlacementSystem);
     this.scene.addSystem(AnimationSystem);
     this.scene.addSystem(ScrewInteractionSystem);
+    // PartStateSystem listens for screw:removalComplete to track part state
+    this.scene.addSystem(PartStateSystem);
+    // PhysicsSystem runs after PartStateSystem to handle part:freed events
+    this.scene.addSystem(PhysicsSystem);
     this.scene.addSystem(AutoTransferSystem);
     this.scene.addSystem(WinConditionSystem);
     this.scene.addSystem(TrayManagementSystem);
@@ -688,6 +695,10 @@ export class GameScene {
       this.scene.addChild(screwEntity);
       this.screwEntities.push(screwEntity);
     }
+
+    // Set the part's screw count after creating all screws
+    const part = partEntity.c.part as { screwCount: number };
+    part.screwCount = partInstance.screws.length;
   }
 
   /**
@@ -697,6 +708,9 @@ export class GameScene {
   private clearLevel(): void {
     // Reset tick counter for new level
     gameTick.reset();
+
+    // Reset physics world for clean slate
+    PhysicsWorldManager.getInstance().reset();
 
     // Remove game state entity
     if (this.gameStateEntity) {

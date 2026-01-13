@@ -23,6 +23,7 @@ export default defineConfig({
       '@scenes': resolve(__dirname, 'src/scenes'),
       '@ui': resolve(__dirname, 'src/ui'),
       '@shared': resolve(__dirname, 'src/shared'),
+      '@physics': resolve(__dirname, 'src/physics'),
     },
   },
 });

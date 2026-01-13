@@ -468,6 +468,12 @@ export interface GameTestHarness {
    * Use tick.current to get the current frame number.
    */
   tick: TickAccess;
+
+  /**
+   * Access to physics simulation for deterministic testing.
+   * Allows pausing, stepping, and querying physics state.
+   */
+  physics?: PhysicsAccess;
 }
 
 // ============================================================================
@@ -495,6 +501,44 @@ export interface TickAccess {
   reset(): void;
   /** Enable or disable tick-based logging */
   setLoggingEnabled(enabled: boolean): void;
+}
+
+// ============================================================================
+// Physics Access
+// ============================================================================
+
+/**
+ * Interface for accessing physics simulation from the test harness.
+ *
+ * PhysicsAccess provides methods to control and inspect the Planck.js
+ * physics world, enabling deterministic E2E testing of physics behavior.
+ *
+ * @example
+ * // Pause physics for deterministic testing
+ * await page.evaluate(() => window.__gameTest?.physics?.pause());
+ *
+ * // Step physics by exact amount
+ * await page.evaluate(() => window.__gameTest?.physics?.step(16.67));
+ *
+ * // Check if body is sleeping
+ * const sleeping = await page.evaluate((bodyId) =>
+ *   window.__gameTest?.physics?.isBodySleeping(bodyId),
+ *   0
+ * );
+ */
+export interface PhysicsAccess {
+  /** Pause physics simulation */
+  pause(): void;
+  /** Resume physics simulation */
+  resume(): void;
+  /** Step physics by exact delta (for deterministic testing) */
+  step(deltaMs: number): void;
+  /** Get body position in pixels */
+  getBodyPosition(bodyId: number): { x: number; y: number } | null;
+  /** Check if body is sleeping (at rest) */
+  isBodySleeping(bodyId: number): boolean;
+  /** Reset physics world (clear all bodies except boundaries) */
+  reset(): void;
 }
 
 /**

@@ -31,7 +31,9 @@
       "@app/*": ["./src/app/*"],
       "@scenes/*": ["./src/scenes/*"],
       "@ui/*": ["./src/ui/*"],
-      "@shared/*": ["./src/shared/*"]
+      "@shared/*": ["./src/shared/*"],
+      "@physics": ["./src/physics/index.ts"],
+      "@physics/*": ["./src/physics/*"]
     },
     "types": ["vite/client", "node"]
   },
