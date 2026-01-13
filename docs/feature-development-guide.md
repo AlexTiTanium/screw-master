@@ -11,7 +11,7 @@ A structured workflow for AI agents developing new features in this codebase.
 ### Required Workflow
 
 1. **Create a TodoWrite todo list FIRST** before any work
-   - Add all 8 phases as top-level todos
+   - Add all 9 phases as top-level todos
    - Mark each phase as `pending`
 
 2. **For EACH phase**, you must:
@@ -35,27 +35,29 @@ A structured workflow for AI agents developing new features in this codebase.
 ## Workflow Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    FEATURE DEVELOPMENT WORKFLOW                      │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐       │
-│  │ Phase 1  │───▶│ Phase 2  │───▶│ Phase 3  │───▶│ Phase 4  │       │
-│  │ Planning │    │ Branch   │    │ Tests    │    │ Implement│       │
-│  └──────────┘    └──────────┘    └──────────┘    └──────────┘       │
-│                                        │              │              │
-│                                        ▼              ▼              │
-│                                   Tests FAIL    Tests PASS           │
-│                                                                      │
-│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐       │
-│  │ Phase 8  │◀───│ Phase 7  │◀───│ Phase 6  │◀───│ Phase 5  │       │
-│  │ Review   │    │ PR       │    │ Visual   │    │ Validate │       │
-│  └──────────┘    └──────────┘    └──────────┘    └──────────┘       │
-│       │                                                              │
-│       ▼                                                              │
-│  Feedback? ───▶ Loop back to Phase 4 until approved                 │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                      FEATURE DEVELOPMENT WORKFLOW                          │
+├───────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐             │
+│  │ Phase 1  │───▶│ Phase 2  │───▶│ Phase 3  │───▶│ Phase 4  │             │
+│  │ Planning │    │ Branch   │    │ Tests    │    │ Implement│             │
+│  └──────────┘    └──────────┘    └──────────┘    └──────────┘             │
+│                                        │              │                    │
+│                                        ▼              ▼                    │
+│                                   Tests FAIL    Tests PASS                 │
+│                                                                            │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐             │
+│  │ Phase 9  │◀───│ Phase 8  │◀───│ Phase 7  │◀───│ Phase 5  │             │
+│  │ Review   │    │ Preview  │    │ PR       │    │ Validate │             │
+│  └──────────┘    └──────────┘    └──────────┘    └──────────┘             │
+│       │              │                                ▲                    │
+│       │              │         ┌──────────┐          │                    │
+│       │              └────────▶│ Phase 6  │──────────┘                    │
+│       ▼                        │ Visual   │                               │
+│  Feedback? ───▶ Loop back to Phase 4 until approved                       │
+│                                                                            │
+└───────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -81,7 +83,7 @@ A structured workflow for AI agents developing new features in this codebase.
    - Let the user decide on approach before proceeding
 
 4. **Create TodoWrite task list**
-   - Add all 8 phases as top-level todos
+   - Add all 9 phases as top-level todos
    - Break down Phase 4 (Implementation) into specific sub-tasks
    - Include file paths that will be created/modified
 
@@ -390,6 +392,9 @@ gh pr create --title "Add <feature-name>" --body "$(cat <<'EOF'
 ## Summary
 - <1-3 bullet points describing what was done>
 
+## Preview
+<!-- Automated preview will be posted as a comment once the build completes -->
+
 ## Demo
 
 ![Feature Demo](https://github.com/<owner>/<repo>/releases/download/<tag>/feature-demo.gif)
@@ -397,6 +402,7 @@ gh pr create --title "Add <feature-name>" --body "$(cat <<'EOF'
 ## Test plan
 - [ ] Unit tests pass (`npm run test`)
 - [ ] E2E tests pass (`npm run test:e2e`)
+- [ ] Preview build loads and works
 - [ ] Manual testing: <specific steps to verify>
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
@@ -413,13 +419,61 @@ EOF
 
 ---
 
-## Phase 8: User Review & Feedback Loop
+## Phase 8: Preview Build Verification
+
+> Verify the automated preview build succeeds and the game is playable.
+
+### What Happens Automatically
+
+When you push to a PR branch:
+
+1. **GitHub Actions** triggers the `pr-preview.yml` workflow
+2. The game is built and deployed to GitHub Pages
+3. A **sticky comment** is posted on the PR with the preview URL
+
+### Preview URL Format
+
+```
+https://alextitanium.github.io/screw-master/pr-preview/pr-<number>/
+```
+
+### Verification Steps
+
+1. **Wait for GitHub Actions to complete**
+   - Check the PR's "Checks" section
+   - Wait for the "PR Preview" workflow to show green checkmark
+
+2. **Open the preview URL**
+   - Look for the bot comment on the PR with the preview link
+   - Click the link to open the preview in a new tab
+
+3. **Test the feature**
+   - Verify the game loads without errors
+   - Test the specific feature you implemented
+   - Check browser console for errors
+
+4. **If build fails**
+   - Check the Actions tab for error details
+   - Fix the issue and push again
+   - See [PR Preview Builds](pr-preview-builds.md) for troubleshooting
+
+### Checklist
+
+- [ ] PR Preview workflow completed successfully
+- [ ] Preview URL is accessible
+- [ ] Game loads without errors
+- [ ] Feature works as expected in preview
+- [ ] No console errors related to the feature
+
+---
+
+## Phase 9: User Review & Feedback Loop
 
 > Present the feature to the user and iterate until approved.
 
 ### Ask for Review
 
-After creating the PR, notify the user:
+After creating the PR and verifying the preview, notify the user:
 
 ```
 The feature has been implemented and a PR has been created:
@@ -427,8 +481,8 @@ The feature has been implemented and a PR has been created:
 
 Please review:
 1. The code changes in the PR
-2. The demo video/screenshots
-3. Test the feature locally if needed
+2. The live preview: <preview URL>
+3. The demo video/screenshots
 
 Let me know if you have any feedback or changes needed.
 ```
@@ -453,11 +507,13 @@ When user provides feedback:
 4. **Update PR**
    - Commit changes with descriptive message
    - Push to the same branch
+   - Preview will automatically rebuild
    - Update PR description if scope changed
 
 5. **Request re-review**
    - Notify user that changes have been made
    - Summarize what was changed
+   - Share updated preview URL
 
 ### Iterate Until Approved
 
@@ -515,8 +571,12 @@ Phase 7: Commit & PR Creation
   - Commit changes
   - Push branch
   - Create PR with demo
-Phase 8: User Review & Feedback
-  - Ask user to review
+Phase 8: Preview Build Verification
+  - Wait for PR Preview workflow to complete
+  - Open preview URL and verify game loads
+  - Test feature in preview build
+Phase 9: User Review & Feedback
+  - Share PR and preview URL with user
   - Implement feedback
   - Get approval
 ```
@@ -533,9 +593,18 @@ Phase 8: User Review & Feedback
 | Not syncing with main | Merge conflicts, outdated code | Always `git pull origin main` before starting |
 | Missing visual docs | PR reviewers can't see what changed | Record video for any UI change |
 | PR before validation | Broken code in PR, wasted review time | All checks must pass before PR |
+| Not checking preview | Reviewer gets broken preview, wasted time | Always verify preview loads before requesting review |
 | Assuming approval | User may have feedback not yet expressed | Wait for explicit "approved" or "ready to merge" |
 | Large commits | Hard to review, hard to revert | Commit logical units incrementally |
 | Vague PR descriptions | Reviewers don't understand changes | Include summary, demo, and test plan |
+
+---
+
+## Related Documentation
+
+- [PR Preview Builds](pr-preview-builds.md) - Detailed preview system documentation
+- [Game Architecture](game-architecture.md) - System architecture and patterns
+- [Maintenance Guide](maintenance-guide.md) - Code quality standards
 
 ---
 
@@ -543,4 +612,5 @@ Phase 8: User Review & Feedback
 
 | Date | Change |
 |------|--------|
+| 2026-01-13 | Added Phase 8: Preview Build Verification |
 | 2026-01-13 | Initial feature development guide created |

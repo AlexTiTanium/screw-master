@@ -11,6 +11,7 @@ This file provides context for Claude Code sessions working on this project.
 - [Level Format Spec](docs/level-format.md) - Technical specification for level and region JSON files
 - [Maintenance Guide](docs/maintenance-guide.md) - Periodic maintenance checklist for AI agents
 - [Feature Development Guide](docs/feature-development-guide.md) - TDD workflow for new feature development
+- [PR Preview Builds](docs/pr-preview-builds.md) - Automated test builds for pull requests
 
 ## Tech Stack
 
