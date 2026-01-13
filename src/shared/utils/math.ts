@@ -139,6 +139,40 @@ export function lerp2D(
 }
 
 /**
+ * Linearly interpolates between two angles (in radians) taking the shortest path.
+ *
+ * Handles angle wrapping to ensure smooth interpolation across the -π/π boundary.
+ *
+ * @param startAngle - Starting angle in radians
+ * @param endAngle - Ending angle in radians
+ * @param t - Interpolation factor, automatically clamped to [0, 1]
+ * @returns The interpolated angle in radians
+ *
+ * @example
+ * // Smooth rotation across the π/-π boundary
+ * const angle = lerpAngle(Math.PI * 0.9, -Math.PI * 0.9, 0.5);
+ * // Goes through π (short path), not through 0 (long path)
+ *
+ * @example
+ * // Smooth sprite rotation
+ * sprite.rotation = lerpAngle(prevRotation, currentRotation, alpha);
+ */
+export function lerpAngle(
+  startAngle: number,
+  endAngle: number,
+  t: number
+): number {
+  let delta = endAngle - startAngle;
+
+  // Normalize delta to [-π, π]
+  while (delta > Math.PI) delta -= Math.PI * 2;
+  while (delta < -Math.PI) delta += Math.PI * 2;
+
+  // Interpolate along the shortest path
+  return startAngle + delta * clamp(t, 0, 1);
+}
+
+/**
  * Clamps a position within rectangular bounds.
  *
  * @param pos - The position to clamp

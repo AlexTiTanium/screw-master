@@ -14,8 +14,10 @@ import { World, Vec2, Box } from 'planck';
 import type { Body } from 'planck';
 import type { Entity2D } from '@play-co/odie';
 
+import { lerp, lerpAngle } from '@shared/utils/math';
+
 import { PHYSICS_CONFIG } from './PhysicsConfig';
-import type { PixelPosition } from './types';
+import type { BodySnapshot, PixelPosition } from './types';
 
 /** Category bit for boundary walls - collides with all layers. */
 const BOUNDARY_CATEGORY = 0x8000;
@@ -64,6 +66,8 @@ export class PhysicsWorldManager {
   // eslint-disable-next-line @typescript-eslint/no-deprecated
   private world: World;
   private bodies = new Map<number, Body>();
+  /** Previous physics state (before most recent step) for interpolation. */
+  private prevSnapshots = new Map<number, BodySnapshot>();
   private nextBodyId = 0;
   private accumulator = 0;
   private paused = false;
@@ -237,12 +241,35 @@ export class PhysicsWorldManager {
     this.accumulator += deltaMs;
 
     while (this.accumulator >= PHYSICS_CONFIG.fixedTimestep) {
+      // Capture state BEFORE stepping (this becomes the interpolation start point)
+      this.capturePrevSnapshots();
+
       this.world.step(
         PHYSICS_CONFIG.fixedTimestep / 1000,
         PHYSICS_CONFIG.velocityIterations,
         PHYSICS_CONFIG.positionIterations
       );
+
       this.accumulator -= PHYSICS_CONFIG.fixedTimestep;
+    }
+  }
+
+  /**
+   * Capture current body transforms as previous state for interpolation.
+   * Called before each physics step to save the pre-step positions.
+   *
+   * @example
+   * // Called internally before physics step
+   * this.capturePrevSnapshots();
+   */
+  private capturePrevSnapshots(): void {
+    for (const [bodyId, body] of this.bodies) {
+      const pos = body.getPosition();
+      this.prevSnapshots.set(bodyId, {
+        x: pos.x,
+        y: pos.y,
+        rotation: body.getAngle(),
+      });
     }
   }
 
@@ -296,6 +323,84 @@ export class PhysicsWorldManager {
   }
 
   /**
+   * Get interpolation alpha for smooth rendering.
+   *
+   * Alpha ranges from 0.0 (previous physics state) to ~1.0 (current state).
+   * Calculated from accumulator: how far between physics steps we are.
+   *
+   * @returns Alpha value in [0, 1)
+   * @example
+   * const alpha = physics.getInterpolationAlpha(); // 0.5 means halfway between steps
+   */
+  getInterpolationAlpha(): number {
+    return this.accumulator / PHYSICS_CONFIG.fixedTimestep;
+  }
+
+  /**
+   * Get interpolated body position in pixel coordinates.
+   * Blends between previous and current physics state.
+   *
+   * @param bodyId - The body ID to query
+   * @param alpha - Interpolation factor [0, 1]
+   * @returns Interpolated position in pixels or null if body not found
+   * @example
+   * const alpha = physics.getInterpolationAlpha();
+   * const pos = physics.getBodyPositionInterpolated(bodyId, alpha);
+   */
+  getBodyPositionInterpolated(
+    bodyId: number,
+    alpha: number
+  ): PixelPosition | null {
+    const body = this.bodies.get(bodyId);
+    if (!body) return null;
+
+    const prev = this.prevSnapshots.get(bodyId);
+    const current = body.getPosition();
+
+    // If no snapshot yet (before first physics step), use live body state
+    if (!prev) {
+      return {
+        x: current.x * PHYSICS_CONFIG.scale,
+        y: current.y * PHYSICS_CONFIG.scale,
+      };
+    }
+
+    // Interpolate between previous snapshot and current live body state
+    const x = lerp(prev.x, current.x, alpha) * PHYSICS_CONFIG.scale;
+    const y = lerp(prev.y, current.y, alpha) * PHYSICS_CONFIG.scale;
+
+    return { x, y };
+  }
+
+  /**
+   * Get interpolated body rotation in radians.
+   * Blends between previous and current physics state.
+   * Uses angular interpolation to handle the -π/π boundary correctly.
+   *
+   * @param bodyId - The body ID to query
+   * @param alpha - Interpolation factor [0, 1]
+   * @returns Interpolated rotation in radians
+   * @example
+   * const alpha = physics.getInterpolationAlpha();
+   * const rotation = physics.getBodyRotationInterpolated(bodyId, alpha);
+   */
+  getBodyRotationInterpolated(bodyId: number, alpha: number): number {
+    const body = this.bodies.get(bodyId);
+    if (!body) return 0;
+
+    const prev = this.prevSnapshots.get(bodyId);
+    const current = body.getAngle();
+
+    // If no snapshot yet (before first physics step), use live body state
+    if (!prev) {
+      return current;
+    }
+
+    // Interpolate rotation using angular interpolation (handles -π/π boundary)
+    return lerpAngle(prev.rotation, current, alpha);
+  }
+
+  /**
    * Check if a body is sleeping (at rest).
    *
    * @param bodyId - The body ID to check
@@ -323,6 +428,7 @@ export class PhysicsWorldManager {
 
     this.world.destroyBody(body);
     this.bodies.delete(bodyId);
+    this.prevSnapshots.delete(bodyId);
   }
 
   /**
@@ -369,6 +475,7 @@ export class PhysicsWorldManager {
       this.world.destroyBody(body);
     }
     this.bodies.clear();
+    this.prevSnapshots.clear();
     this.nextBodyId = 0;
     this.accumulator = 0;
     this.paused = false;

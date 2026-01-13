@@ -21,6 +21,9 @@ const { mockPhysicsManager, mockPhysicsConfig } = vi.hoisted(() => ({
     step: vi.fn(),
     getBodyPosition: vi.fn(),
     getBodyRotation: vi.fn(),
+    getInterpolationAlpha: vi.fn(),
+    getBodyPositionInterpolated: vi.fn(),
+    getBodyRotationInterpolated: vi.fn(),
     isBodySleeping: vi.fn(),
     removeBody: vi.fn(),
     reset: vi.fn(),
@@ -94,6 +97,14 @@ describe('PhysicsSystem', () => {
     // Setup default mock returns
     mockPhysicsManager.getBodyPosition.mockReturnValue({ x: 100, y: 200 });
     mockPhysicsManager.getBodyRotation.mockReturnValue(0);
+    mockPhysicsManager.getInterpolationAlpha.mockReturnValue(1.0);
+    // Sync interpolated getters with non-interpolated by using dynamic implementation
+    mockPhysicsManager.getBodyPositionInterpolated.mockImplementation(
+      () => mockPhysicsManager.getBodyPosition() as { x: number; y: number }
+    );
+    mockPhysicsManager.getBodyRotationInterpolated.mockImplementation(
+      () => mockPhysicsManager.getBodyRotation() as number
+    );
     mockPhysicsManager.isBodySleeping.mockReturnValue(false);
   });
 

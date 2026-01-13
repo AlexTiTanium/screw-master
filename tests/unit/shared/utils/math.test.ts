@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import {
   clamp,
   lerp,
+  lerpAngle,
   distance,
   lerp2D,
   clampPosition,
@@ -57,6 +58,54 @@ describe('Math utilities', () => {
     it('should work with negative values', () => {
       expect(lerp(-100, 100, 0.5)).toBe(0);
       expect(lerp(-50, -10, 0.5)).toBe(-30);
+    });
+  });
+
+  describe('lerpAngle', () => {
+    it('should return start angle when t is 0', () => {
+      expect(lerpAngle(0, Math.PI / 2, 0)).toBe(0);
+    });
+
+    it('should return end angle when t is 1', () => {
+      expect(lerpAngle(0, Math.PI / 2, 1)).toBeCloseTo(Math.PI / 2);
+    });
+
+    it('should return midpoint when t is 0.5', () => {
+      expect(lerpAngle(0, Math.PI / 2, 0.5)).toBeCloseTo(Math.PI / 4);
+    });
+
+    it('should take shortest path across π/-π boundary (positive to negative)', () => {
+      // From almost π to almost -π should go through π (short path of ~0.4 radians)
+      // Not the long way through 0 (~5.9 radians)
+      const result = lerpAngle(Math.PI * 0.9, -Math.PI * 0.9, 0.5);
+      // Midpoint should be at or near π (or -π, same angle)
+      expect(Math.abs(result)).toBeCloseTo(Math.PI, 1);
+    });
+
+    it('should take shortest path across π/-π boundary (negative to positive)', () => {
+      // From almost -π to almost π should go through -π (short path)
+      const result = lerpAngle(-Math.PI * 0.9, Math.PI * 0.9, 0.5);
+      expect(Math.abs(result)).toBeCloseTo(Math.PI, 1);
+    });
+
+    it('should clamp t below 0', () => {
+      expect(lerpAngle(0, Math.PI, -0.5)).toBe(0);
+    });
+
+    it('should clamp t above 1', () => {
+      expect(lerpAngle(0, Math.PI, 1.5)).toBeCloseTo(Math.PI);
+    });
+
+    it('should work with negative angles', () => {
+      expect(lerpAngle(-Math.PI / 2, 0, 0.5)).toBeCloseTo(-Math.PI / 4);
+    });
+
+    it('should handle same start and end angle', () => {
+      expect(lerpAngle(1.5, 1.5, 0.5)).toBeCloseTo(1.5);
+    });
+
+    it('should interpolate correctly for small angle differences', () => {
+      expect(lerpAngle(0.1, 0.3, 0.5)).toBeCloseTo(0.2);
     });
   });
 
