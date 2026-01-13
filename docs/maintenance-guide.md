@@ -27,10 +27,11 @@ Execute this guide periodically after major features to maintain code quality.
    ## Maintenance Report
 
    ### Summary
-   - Sections completed: X/17
+   - Sections completed: X/18
    - Issues found: X
    - Issues fixed: X
    - Issues deferred: X (with reasons)
+   - Architecture doc updated: Yes/No
 
    ### By Section
    #### 1. Code Consistency Check
@@ -111,14 +112,30 @@ Execute this guide periodically after major features to maintain code quality.
 - [ ] Update `README.md` if setup/commands changed
 - [ ] Verify `docs/*.md` accuracy (game-design, level-format, etc.)
 - [ ] Check that documented file paths still exist
+- [ ] **Update `docs/game-architecture.md`** if any of the following changed:
+  - New systems added or existing systems modified
+  - New components added or component fields changed
+  - New events added to the event bus
+  - New animators added to AnimationSystem
+  - System registration order changed
+  - New entity types or factories created
+  - File locations or project structure changed
 
 ## 7. ECS Architecture Review
+
+**Reference:** Always consult [docs/game-architecture.md](game-architecture.md) for established patterns.
 
 - [ ] Verify system registration order in `GameScene.ts` (dependencies respected)
 - [ ] Check all systems with `init()` have corresponding `destroy()` cleanup
 - [ ] Review event listener registration - ensure no duplicates on re-init
 - [ ] Verify component `isAnimating` flags can't get stuck (soft-lock prevention)
 - [ ] Check for orphaned entities after level transitions
+- [ ] **Verify new code follows architecture patterns:**
+  - Systems extend `BaseSystem` and use `forEachEntity()` helper
+  - Components use `defineComponent()` helper
+  - System-to-system communication uses `gameEvents` (not direct calls)
+  - Animators extend `AnimatorBase` and follow the animator pattern
+  - Type-safe component access uses interfaces from `types/component-access.ts`
 
 ## 8. Resource Management
 
@@ -289,7 +306,35 @@ grep -rn "function.*,.*,.*,.*," src/
 grep -rn "?.*?.*:" src/
 ```
 
-## 17. Final Validation
+## 17. Architecture Documentation Update
+
+When features are added or modified, the architecture document must stay current.
+
+**Check if updates needed:**
+- [ ] Were new systems added? → Add to "ECS Systems" section
+- [ ] Were new components added? → Add to "Components" section
+- [ ] Were new events added? → Add to "Event Reference" table
+- [ ] Were new animators added? → Add to "Animator Classes" table
+- [ ] Did system dependencies change? → Update "Dependency Graph"
+- [ ] Were new extension patterns established? → Add to "Extension Guides"
+
+**Update process:**
+1. Open `docs/game-architecture.md`
+2. Find the relevant section
+3. Add/modify entries following existing format
+4. Update the "Document History" table at the bottom
+
+```bash
+# Quick check: compare systems in code vs docs
+grep -h "static readonly NAME" src/scenes/game/systems/*.ts | sort
+grep "System\|File:" docs/game-architecture.md | head -20
+
+# Quick check: compare components in code vs docs
+ls src/scenes/game/components/*.ts
+grep "Component\|File:" docs/game-architecture.md | head -20
+```
+
+## 18. Final Validation
 
 Run all checks to ensure nothing is broken:
 
@@ -305,6 +350,11 @@ npm run build
 ```
 
 All commands must pass before maintenance is considered complete.
+
+**Architecture compliance check:**
+- [ ] All new systems follow patterns in `docs/game-architecture.md`
+- [ ] Architecture document updated if new systems/components/events added
+- [ ] No architectural regressions (direct system calls, bypassing event bus, etc.)
 
 ## Quick Commands
 
@@ -365,7 +415,8 @@ Section 13: Bug Prevention Audit
 Section 14: Log Cleanup
 Section 15: Pattern Refactoring
 Section 16: Clean Code Practices
-Section 17: Final Validation
+Section 17: Architecture Documentation Update
+Section 18: Final Validation
 ```
 
 When issues are found, add sub-items like:
