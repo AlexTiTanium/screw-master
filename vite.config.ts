@@ -4,6 +4,7 @@ import { bugReportPlugin } from './vite/plugins/bugReportPlugin';
 
 export default defineConfig({
   plugins: [bugReportPlugin()],
+  base: process.env.VITE_BASE_PATH || '/',
   root: 'src',
   publicDir: resolve(__dirname, 'assets'),
   resolve: {
