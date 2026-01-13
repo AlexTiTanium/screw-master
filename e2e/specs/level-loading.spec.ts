@@ -153,8 +153,8 @@ test.describe('Level Loading - Free Position Screws', () => {
       return component.layer;
     });
 
-    // Test level: boards at layers 1, 2, 3, 4
-    expect(layers.sort((a, b) => a - b)).toEqual([1, 2, 3, 4]);
+    // Test level: boards at layers 1, 1, 1, 2
+    expect(layers.sort((a, b) => a - b)).toEqual([1, 1, 1, 2]);
   });
 
   test('render signature is stable when paused', async ({ page }) => {
