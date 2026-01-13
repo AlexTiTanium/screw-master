@@ -153,6 +153,9 @@ export class AnimationSystem extends BaseSystem {
     const screwEntity2D = screwEntity as Entity2D;
     const visual = getGameVisual(screwEntity2D);
 
+    // Disable pointer events during animation to prevent intercepting clicks for other screws
+    screwEntity2D.view.eventMode = 'none';
+
     if (!visual) {
       this.completeRemoval(screwEntity, isBuffer, targetTray, slotIndex);
       return;
@@ -502,6 +505,9 @@ export class AnimationSystem extends BaseSystem {
     const { screwEntity, targetTray, slotIndex } = event;
     const screwEntity2D = screwEntity as Entity2D;
     const visual = getGameVisual(screwEntity2D);
+
+    // Disable pointer events during animation to prevent intercepting clicks for other screws
+    screwEntity2D.view.eventMode = 'none';
 
     if (!visual) {
       this.completeTransfer(screwEntity, targetTray, slotIndex);

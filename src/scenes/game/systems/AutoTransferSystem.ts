@@ -179,23 +179,55 @@ export class AutoTransferSystem extends BaseSystem {
    * this.processBufferScrews(buffer.screwIds, bufferTray);
    */
   private processBufferScrews(screwIds: string[], bufferTray: Entity): void {
-    const placementSystem = this.scene.getSystem(ScrewPlacementSystem);
+    gameTick.log(
+      'AUTO_TRANSFER_CHECK',
+      `buffer has ${String(screwIds.length)} screws`
+    );
 
     for (const screwId of screwIds) {
-      const screwEntity = placementSystem.findScrewByUid(screwId);
-      if (!screwEntity) continue;
-
-      const screw = this.getComponents<ScrewComponentAccess>(screwEntity).screw;
-      if (screw.isAnimating) continue;
-
-      const matchingTray = placementSystem.findAvailableColoredTray(
-        screw.color
-      );
-      if (matchingTray) {
-        this.initiateTransfer(screwEntity, matchingTray, bufferTray);
+      if (this.tryTransferScrew(screwId, bufferTray)) {
         return; // Only one transfer at a time
       }
     }
+  }
+
+  /**
+   * Attempt to transfer a single screw from buffer to colored tray.
+   * @param screwId - The screw UID to transfer
+   * @param bufferTray - The buffer tray entity
+   * @returns True if transfer was initiated
+   * @example
+   * if (this.tryTransferScrew(screwId, bufferTray)) return;
+   */
+  private tryTransferScrew(screwId: string, bufferTray: Entity): boolean {
+    const placementSystem = this.scene.getSystem(ScrewPlacementSystem);
+    const screwEntity = placementSystem.findScrewByUid(screwId);
+
+    if (!screwEntity) {
+      gameTick.log('AUTO_TRANSFER_CHECK', `→ screw ${screwId} not found`);
+      return false;
+    }
+
+    const screw = this.getComponents<ScrewComponentAccess>(screwEntity).screw;
+    if (screw.isAnimating) {
+      gameTick.log(
+        'AUTO_TRANSFER_CHECK',
+        `→ ${screw.color} screw still animating`
+      );
+      return false;
+    }
+
+    const matchingTray = placementSystem.findAvailableColoredTray(screw.color);
+    if (matchingTray) {
+      this.initiateTransfer(screwEntity, matchingTray, bufferTray);
+      return true;
+    }
+
+    gameTick.log(
+      'AUTO_TRANSFER_CHECK',
+      `→ ${screw.color} screw has no matching visible tray`
+    );
+    return false;
   }
 
   /**

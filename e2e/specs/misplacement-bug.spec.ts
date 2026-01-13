@@ -240,6 +240,7 @@ test.describe('Misplacement Bug', () => {
       delayMs: number
     ): Promise<{
       screwsInTrays: { color: string; trayColor: string; x: number }[];
+      screwsInBuffer: { color: string }[];
       trayStates: {
         color: string;
         screwCount: number;
@@ -266,17 +267,25 @@ test.describe('Misplacement Bug', () => {
       const finalScrews = await harness.queryByComponent('screw');
       const trays = await harness.queryByComponent('tray');
 
-      // Build screw state - only screws in trays (not board, not buffer)
+      // Build screw state - screws in trays and buffer
       const screwsInTrays: {
         color: string;
         trayColor: string;
         x: number;
       }[] = [];
+      const screwsInBuffer: { color: string }[] = [];
 
       for (const s of finalScrews) {
         const sc = s.components as {
           screw?: { state?: string; color?: string };
         };
+
+        // Track buffer screws separately
+        if (sc.screw?.state === 'inBuffer') {
+          screwsInBuffer.push({ color: sc.screw.color ?? 'unknown' });
+          continue;
+        }
+
         if (sc.screw?.state !== 'inTray') continue;
 
         // Find nearest colored tray
@@ -337,7 +346,7 @@ test.describe('Misplacement Bug', () => {
       // Sort by displayOrder for consistent comparison
       trayStates.sort((a, b) => a.displayOrder - b.displayOrder);
 
-      return { screwsInTrays, trayStates };
+      return { screwsInTrays, screwsInBuffer, trayStates };
     }
 
     // Execute with SLOW speed (800ms between taps - after animations complete)
@@ -391,5 +400,11 @@ test.describe('Misplacement Bug', () => {
         `${slowTray.color} tray screwCount mismatch`
       ).toBe(slowTray.screwCount);
     }
+
+    // Buffer should be empty after all transfers complete
+    expect(
+      fastResult.screwsInBuffer.length,
+      `FAST: Buffer has ${fastResult.screwsInBuffer.length} screws (${fastResult.screwsInBuffer.map((s) => s.color).join(', ')}), should be empty like SLOW (${slowResult.screwsInBuffer.length})`
+    ).toBe(slowResult.screwsInBuffer.length);
   });
 });
