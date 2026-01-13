@@ -229,7 +229,11 @@ export async function waitForCondition(
   condition: () => Promise<boolean>,
   options: { timeout?: number; interval?: number; message?: string } = {}
 ): Promise<void> {
-  const { timeout = 5000, interval = 100, message = 'Condition not met' } = options;
+  const {
+    timeout = 5000,
+    interval = 100,
+    message = 'Condition not met',
+  } = options;
   const startTime = Date.now();
 
   while (Date.now() - startTime < timeout) {
@@ -264,7 +268,10 @@ export async function waitForScrewState(
       });
       return matchingScrews.length >= count;
     },
-    { timeout, message: `Expected ${String(count)} ${screwColor} screw(s) in state ${targetState}` }
+    {
+      timeout,
+      message: `Expected ${String(count)} ${screwColor} screw(s) in state ${targetState}`,
+    }
   );
 }
 
@@ -292,7 +299,10 @@ export async function waitForTrayState(
       const tc = tray.components.tray as { screwCount?: number };
       return (tc.screwCount ?? 0) === expectedScrewCount;
     },
-    { timeout, message: `Expected ${trayColor} tray to have ${String(expectedScrewCount)} screws` }
+    {
+      timeout,
+      message: `Expected ${trayColor} tray to have ${String(expectedScrewCount)} screws`,
+    }
   );
 }
 
@@ -316,7 +326,10 @@ export async function waitForBufferState(
       const bc = buffer.components.bufferTray as { screwIds?: string[] };
       return (bc.screwIds?.length ?? 0) === expectedCount;
     },
-    { timeout, message: `Expected buffer to have ${String(expectedCount)} screws` }
+    {
+      timeout,
+      message: `Expected buffer to have ${String(expectedCount)} screws`,
+    }
   );
 }
 
@@ -342,7 +355,10 @@ export async function waitForAnimationsToSettle(
     let allStable = true;
     for (const [id, pos] of currentPositions) {
       const lastPos = lastPositions.get(id);
-      if (lastPos && (Math.abs(pos.x - lastPos.x) > 1 || Math.abs(pos.y - lastPos.y) > 1)) {
+      if (
+        lastPos &&
+        (Math.abs(pos.x - lastPos.x) > 1 || Math.abs(pos.y - lastPos.y) > 1)
+      ) {
         allStable = false;
         break;
       }

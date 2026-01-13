@@ -46,14 +46,20 @@ test.describe('Tray Hide Animation', () => {
     // Second red screw (Board 2)
     await harness.act({ type: 'pointerDown', x: 595, y: 1434 });
     await harness.act({ type: 'pointerUp', x: 595, y: 1434 });
-    await waitForScrewState(harness, page, 'red', 'inTray', { timeout: 3000, count: 2 });
+    await waitForScrewState(harness, page, 'red', 'inTray', {
+      timeout: 3000,
+      count: 2,
+    });
 
     // Third red screw (Board 3) - this fills the tray
     await harness.act({ type: 'pointerDown', x: 400, y: 1169 });
     await harness.act({ type: 'pointerUp', x: 400, y: 1169 });
 
     // Wait for hide animation to complete
-    await waitForAnimationsToSettle(harness, page, { timeout: 5000, stableTime: 300 });
+    await waitForAnimationsToSettle(harness, page, {
+      timeout: 5000,
+      stableTime: 300,
+    });
 
     // After tray is filled and hidden, it should be removed from scene
     const finalTrays = await harness.queryByComponent('tray');
@@ -107,7 +113,10 @@ test.describe('Tray Hide Animation', () => {
 
     await harness.act({ type: 'pointerDown', x: 595, y: 1434 });
     await harness.act({ type: 'pointerUp', x: 595, y: 1434 });
-    await waitForScrewState(harness, page, 'red', 'inTray', { timeout: 3000, count: 2 });
+    await waitForScrewState(harness, page, 'red', 'inTray', {
+      timeout: 3000,
+      count: 2,
+    });
 
     // Verify tray position hasn't changed (no animation yet)
     trays = await harness.queryByComponent('tray');
@@ -149,7 +158,10 @@ test.describe('Tray Hide Animation', () => {
 
     await harness.act({ type: 'pointerDown', x: 595, y: 1434 });
     await harness.act({ type: 'pointerUp', x: 595, y: 1434 });
-    await waitForScrewState(harness, page, 'red', 'inTray', { timeout: 3000, count: 2 });
+    await waitForScrewState(harness, page, 'red', 'inTray', {
+      timeout: 3000,
+      count: 2,
+    });
 
     await harness.act({ type: 'pointerDown', x: 400, y: 1169 });
     await harness.act({ type: 'pointerUp', x: 400, y: 1169 });
@@ -165,13 +177,22 @@ test.describe('Tray Hide Animation', () => {
         );
         if (!revealed) return false;
         // Wait until it has reached displayOrder 1
-        return (revealed.components.tray as { displayOrder: number }).displayOrder === 1;
+        return (
+          (revealed.components.tray as { displayOrder: number })
+            .displayOrder === 1
+        );
       },
-      { timeout: 5000, message: `Expected ${hiddenTrayColor} tray to be revealed at displayOrder 1` }
+      {
+        timeout: 5000,
+        message: `Expected ${hiddenTrayColor} tray to be revealed at displayOrder 1`,
+      }
     );
 
     // Additional settle time for position animation
-    await waitForAnimationsToSettle(harness, page, { timeout: 3000, stableTime: 200 });
+    await waitForAnimationsToSettle(harness, page, {
+      timeout: 3000,
+      stableTime: 200,
+    });
 
     // The previously hidden tray should now be revealed (displayOrder 1)
     trays = await harness.queryByComponent('tray');
@@ -218,13 +239,19 @@ test.describe('Tray Hide Animation', () => {
 
     await harness.act({ type: 'pointerDown', x: 595, y: 1434 });
     await harness.act({ type: 'pointerUp', x: 595, y: 1434 });
-    await waitForScrewState(harness, page, 'red', 'inTray', { timeout: 3000, count: 2 });
+    await waitForScrewState(harness, page, 'red', 'inTray', {
+      timeout: 3000,
+      count: 2,
+    });
 
     await harness.act({ type: 'pointerDown', x: 400, y: 1169 });
     await harness.act({ type: 'pointerUp', x: 400, y: 1169 });
 
     // Wait for animation to complete
-    await waitForAnimationsToSettle(harness, page, { timeout: 5000, stableTime: 300 });
+    await waitForAnimationsToSettle(harness, page, {
+      timeout: 5000,
+      stableTime: 300,
+    });
 
     // Filter out expected browser/dev warnings that are not from our game code
     const relevantMessages = consoleMessages.filter(

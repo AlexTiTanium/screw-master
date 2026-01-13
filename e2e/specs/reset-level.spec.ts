@@ -47,7 +47,9 @@ test.describe('Level Reset', () => {
     await harness.act({ type: 'pointerUp', x: 680, y: 1304 });
 
     // Wait for screw to reach buffer state
-    await waitForScrewState(harness, page, 'yellow', 'inBuffer', { timeout: 3000 });
+    await waitForScrewState(harness, page, 'yellow', 'inBuffer', {
+      timeout: 3000,
+    });
 
     // Verify screw is now in buffer
     const bufferTraysAfterTap = await harness.queryByComponent('bufferTray');
@@ -148,7 +150,10 @@ test.describe('Level Reset', () => {
           return sc.state === 'inBoard';
         });
       },
-      { timeout: 5000, message: 'Expected all screws to be in inBoard state after reset' }
+      {
+        timeout: 5000,
+        message: 'Expected all screws to be in inBoard state after reset',
+      }
     );
 
     // Verify all screws are back to 'inBoard' state
@@ -177,13 +182,17 @@ test.describe('Level Reset', () => {
     // Yellow screw at world (680, 1304)
     await harness.act({ type: 'pointerDown', x: 680, y: 1304 });
     await harness.act({ type: 'pointerUp', x: 680, y: 1304 });
-    await waitForScrewState(harness, page, 'yellow', 'inBuffer', { timeout: 3000 });
+    await waitForScrewState(harness, page, 'yellow', 'inBuffer', {
+      timeout: 3000,
+    });
 
     // Move a green screw to buffer tray (using centered coordinates)
     // Green screw at world (400, 1369) - Board 1 at (400,1369) - half(135,130) + screw(135,130)
     await harness.act({ type: 'pointerDown', x: 400, y: 1369 });
     await harness.act({ type: 'pointerUp', x: 400, y: 1369 });
-    await waitForScrewState(harness, page, 'green', 'inBuffer', { timeout: 3000 });
+    await waitForScrewState(harness, page, 'green', 'inBuffer', {
+      timeout: 3000,
+    });
 
     // Now we have 2 screws in the buffer tray
 
@@ -228,7 +237,9 @@ test.describe('Level Reset', () => {
 
     await harness.act({ type: 'pointerDown', x: 680, y: 1304 }); // Yellow to buffer at (680, 1304)
     await harness.act({ type: 'pointerUp', x: 680, y: 1304 });
-    await waitForScrewState(harness, page, 'yellow', 'inBuffer', { timeout: 3000 });
+    await waitForScrewState(harness, page, 'yellow', 'inBuffer', {
+      timeout: 3000,
+    });
 
     // Click restart
     await harness.act({ type: 'pointerDown', x: 988, y: 91 });
@@ -246,7 +257,10 @@ test.describe('Level Reset', () => {
           return sc.state === 'inBoard';
         });
       },
-      { timeout: 5000, message: 'Expected all screws to be in inBoard state after reset' }
+      {
+        timeout: 5000,
+        message: 'Expected all screws to be in inBoard state after reset',
+      }
     );
 
     // Verify entity counts match initial state

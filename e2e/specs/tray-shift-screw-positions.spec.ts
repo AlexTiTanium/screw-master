@@ -85,7 +85,10 @@ test.describe('Tray Shift Screw Positions', () => {
     // = (540+140-135+50, 1199+170-130+195) = (595, 1434)
     await harness.act({ type: 'pointerDown', x: 595, y: 1434 });
     await harness.act({ type: 'pointerUp', x: 595, y: 1434 });
-    await waitForScrewState(harness, page, 'red', 'inTray', { timeout: 3000, count: 2 });
+    await waitForScrewState(harness, page, 'red', 'inTray', {
+      timeout: 3000,
+      count: 2,
+    });
 
     // Third red screw (Board 3): local (135, 200) on 270x260 board at local (-140, -100)
     // = (540-140-135+135, 1199-100-130+200) = (400, 1169)
@@ -102,13 +105,22 @@ test.describe('Tray Shift Screw Positions', () => {
             (tr.components.tray as { color: string }).color === 'blue'
         );
         if (!blueTray) return false;
-        return (blueTray.components.tray as { displayOrder: number }).displayOrder === 0;
+        return (
+          (blueTray.components.tray as { displayOrder: number })
+            .displayOrder === 0
+        );
       },
-      { timeout: 5000, message: 'Expected blue tray to shift to displayOrder 0' }
+      {
+        timeout: 5000,
+        message: 'Expected blue tray to shift to displayOrder 0',
+      }
     );
 
     // Additional settle time for position animation
-    await waitForAnimationsToSettle(harness, page, { timeout: 3000, stableTime: 200 });
+    await waitForAnimationsToSettle(harness, page, {
+      timeout: 3000,
+      stableTime: 200,
+    });
 
     // Step 3: Verify blue tray shifted from position 1 to position 0
     trays = await harness.queryByComponent('tray');

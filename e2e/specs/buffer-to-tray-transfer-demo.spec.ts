@@ -36,13 +36,17 @@ test.describe('Buffer to Tray Transfer Demo', () => {
     await harness.act({ type: 'pointerUp', x: 400, y: 1369 });
 
     // Wait for green screw to reach buffer state
-    await waitForScrewState(harness, page, 'green', 'inBuffer', { timeout: 3000 });
+    await waitForScrewState(harness, page, 'green', 'inBuffer', {
+      timeout: 3000,
+    });
 
     await harness.act({ type: 'pointerDown', x: 680, y: 1304 });
     await harness.act({ type: 'pointerUp', x: 680, y: 1304 });
 
     // Wait for yellow screw to reach buffer state
-    await waitForScrewState(harness, page, 'yellow', 'inBuffer', { timeout: 3000 });
+    await waitForScrewState(harness, page, 'yellow', 'inBuffer', {
+      timeout: 3000,
+    });
 
     // Verify screws are in buffer
     const screws = await harness.queryByComponent('screw');
@@ -68,13 +72,19 @@ test.describe('Buffer to Tray Transfer Demo', () => {
 
     await harness.act({ type: 'pointerDown', x: 595, y: 1434 });
     await harness.act({ type: 'pointerUp', x: 595, y: 1434 });
-    await waitForScrewState(harness, page, 'red', 'inTray', { timeout: 3000, count: 2 });
+    await waitForScrewState(harness, page, 'red', 'inTray', {
+      timeout: 3000,
+      count: 2,
+    });
 
     await harness.act({ type: 'pointerDown', x: 400, y: 1169 });
     await harness.act({ type: 'pointerUp', x: 400, y: 1169 });
 
     // Wait for hide/shift/reveal/transfer animations
-    await waitForAnimationsToSettle(harness, page, { timeout: 5000, stableTime: 300 });
+    await waitForAnimationsToSettle(harness, page, {
+      timeout: 5000,
+      stableTime: 300,
+    });
 
     // Verify green screw transferred from buffer to green tray
     const screwsAfterRedFilled = await harness.queryByComponent('screw');
@@ -93,13 +103,19 @@ test.describe('Buffer to Tray Transfer Demo', () => {
 
     await harness.act({ type: 'pointerDown', x: 765, y: 1434 });
     await harness.act({ type: 'pointerUp', x: 765, y: 1434 });
-    await waitForScrewState(harness, page, 'blue', 'inTray', { timeout: 3000, count: 2 });
+    await waitForScrewState(harness, page, 'blue', 'inTray', {
+      timeout: 3000,
+      count: 2,
+    });
 
     await harness.act({ type: 'pointerDown', x: 360, y: 949 });
     await harness.act({ type: 'pointerUp', x: 360, y: 949 });
 
     // Wait for hide/shift/reveal/transfer animations
-    await waitForAnimationsToSettle(harness, page, { timeout: 5000, stableTime: 300 });
+    await waitForAnimationsToSettle(harness, page, {
+      timeout: 5000,
+      stableTime: 300,
+    });
 
     // Verify yellow screw transferred from buffer to yellow tray
     const screwsFinal = await harness.queryByComponent('screw');

@@ -47,7 +47,10 @@ test.describe('Misplacement Bug', () => {
     }
 
     // Wait for animations to complete
-    await waitForAnimationsToSettle(harness, page, { timeout: 5000, stableTime: 300 });
+    await waitForAnimationsToSettle(harness, page, {
+      timeout: 5000,
+      stableTime: 300,
+    });
 
     // Verify no misplacement
     const finalScrews = await harness.queryByComponent('screw');
@@ -114,7 +117,10 @@ test.describe('Misplacement Bug', () => {
     }
 
     // Wait for animations to complete
-    await waitForAnimationsToSettle(harness, page, { timeout: 5000, stableTime: 300 });
+    await waitForAnimationsToSettle(harness, page, {
+      timeout: 5000,
+      stableTime: 300,
+    });
 
     // Verify no misplacement
     const finalScrews = await harness.queryByComponent('screw');
@@ -183,7 +189,10 @@ test.describe('Misplacement Bug', () => {
     }
 
     // Wait for all animations and transfers to complete
-    await waitForAnimationsToSettle(harness, page, { timeout: 5000, stableTime: 300 });
+    await waitForAnimationsToSettle(harness, page, {
+      timeout: 5000,
+      stableTime: 300,
+    });
 
     // Check final state
     const trays = await harness.queryByComponent('tray');
@@ -264,7 +273,10 @@ test.describe('Misplacement Bug', () => {
 
       // Wait for all animations and auto-transfers to complete
       // Use animation settle detection instead of fixed timeout for reliability
-      await waitForAnimationsToSettle(harness, page, { timeout: 8000, stableTime: 500 });
+      await waitForAnimationsToSettle(harness, page, {
+        timeout: 8000,
+        stableTime: 500,
+      });
 
       // Capture final state
       const finalScrews = await harness.queryByComponent('screw');
