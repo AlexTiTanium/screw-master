@@ -146,7 +146,7 @@ interface TrayConfig {
 ```typescript
 type WinCondition =
   | { type: 'allScrewsRemoved' }                           // Remove every screw
-  | { type: 'partsRemoved'; partIds: string[] }            // Remove specific parts
+  | { type: 'partsRemoved'; partIndices: number[] }        // Remove specific parts (by instance index)
   | { type: 'targetFreed'; targetPartInstanceIndex: number }; // Free a specific part
 ```
 

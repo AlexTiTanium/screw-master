@@ -183,8 +183,7 @@ export class GameScene {
    * @private
    */
   private handleGameWon(): void {
-    // eslint-disable-next-line no-console
-    console.log('Level complete! You won!');
+    gameTick.log('WIN', 'Level complete! You won!');
     // TODO: Show win UI, transition to next level, etc.
   }
 
@@ -193,8 +192,7 @@ export class GameScene {
    * @private
    */
   private handleGameStuck(): void {
-    // eslint-disable-next-line no-console
-    console.log('No moves available. Tap restart to try again.');
+    gameTick.log('STUCK', 'No moves available. Tap restart to try again.');
     // TODO: Show stuck UI with restart prompt
   }
 
@@ -482,8 +480,7 @@ export class GameScene {
    */
   private handleRestartClick(): void {
     if (this.currentRegionPath && this.currentLevel) {
-      // eslint-disable-next-line no-console
-      console.log('Restarting level...');
+      gameTick.log('RESTART', 'Restarting level...');
       void this.loadLevel(this.currentRegionPath, this.currentLevelIndex);
     }
   }

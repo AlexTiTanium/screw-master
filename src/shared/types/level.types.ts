@@ -42,11 +42,9 @@ export interface PartInstance {
 /**
  * Tray configuration for a level.
  *
- * The game has 5 tray slots. Array order determines display order:
+ * Each level has exactly 4 trays. Array order determines display order:
  * - Index 0-1: Initially visible trays (left to right)
- * - Index 2-4: Hidden trays (revealed when visible trays complete)
- *
- * Levels can use 4-5 trays depending on puzzle design.
+ * - Index 2-3: Hidden trays (revealed when visible trays complete)
  */
 export interface TrayConfig {
   /** Which color this tray accepts */
