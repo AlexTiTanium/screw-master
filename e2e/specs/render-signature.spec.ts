@@ -1,3 +1,10 @@
+/**
+ * E2E tests for render signature system.
+ *
+ * Tests that the render signature API produces consistent,
+ * deterministic snapshots of game state for visual regression testing.
+ */
+
 import { test, expect } from '@playwright/test';
 import { withHarness } from '../helpers/harness';
 import { attachTelemetry, printTelemetry } from '../helpers/telemetry';
@@ -5,7 +12,6 @@ import {
   expectEntityCount,
   expectSignatureStable,
   expectSignatureChanged,
-  expectSceneState,
   expectEntitiesWithComponent,
 } from '../helpers/assertions';
 
@@ -36,26 +42,17 @@ test.describe('Render Signature', () => {
     expect(Array.isArray(signature.systems)).toBe(true);
     expect(typeof signature.sceneState).toBe('string');
     expect(typeof signature.hash).toBe('string');
+
+    // Timestamp should be recent (relative to page load)
+    expect(signature.timestamp).toBeGreaterThan(0);
+
+    // Entity count matches array
+    expectEntityCount(signature, signature.entities.length);
   });
 
-  test('produces stable signature for paused scene', async ({ page }) => {
-    attachTelemetry(page);
-    await page.goto('/?testMode=1');
-
-    const harness = withHarness(page);
-    await harness.waitForReady();
-
-    // Pause scene to ensure stability
-    await harness.act({ type: 'pause' });
-
-    const sig1 = await harness.getRenderSignature();
-    const sig2 = await harness.getRenderSignature();
-
-    // Hashes should be identical when scene state hasn't changed
-    expectSignatureStable(sig1, sig2);
-  });
-
-  test('signature hash is deterministic', async ({ page }) => {
+  test('signature hash is stable and deterministic when paused', async ({
+    page,
+  }) => {
     attachTelemetry(page);
     await page.goto('/?testMode=1');
 
@@ -63,15 +60,21 @@ test.describe('Render Signature', () => {
     await harness.waitForReady();
     await harness.act({ type: 'pause' });
 
+    // Get multiple signatures - all should be identical when paused
     const hashes: string[] = [];
     for (let i = 0; i < 5; i++) {
       const sig = await harness.getRenderSignature();
       hashes.push(sig.hash);
     }
 
-    // All hashes should be identical
+    // All hashes should be identical (deterministic)
     const uniqueHashes = new Set(hashes);
     expect(uniqueHashes.size).toBe(1);
+
+    // Also verify stable assertion helper works
+    const sig1 = await harness.getRenderSignature();
+    const sig2 = await harness.getRenderSignature();
+    expectSignatureStable(sig1, sig2);
   });
 
   test('signature changes after entity mutation', async ({ page }) => {
@@ -94,12 +97,10 @@ test.describe('Render Signature', () => {
     });
 
     const sig2 = await harness.getRenderSignature();
-
-    // Hashes should be different
     expectSignatureChanged(sig1, sig2);
   });
 
-  test('signature contains entity data', async ({ page }) => {
+  test('signature contains valid entity data', async ({ page }) => {
     const telemetry = attachTelemetry(page);
     await page.goto('/?testMode=1');
 
@@ -109,7 +110,7 @@ test.describe('Render Signature', () => {
     const signature = await harness.getRenderSignature();
     printTelemetry(telemetry);
 
-    // Should have at least the red square
+    // Should have at least some entities
     expect(signature.entities.length).toBeGreaterThanOrEqual(1);
 
     // Check entity structure
@@ -118,29 +119,18 @@ test.describe('Render Signature', () => {
     expect(entity).toHaveProperty('position');
     expect(entity).toHaveProperty('components');
     expect(entity).toHaveProperty('visible');
-  });
 
-  test('entities are sorted by ID for determinism', async ({ page }) => {
-    attachTelemetry(page);
-    await page.goto('/?testMode=1');
-
-    const harness = withHarness(page);
-    await harness.waitForReady();
-
-    const signature = await harness.getRenderSignature();
-
-    // Check that entities are sorted by ID (IDs may be numeric)
+    // Entities should be sorted by ID for determinism
     const ids = signature.entities.map((e) => e.id);
     const sortedIds = [...ids].sort((a, b) => {
       const aStr = typeof a === 'number' ? a.toString() : a;
       const bStr = typeof b === 'number' ? b.toString() : b;
       return aStr.localeCompare(bStr);
     });
-
     expect(ids).toEqual(sortedIds);
   });
 
-  test('frame counter increments', async ({ page }) => {
+  test('frame counter increments on running scene', async ({ page }) => {
     attachTelemetry(page);
     await page.goto('/?testMode=1');
 
@@ -151,34 +141,12 @@ test.describe('Render Signature', () => {
     const sig2 = await harness.getRenderSignature();
     const sig3 = await harness.getRenderSignature();
 
-    // Frame counter should increment
+    // Frame counter should increment when scene is running
     expect(sig2.frame).toBeGreaterThan(sig1.frame);
     expect(sig3.frame).toBeGreaterThan(sig2.frame);
-  });
 
-  test('timestamp is recent', async ({ page }) => {
-    attachTelemetry(page);
-    await page.goto('/?testMode=1');
-
-    const harness = withHarness(page);
-    await harness.waitForReady();
-
-    const signature = await harness.getRenderSignature();
-
-    // Timestamp should be a recent performance.now() value
-    // (this is relative to page load, so we can't compare directly)
-    expect(signature.timestamp).toBeGreaterThan(0);
-  });
-
-  test('scene state reflects running state', async ({ page }) => {
-    attachTelemetry(page);
-    await page.goto('/?testMode=1');
-
-    const harness = withHarness(page);
-    await harness.waitForReady();
-
-    const signature = await harness.getRenderSignature();
-    expectSceneState(signature, 'running');
+    // Scene state should be running
+    expect(sig1.sceneState).toBe('running');
   });
 
   test('scene state reflects paused state', async ({ page }) => {
@@ -190,19 +158,7 @@ test.describe('Render Signature', () => {
     await harness.act({ type: 'pause' });
 
     const signature = await harness.getRenderSignature();
-    expectSceneState(signature, 'paused');
-  });
-
-  test('entity count matches entities array length', async ({ page }) => {
-    attachTelemetry(page);
-    await page.goto('/?testMode=1');
-
-    const harness = withHarness(page);
-    await harness.waitForReady();
-
-    const signature = await harness.getRenderSignature();
-
-    expectEntityCount(signature, signature.entities.length);
+    expect(signature.sceneState).toBe('paused');
   });
 
   test('can verify specific component entities', async ({ page }) => {
