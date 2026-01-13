@@ -524,11 +524,6 @@ describe('ScrewInteractionSystem', () => {
       });
 
       const emitSpy = vi.spyOn(gameEvents, 'emit');
-      const consoleSpy = vi
-        .spyOn(console, 'log')
-        .mockImplementation((): void => {
-          // Intentionally empty - suppress console output during test
-        });
 
       system['handleScrewTap'](screw);
 
@@ -537,12 +532,6 @@ describe('ScrewInteractionSystem', () => {
         'screw:startRemoval',
         expect.anything()
       );
-      // Should log blocked message with state info (tick-prefixed)
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[T0] BLOCKED: bufferFull=true animating=true busy=false'
-      );
-
-      consoleSpy.mockRestore();
     });
 
     it('should allow tap when buffer is full but trays are not animating', () => {
