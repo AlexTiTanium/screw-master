@@ -49,26 +49,40 @@ export class AutoTransferSystem extends BaseSystem {
 
   /**
    * Bound handler for screw:removalComplete event.
+   * Defers check to allow TrayManagementSystem to process first.
    * @internal
    */
   private handleRemovalComplete = (): void => {
-    this.checkAutoTransfer();
+    // Defer to allow TrayManagementSystem to set isTransitioning first
+    // Both systems listen to screw:removalComplete - if a tray fills,
+    // we need TrayManagement to mark itself busy before we check
+    queueMicrotask(() => {
+      this.checkAutoTransfer();
+    });
   };
 
   /**
    * Bound handler for screw:transferComplete event.
+   * Defers check to allow TrayManagementSystem to process first.
    * @internal
    */
   private handleTransferComplete = (): void => {
-    this.onTransferComplete();
+    // Defer to allow TrayManagementSystem to process tray fullness first
+    queueMicrotask(() => {
+      this.onTransferComplete();
+    });
   };
 
   /**
    * Bound handler for tray:revealed event.
+   * Defers check to allow TrayManagementSystem to finalize first.
    * @internal
    */
   private handleTrayRevealed = (): void => {
-    this.checkAutoTransfer();
+    // Defer to ensure tray animations are fully complete
+    queueMicrotask(() => {
+      this.checkAutoTransfer();
+    });
   };
 
   /**
@@ -165,23 +179,55 @@ export class AutoTransferSystem extends BaseSystem {
    * this.processBufferScrews(buffer.screwIds, bufferTray);
    */
   private processBufferScrews(screwIds: string[], bufferTray: Entity): void {
-    const placementSystem = this.scene.getSystem(ScrewPlacementSystem);
+    gameTick.log(
+      'AUTO_TRANSFER_CHECK',
+      `buffer has ${String(screwIds.length)} screws`
+    );
 
     for (const screwId of screwIds) {
-      const screwEntity = placementSystem.findScrewByUid(screwId);
-      if (!screwEntity) continue;
-
-      const screw = this.getComponents<ScrewComponentAccess>(screwEntity).screw;
-      if (screw.isAnimating) continue;
-
-      const matchingTray = placementSystem.findAvailableColoredTray(
-        screw.color
-      );
-      if (matchingTray) {
-        this.initiateTransfer(screwEntity, matchingTray, bufferTray);
+      if (this.tryTransferScrew(screwId, bufferTray)) {
         return; // Only one transfer at a time
       }
     }
+  }
+
+  /**
+   * Attempt to transfer a single screw from buffer to colored tray.
+   * @param screwId - The screw UID to transfer
+   * @param bufferTray - The buffer tray entity
+   * @returns True if transfer was initiated
+   * @example
+   * if (this.tryTransferScrew(screwId, bufferTray)) return;
+   */
+  private tryTransferScrew(screwId: string, bufferTray: Entity): boolean {
+    const placementSystem = this.scene.getSystem(ScrewPlacementSystem);
+    const screwEntity = placementSystem.findScrewByUid(screwId);
+
+    if (!screwEntity) {
+      gameTick.log('AUTO_TRANSFER_CHECK', `→ screw ${screwId} not found`);
+      return false;
+    }
+
+    const screw = this.getComponents<ScrewComponentAccess>(screwEntity).screw;
+    if (screw.isAnimating) {
+      gameTick.log(
+        'AUTO_TRANSFER_CHECK',
+        `→ ${screw.color} screw still animating`
+      );
+      return false;
+    }
+
+    const matchingTray = placementSystem.findAvailableColoredTray(screw.color);
+    if (matchingTray) {
+      this.initiateTransfer(screwEntity, matchingTray, bufferTray);
+      return true;
+    }
+
+    gameTick.log(
+      'AUTO_TRANSFER_CHECK',
+      `→ ${screw.color} screw has no matching visible tray`
+    );
+    return false;
   }
 
   /**

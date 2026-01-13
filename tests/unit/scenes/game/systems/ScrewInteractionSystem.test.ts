@@ -505,6 +505,7 @@ describe('ScrewInteractionSystem', () => {
 
     it('should block tap when buffer is full and trays are animating', () => {
       const screw = createMockScrewEntity(1, ScrewColor.Red, 'inBoard');
+      const tray = createMockTrayEntity(10, ScrewColor.Red);
       const gameState = createMockGameStateEntity('playing');
 
       (system as { queries: QueryResults }).queries = createMockQueryResults(
@@ -515,13 +516,14 @@ describe('ScrewInteractionSystem', () => {
       // Simulate buffer full AND trays animating
       mockPlacementSystem.isBufferFull.mockReturnValue(true);
       mockPlacementSystem.anyTrayAnimating.mockReturnValue(true);
+      // Need to return a target for blocking logic to be reached
+      mockPlacementSystem.findPlacementTarget.mockReturnValue({
+        tray,
+        slotIndex: 0,
+        type: 'colored',
+      });
 
       const emitSpy = vi.spyOn(gameEvents, 'emit');
-      const consoleSpy = vi
-        .spyOn(console, 'log')
-        .mockImplementation((): void => {
-          // Intentionally empty - suppress console output during test
-        });
 
       system['handleScrewTap'](screw);
 
@@ -530,12 +532,6 @@ describe('ScrewInteractionSystem', () => {
         'screw:startRemoval',
         expect.anything()
       );
-      // Should log blocked message with state info (tick-prefixed)
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[T0] BLOCKED: bufferFull=true animating=true busy=false'
-      );
-
-      consoleSpy.mockRestore();
     });
 
     it('should allow tap when buffer is full but trays are not animating', () => {

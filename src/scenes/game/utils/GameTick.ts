@@ -105,4 +105,24 @@ export const gameTick = {
       console.log(`[T${String(currentTick)}] ${message}`);
     }
   },
+
+  /**
+   * Log a warning message with the current tick number prefix.
+   * Uses console.warn for higher visibility in developer tools.
+   *
+   * Format: `[T{tick}] {category}: {message}`
+   *
+   * @param category - Warning category (e.g., 'SNAP_CORRECTION')
+   * @param message - The warning message
+   *
+   * @example
+   * gameTick.warn('SNAP_CORRECTION', 'screw at (100, 200) snapped to (105, 200)');
+   * // Output: [T42] SNAP_CORRECTION: screw at (100, 200) snapped to (105, 200)
+   */
+  warn(category: string, message: string): void {
+    if (loggingEnabled) {
+      // eslint-disable-next-line no-console
+      console.warn(`[T${String(currentTick)}] ${category}: ${message}`);
+    }
+  },
 };

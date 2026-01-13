@@ -1,4 +1,8 @@
 import { beforeAll, afterAll, vi } from 'vitest';
+import { gameTick } from '@scenes/game/utils';
+
+// Disable debug logging during tests to keep output clean
+gameTick.setLoggingEnabled(false);
 
 // Mock canvas for PixiJS
 beforeAll(() => {

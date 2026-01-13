@@ -7,9 +7,12 @@ import { test } from '@playwright/test';
 import { attachTelemetry } from '../helpers/telemetry';
 import { createHarnessClient } from '../helpers/harness';
 
-// Enable video recording for this test with portrait viewport (matching game aspect ratio)
+// Video recording controlled by RECORD_VIDEO env var (see playwright.config.ts)
+const recordVideo = process.env.RECORD_VIDEO === '1';
 test.use({
-  video: { mode: 'on', size: { width: 360, height: 640 } },
+  video: recordVideo
+    ? { mode: 'on', size: { width: 360, height: 640 } }
+    : 'off',
   viewport: { width: 360, height: 640 },
 });
 
