@@ -10,6 +10,8 @@ A tactile puzzle game about dismantling complex objects by unscrewing bolts in t
 - [Art Direction Guide](docs/art-direction.md) - Visual style for artists
 - [Level Design Guide](docs/level-design.md) - Puzzle design for level creators
 - [Level Format Spec](docs/level-format.md) - Technical level/region file format
+- [Maintenance Guide](docs/maintenance-guide.md) - Code quality checklist
+- [Feature Development Guide](docs/feature-development-guide.md) - TDD workflow for new features
 
 ## Tech Stack
 
