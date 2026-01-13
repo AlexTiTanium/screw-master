@@ -75,9 +75,10 @@ Replace `{number}` with the PR number (e.g., `pr-42`).
 ### GitHub Pages Configuration
 
 1. Go to repository **Settings > Pages**
-2. Source: **Deploy from a branch**
-3. Branch: `gh-pages` / `/ (root)`
-4. Save
+2. Source: **GitHub Actions**
+3. Save
+
+> **Note**: Main branch deployments use `deploy-pages.yml` workflow with `actions/deploy-pages`. PR previews still use the `gh-pages` branch via `rossjrw/pr-preview-action`.
 
 ---
 
