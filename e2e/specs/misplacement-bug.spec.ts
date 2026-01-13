@@ -6,7 +6,10 @@
 
 import { test, expect } from '@playwright/test';
 import { attachTelemetry } from '../helpers/telemetry';
-import { createHarnessClient } from '../helpers/harness';
+import {
+  createHarnessClient,
+  waitForAnimationsToSettle,
+} from '../helpers/harness';
 
 // Video recording controlled by RECORD_VIDEO env var (see playwright.config.ts)
 const recordVideo = process.env.RECORD_VIDEO === '1';
@@ -44,7 +47,7 @@ test.describe('Misplacement Bug', () => {
     }
 
     // Wait for animations to complete
-    await page.waitForTimeout(1000);
+    await waitForAnimationsToSettle(harness, page, { timeout: 5000, stableTime: 300 });
 
     // Verify no misplacement
     const finalScrews = await harness.queryByComponent('screw');
@@ -111,7 +114,7 @@ test.describe('Misplacement Bug', () => {
     }
 
     // Wait for animations to complete
-    await page.waitForTimeout(1000);
+    await waitForAnimationsToSettle(harness, page, { timeout: 5000, stableTime: 300 });
 
     // Verify no misplacement
     const finalScrews = await harness.queryByComponent('screw');
@@ -180,7 +183,7 @@ test.describe('Misplacement Bug', () => {
     }
 
     // Wait for all animations and transfers to complete
-    await page.waitForTimeout(2000);
+    await waitForAnimationsToSettle(harness, page, { timeout: 5000, stableTime: 300 });
 
     // Check final state
     const trays = await harness.queryByComponent('tray');
@@ -260,8 +263,8 @@ test.describe('Misplacement Bug', () => {
       }
 
       // Wait for all animations and auto-transfers to complete
-      // FAST mode causes more queued transitions, so need extra time
-      await page.waitForTimeout(5000);
+      // Use animation settle detection instead of fixed timeout for reliability
+      await waitForAnimationsToSettle(harness, page, { timeout: 8000, stableTime: 500 });
 
       // Capture final state
       const finalScrews = await harness.queryByComponent('screw');

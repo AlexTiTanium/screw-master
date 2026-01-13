@@ -14,7 +14,11 @@
 
 import { test, expect } from '@playwright/test';
 import { attachTelemetry } from '../helpers/telemetry';
-import { createHarnessClient, type EntitySnapshot } from '../helpers/harness';
+import {
+  createHarnessClient,
+  waitForScrewState,
+  waitForAnimationsToSettle,
+} from '../helpers/harness';
 
 test.describe('Buffer to Tray Transfer Demo', () => {
   test('screws transfer from buffer to colored trays correctly', async ({
@@ -30,22 +34,26 @@ test.describe('Buffer to Tray Transfer Demo', () => {
     // green(135,130) → (400, 1369), yellow(135,65) → (680, 1304)
     await harness.act({ type: 'pointerDown', x: 400, y: 1369 });
     await harness.act({ type: 'pointerUp', x: 400, y: 1369 });
-    await page.waitForTimeout(600);
+
+    // Wait for green screw to reach buffer state
+    await waitForScrewState(harness, page, 'green', 'inBuffer', { timeout: 3000 });
 
     await harness.act({ type: 'pointerDown', x: 680, y: 1304 });
     await harness.act({ type: 'pointerUp', x: 680, y: 1304 });
-    await page.waitForTimeout(800);
+
+    // Wait for yellow screw to reach buffer state
+    await waitForScrewState(harness, page, 'yellow', 'inBuffer', { timeout: 3000 });
 
     // Verify screws are in buffer
-    let screws = await harness.queryByComponent('screw');
+    const screws = await harness.queryByComponent('screw');
     const greenInBuffer = screws.filter(
-      (s: EntitySnapshot) =>
+      (s) =>
         (s.components.screw as { color: string; state: string }).color ===
           'green' &&
         (s.components.screw as { state: string }).state === 'inBuffer'
     );
     const yellowInBuffer = screws.filter(
-      (s: EntitySnapshot) =>
+      (s) =>
         (s.components.screw as { color: string; state: string }).color ===
           'yellow' &&
         (s.components.screw as { state: string }).state === 'inBuffer'
@@ -56,20 +64,22 @@ test.describe('Buffer to Tray Transfer Demo', () => {
     // PHASE 2: Fill red tray to trigger reveal of green tray
     await harness.act({ type: 'pointerDown', x: 315, y: 1289 });
     await harness.act({ type: 'pointerUp', x: 315, y: 1289 });
-    await page.waitForTimeout(600);
+    await waitForScrewState(harness, page, 'red', 'inTray', { timeout: 3000 });
 
     await harness.act({ type: 'pointerDown', x: 595, y: 1434 });
     await harness.act({ type: 'pointerUp', x: 595, y: 1434 });
-    await page.waitForTimeout(600);
+    await waitForScrewState(harness, page, 'red', 'inTray', { timeout: 3000, count: 2 });
 
     await harness.act({ type: 'pointerDown', x: 400, y: 1169 });
     await harness.act({ type: 'pointerUp', x: 400, y: 1169 });
-    await page.waitForTimeout(2000); // Wait for hide/shift/reveal/transfer
+
+    // Wait for hide/shift/reveal/transfer animations
+    await waitForAnimationsToSettle(harness, page, { timeout: 5000, stableTime: 300 });
 
     // Verify green screw transferred from buffer to green tray
-    screws = await harness.queryByComponent('screw');
-    const greenInTray = screws.filter(
-      (s: EntitySnapshot) =>
+    const screwsAfterRedFilled = await harness.queryByComponent('screw');
+    const greenInTray = screwsAfterRedFilled.filter(
+      (s) =>
         (s.components.screw as { color: string; state: string }).color ===
           'green' &&
         (s.components.screw as { state: string }).state === 'inTray'
@@ -79,20 +89,22 @@ test.describe('Buffer to Tray Transfer Demo', () => {
     // PHASE 3: Fill blue tray to trigger reveal of yellow tray
     await harness.act({ type: 'pointerDown', x: 485, y: 1289 });
     await harness.act({ type: 'pointerUp', x: 485, y: 1289 });
-    await page.waitForTimeout(600);
+    await waitForScrewState(harness, page, 'blue', 'inTray', { timeout: 3000 });
 
     await harness.act({ type: 'pointerDown', x: 765, y: 1434 });
     await harness.act({ type: 'pointerUp', x: 765, y: 1434 });
-    await page.waitForTimeout(600);
+    await waitForScrewState(harness, page, 'blue', 'inTray', { timeout: 3000, count: 2 });
 
     await harness.act({ type: 'pointerDown', x: 360, y: 949 });
     await harness.act({ type: 'pointerUp', x: 360, y: 949 });
-    await page.waitForTimeout(2500); // Wait for hide/shift/reveal/transfer
+
+    // Wait for hide/shift/reveal/transfer animations
+    await waitForAnimationsToSettle(harness, page, { timeout: 5000, stableTime: 300 });
 
     // Verify yellow screw transferred from buffer to yellow tray
-    screws = await harness.queryByComponent('screw');
-    const yellowInTray = screws.filter(
-      (s: EntitySnapshot) =>
+    const screwsFinal = await harness.queryByComponent('screw');
+    const yellowInTray = screwsFinal.filter(
+      (s) =>
         (s.components.screw as { color: string; state: string }).color ===
           'yellow' &&
         (s.components.screw as { state: string }).state === 'inTray'
