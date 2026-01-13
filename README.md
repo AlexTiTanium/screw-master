@@ -6,6 +6,7 @@ A tactile puzzle game about dismantling complex objects by unscrewing bolts in t
 
 **Documentation:**
 - [Game Design Document](docs/game-design.md) - Core mechanics and rules
+- [Game Architecture](docs/game-architecture.md) - Technical architecture for developers
 - [Art Direction Guide](docs/art-direction.md) - Visual style for artists
 - [Level Design Guide](docs/level-design.md) - Puzzle design for level creators
 - [Level Format Spec](docs/level-format.md) - Technical level/region file format
