@@ -2,7 +2,7 @@
  * Debug Console UI Component
  *
  * A floating, draggable debug console panel that displays console logs
- * and provides buttons for Copy, Clear, and Report Bug actions.
+ * and performance metrics. Includes buttons for Copy, Clear, and Report Bug.
  *
  * @example
  * // Initialize in dev/test mode
@@ -23,16 +23,24 @@ import {
   getOriginalConsole,
 } from '../consoleCapture';
 import { showBugReportModal } from '../bugReport';
+import { recordTelemetry } from '../telemetry';
+import { PhysicsWorldManager } from '@physics';
 
 // ============================================================================
 // Constants
 // ============================================================================
 
 const STORAGE_KEY = 'debugConsole';
-const DEFAULT_WIDTH = 350;
-const DEFAULT_HEIGHT = 200;
+const DEFAULT_WIDTH = 500;
+const DEFAULT_HEIGHT = 220;
 const HEADER_HEIGHT = 30;
 const FOOTER_HEIGHT = 36;
+const PERF_PANEL_WIDTH = 175;
+const FPS_SAMPLE_COUNT = 60;
+const PHYSICS_RATE_UPDATE_INTERVAL = 500;
+const SPARKLINE_WIDTH = 50;
+const SPARKLINE_HEIGHT = 12;
+const SPARKLINE_SAMPLES = 30;
 
 // ============================================================================
 // State Management
@@ -41,6 +49,8 @@ const FOOTER_HEIGHT = 36;
 interface ConsoleState {
   x: number;
   y: number;
+  width: number;
+  height: number;
   minimized: boolean;
   visible: boolean;
 }
@@ -49,7 +59,15 @@ function loadState(): ConsoleState {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      return JSON.parse(saved) as ConsoleState;
+      const parsed = JSON.parse(saved) as Partial<ConsoleState>;
+      return {
+        x: parsed.x ?? 10,
+        y: parsed.y ?? window.innerHeight - DEFAULT_HEIGHT - 10,
+        width: parsed.width ?? DEFAULT_WIDTH,
+        height: parsed.height ?? DEFAULT_HEIGHT,
+        minimized: parsed.minimized ?? false,
+        visible: parsed.visible ?? true,
+      };
     }
   } catch {
     // Ignore localStorage errors
@@ -57,6 +75,8 @@ function loadState(): ConsoleState {
   return {
     x: 10,
     y: window.innerHeight - DEFAULT_HEIGHT - 10,
+    width: DEFAULT_WIDTH,
+    height: DEFAULT_HEIGHT,
     minimized: false,
     visible: true,
   };
@@ -71,19 +91,134 @@ function saveState(state: ConsoleState): void {
 }
 
 // ============================================================================
+// Performance Metrics
+// ============================================================================
+
+interface MetricsState {
+  frameTimes: number[];
+  lastTime: number;
+  lastPhysicsStepCount: number;
+  lastPhysicsTime: number;
+  physicsRate: number;
+  alphaHistory: number[];
+  alphaMin: number;
+  alphaMax: number;
+}
+
+const ALPHA_HISTORY_SIZE = 60;
+
+function createMetricsState(): MetricsState {
+  return {
+    frameTimes: [],
+    lastTime: performance.now(),
+    lastPhysicsStepCount: 0,
+    lastPhysicsTime: performance.now(),
+    physicsRate: 0,
+    alphaHistory: [],
+    alphaMin: 1,
+    alphaMax: 0,
+  };
+}
+
+function updateAlphaStats(metrics: MetricsState, alpha: number): void {
+  metrics.alphaHistory.push(alpha);
+  if (metrics.alphaHistory.length > ALPHA_HISTORY_SIZE) {
+    metrics.alphaHistory.shift();
+  }
+
+  // Calculate min/max from recent history
+  if (metrics.alphaHistory.length > 0) {
+    metrics.alphaMin = Math.min(...metrics.alphaHistory);
+    metrics.alphaMax = Math.max(...metrics.alphaHistory);
+  }
+}
+
+function calculateFPS(metrics: MetricsState, deltaMs: number): number {
+  metrics.frameTimes.push(deltaMs);
+  if (metrics.frameTimes.length > FPS_SAMPLE_COUNT) {
+    metrics.frameTimes.shift();
+  }
+  if (metrics.frameTimes.length === 0) return 0;
+  const avg =
+    metrics.frameTimes.reduce((a, b) => a + b, 0) / metrics.frameTimes.length;
+  return avg > 0 ? 1000 / avg : 0;
+}
+
+function detectRefreshRate(metrics: MetricsState): number {
+  if (metrics.frameTimes.length < 10) return 0;
+  const sorted = [...metrics.frameTimes].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)] ?? 16.67;
+  return Math.round(1000 / median);
+}
+
+function updatePhysicsRate(metrics: MetricsState): void {
+  const now = performance.now();
+  const elapsed = now - metrics.lastPhysicsTime;
+  if (elapsed >= PHYSICS_RATE_UPDATE_INTERVAL) {
+    try {
+      const physics = PhysicsWorldManager.getInstance();
+      const currentStepCount = physics.getStepCount();
+      const stepsDelta = currentStepCount - metrics.lastPhysicsStepCount;
+
+      // Handle physics reset (stepCount goes back to 0)
+      if (stepsDelta >= 0) {
+        metrics.physicsRate = (stepsDelta / elapsed) * 1000;
+      }
+      // On reset, keep previous rate until next valid measurement
+
+      metrics.lastPhysicsStepCount = currentStepCount;
+      metrics.lastPhysicsTime = now;
+    } catch {
+      metrics.physicsRate = 0;
+    }
+  }
+}
+
+function getInterpolationAlpha(): number {
+  try {
+    // Read the alpha that was captured during the game's render pass.
+    // This ensures we display the same alpha value that was used for
+    // actual entity interpolation, avoiding timing issues between
+    // the debug console's rAF loop and the game's rAF loop.
+    return PhysicsWorldManager.getInstance().getCapturedAlpha();
+  } catch {
+    return 0;
+  }
+}
+
+function getBodyCount(): number {
+  try {
+    return PhysicsWorldManager.getInstance().getAllBodyIds().length;
+  } catch {
+    return 0;
+  }
+}
+
+// ============================================================================
 // DOM Creation Helpers
 // ============================================================================
+
+const MIN_WIDTH = 400;
+const MIN_HEIGHT = 150;
+const MAX_WIDTH = 1200;
+const MAX_HEIGHT = 600;
 
 function createContainer(state: ConsoleState): HTMLDivElement {
   const container = document.createElement('div');
   container.id = 'debug-console';
-  const height = state.minimized ? HEADER_HEIGHT : DEFAULT_HEIGHT;
+  const height = state.minimized ? HEADER_HEIGHT : state.height;
+  // When minimized, disable min-height constraint so header-only height works
+  const minHeight = state.minimized ? HEADER_HEIGHT : MIN_HEIGHT;
   container.style.cssText = `
     position: fixed;
     left: ${String(state.x)}px;
     top: ${String(state.y)}px;
-    width: ${String(DEFAULT_WIDTH)}px;
+    width: ${String(state.width)}px;
     height: ${String(height)}px;
+    min-width: ${String(MIN_WIDTH)}px;
+    min-height: ${String(minHeight)}px;
+    max-width: ${String(MAX_WIDTH)}px;
+    max-height: ${String(MAX_HEIGHT)}px;
     background: rgba(17, 17, 17, 0.95);
     border: 1px solid #333;
     border-radius: 6px;
@@ -94,6 +229,7 @@ function createContainer(state: ConsoleState): HTMLDivElement {
     flex-direction: column;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     overflow: hidden;
+    resize: ${state.minimized ? 'none' : 'both'};
   `;
   return container;
 }
@@ -170,6 +306,249 @@ function createHeaderButton(
     onClick();
   };
   return button;
+}
+
+function createMainContent(): HTMLDivElement {
+  const main = document.createElement('div');
+  main.style.cssText = `
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  `;
+  return main;
+}
+
+function createPerfPanel(): HTMLDivElement {
+  const panel = document.createElement('div');
+  panel.style.cssText = `
+    min-width: ${String(PERF_PANEL_WIDTH)}px;
+    flex: 0 0 40%;
+    max-width: 50%;
+    border-right: 1px solid #333;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  `;
+  return panel;
+}
+
+// ============================================================================
+// Sparkline Chart
+// ============================================================================
+
+interface SparklineState {
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
+  values: number[];
+  minVal: number;
+  maxVal: number;
+  color: string;
+  maxSamples: number;
+}
+
+function createSparkline(color: string): SparklineState {
+  const canvas = document.createElement('canvas');
+  canvas.width = SPARKLINE_WIDTH * 2; // 2x for retina
+  canvas.height = SPARKLINE_HEIGHT * 2;
+  canvas.style.cssText = `
+    flex: 1;
+    min-width: ${String(SPARKLINE_WIDTH)}px;
+    height: ${String(SPARKLINE_HEIGHT)}px;
+    margin: 0 4px;
+  `;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    throw new Error('Failed to get 2d context');
+  }
+
+  return {
+    canvas,
+    ctx,
+    values: [],
+    minVal: 0,
+    maxVal: 1,
+    color,
+    maxSamples: SPARKLINE_SAMPLES,
+  };
+}
+
+function updateSparkline(
+  sparkline: SparklineState,
+  value: number,
+  minVal?: number,
+  maxVal?: number
+): void {
+  // Calculate max samples based on current canvas width (1 sample per 2 pixels)
+  const canvasWidth = sparkline.canvas.clientWidth;
+  sparkline.maxSamples = Math.max(
+    SPARKLINE_SAMPLES,
+    Math.floor(canvasWidth / 2)
+  );
+
+  sparkline.values.push(value);
+  while (sparkline.values.length > sparkline.maxSamples) {
+    sparkline.values.shift();
+  }
+
+  // Auto-scale or use provided range
+  if (minVal !== undefined && maxVal !== undefined) {
+    sparkline.minVal = minVal;
+    sparkline.maxVal = maxVal;
+  } else {
+    sparkline.minVal = Math.min(...sparkline.values);
+    sparkline.maxVal = Math.max(...sparkline.values);
+  }
+
+  // Add small padding to range
+  const range = sparkline.maxVal - sparkline.minVal;
+  if (range === 0) {
+    sparkline.minVal = value - 0.5;
+    sparkline.maxVal = value + 0.5;
+  }
+
+  drawSparkline(sparkline);
+}
+
+function drawSparkline(sparkline: SparklineState): void {
+  const { canvas, ctx, values, minVal, maxVal, color, maxSamples } = sparkline;
+
+  // Get actual display size and resize canvas buffer if needed
+  const displayWidth = canvas.clientWidth || SPARKLINE_WIDTH;
+  const displayHeight = canvas.clientHeight || SPARKLINE_HEIGHT;
+
+  // Resize canvas buffer to match display size (2x for retina)
+  const bufferWidth = displayWidth * 2;
+  const bufferHeight = displayHeight * 2;
+  if (canvas.width !== bufferWidth || canvas.height !== bufferHeight) {
+    canvas.width = bufferWidth;
+    canvas.height = bufferHeight;
+    ctx.scale(2, 2);
+  }
+
+  const w = displayWidth;
+  const h = displayHeight;
+
+  // Clear
+  ctx.clearRect(0, 0, w, h);
+
+  if (values.length < 2) return;
+
+  // Draw background grid line at middle
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 0.5;
+  ctx.beginPath();
+  ctx.moveTo(0, h / 2);
+  ctx.lineTo(w, h / 2);
+  ctx.stroke();
+
+  // Draw line
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+
+  const range = maxVal - minVal;
+  const xStep = w / (maxSamples - 1);
+
+  for (let i = 0; i < values.length; i++) {
+    const x = i * xStep;
+    const val = values[i] ?? 0;
+    const normalizedY = range > 0 ? (val - minVal) / range : 0.5;
+    const y = h - normalizedY * h; // Flip Y axis
+
+    if (i === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+
+  ctx.stroke();
+
+  // Draw current value dot
+  if (values.length > 0) {
+    const lastX = (values.length - 1) * xStep;
+    const lastVal = values[values.length - 1] ?? 0;
+    const normalizedY = range > 0 ? (lastVal - minVal) / range : 0.5;
+    const lastY = h - normalizedY * h;
+
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(lastX, lastY, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function createPerfRow(label: string): {
+  row: HTMLDivElement;
+  valueEl: HTMLSpanElement;
+} {
+  const row = document.createElement('div');
+  row.style.cssText = `
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 18px;
+  `;
+
+  const labelEl = document.createElement('span');
+  labelEl.textContent = label;
+  labelEl.style.cssText = 'color: #666; font-size: 10px;';
+
+  const valueEl = document.createElement('span');
+  valueEl.textContent = '--';
+  valueEl.style.cssText = `
+    color: #0f0;
+    font-size: 11px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  `;
+
+  row.appendChild(labelEl);
+  row.appendChild(valueEl);
+
+  return { row, valueEl };
+}
+
+function createPerfRowWithChart(
+  label: string,
+  chartColor: string
+): {
+  row: HTMLDivElement;
+  valueEl: HTMLSpanElement;
+  sparkline: SparklineState;
+} {
+  const row = document.createElement('div');
+  row.style.cssText = `
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 20px;
+  `;
+
+  const labelEl = document.createElement('span');
+  labelEl.textContent = label;
+  labelEl.style.cssText = 'color: #666; font-size: 10px; min-width: 40px;';
+
+  const sparkline = createSparkline(chartColor);
+
+  const valueEl = document.createElement('span');
+  valueEl.textContent = '--';
+  valueEl.style.cssText = `
+    color: ${chartColor};
+    font-size: 11px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    min-width: 55px;
+    text-align: right;
+  `;
+
+  row.appendChild(labelEl);
+  row.appendChild(sparkline.canvas);
+  row.appendChild(valueEl);
+
+  return { row, valueEl, sparkline };
 }
 
 function createLogArea(): HTMLDivElement {
@@ -259,7 +638,6 @@ function setupDragging(
   let dragOffsetX = 0;
   let dragOffsetY = 0;
 
-  // Helper to start drag
   const startDrag = (clientX: number, clientY: number): void => {
     isDragging = true;
     dragOffsetX = clientX - state.x;
@@ -267,13 +645,11 @@ function setupDragging(
     document.body.style.userSelect = 'none';
   };
 
-  // Helper to move during drag
   const moveDrag = (clientX: number, clientY: number): void => {
     if (!isDragging) return;
     const newX = clientX - dragOffsetX;
     const newY = clientY - dragOffsetY;
 
-    // Constrain to viewport
     const maxX = window.innerWidth - container.offsetWidth;
     const maxY = window.innerHeight - container.offsetHeight;
     state.x = Math.max(0, Math.min(newX, maxX));
@@ -283,7 +659,6 @@ function setupDragging(
     container.style.top = `${String(state.y)}px`;
   };
 
-  // Helper to end drag
   const endDrag = (): void => {
     if (isDragging) {
       isDragging = false;
@@ -292,7 +667,6 @@ function setupDragging(
     }
   };
 
-  // Mouse events (desktop)
   header.addEventListener('mousedown', (e: MouseEvent): void => {
     if ((e.target as HTMLElement).tagName === 'BUTTON') return;
     e.preventDefault();
@@ -305,7 +679,6 @@ function setupDragging(
 
   document.addEventListener('mouseup', endDrag);
 
-  // Touch events (mobile/device emulation)
   header.addEventListener(
     'touchstart',
     (e: TouchEvent): void => {
@@ -343,10 +716,8 @@ function setupKeyboardShortcut(
   state: ConsoleState
 ): void {
   document.addEventListener('keydown', (e) => {
-    // Backtick key toggles visibility
     if (e.key === '`' && !e.ctrlKey && !e.metaKey && !e.altKey) {
       const target = e.target as HTMLElement;
-      // Don't toggle if user is typing in an input/textarea
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
         return;
       }
@@ -377,13 +748,11 @@ function createLogDisplayManager(logArea: HTMLDivElement): LogDisplayManager {
       logArea.appendChild(line);
       logLines.push(line);
 
-      // Trim old logs
       while (logLines.length > MAX_DISPLAY_LOGS) {
         const oldLine = logLines.shift();
         oldLine?.remove();
       }
 
-      // Auto-scroll to bottom
       logArea.scrollTop = logArea.scrollHeight;
     },
 
@@ -404,13 +773,10 @@ function createLogDisplayManager(logArea: HTMLDivElement): LogDisplayManager {
 // ============================================================================
 
 function setupConsoleIntegration(logManager: LogDisplayManager): void {
-  // Initialize console capture first
   initConsoleCapture();
 
-  // Get original console for our own logging
   const original = getOriginalConsole();
 
-  // Now override again to also update the display
   const prevLog = console.log;
   const prevWarn = console.warn;
   const prevError = console.error;
@@ -433,7 +799,6 @@ function setupConsoleIntegration(logManager: LogDisplayManager): void {
     logManager.addLog('error', msg);
   };
 
-  // Log to original console that we're initialized
   original?.log('[DebugConsole] Initialized - Press ` to toggle');
 }
 
@@ -446,6 +811,88 @@ function safeStringify(obj: unknown): string {
   } catch {
     return Object.prototype.toString.call(obj);
   }
+}
+
+// ============================================================================
+// Performance Panel Interface
+// ============================================================================
+
+interface PerfRowWithChart {
+  row: HTMLDivElement;
+  valueEl: HTMLSpanElement;
+  sparkline: SparklineState;
+}
+
+interface PerfRowSimple {
+  row: HTMLDivElement;
+  valueEl: HTMLSpanElement;
+}
+
+interface PerfRows {
+  fps: PerfRowWithChart;
+  display: PerfRowSimple;
+  physics: PerfRowWithChart;
+  alpha: PerfRowWithChart;
+  bodies: PerfRowSimple;
+}
+
+function createPerfRows(): PerfRows {
+  return {
+    fps: createPerfRowWithChart('FPS', '#0f0'),
+    display: createPerfRow('Display'),
+    physics: createPerfRowWithChart('Physics', '#0af'),
+    alpha: createPerfRowWithChart('Alpha', '#fa0'),
+    bodies: createPerfRow('Bodies'),
+  };
+}
+
+function updatePerfDisplay(
+  rows: PerfRows,
+  metrics: MetricsState,
+  deltaMs: number
+): void {
+  const fps = calculateFPS(metrics, deltaMs);
+  const refreshRate = detectRefreshRate(metrics);
+  updatePhysicsRate(metrics);
+  const alpha = getInterpolationAlpha();
+  const bodies = getBodyCount();
+
+  // Record telemetry for diagnostic export
+  recordTelemetry({
+    fps,
+    physicsHz: metrics.physicsRate,
+    alpha,
+    bodies,
+    deltaMs,
+  });
+
+  // Track alpha min/max
+  updateAlphaStats(metrics, alpha);
+
+  // Update FPS with chart
+  rows.fps.valueEl.textContent = fps.toFixed(1);
+  const fpsColor = fps < 30 ? '#f66' : fps < 55 ? '#ff0' : '#0f0';
+  rows.fps.valueEl.style.color = fpsColor;
+  rows.fps.sparkline.color = fpsColor;
+  updateSparkline(rows.fps.sparkline, fps, 0, 144);
+
+  // Display rate (no chart)
+  rows.display.valueEl.textContent =
+    refreshRate > 0 ? String(refreshRate) + ' Hz' : '--';
+
+  // Physics rate with chart
+  rows.physics.valueEl.textContent =
+    metrics.physicsRate > 0 ? metrics.physicsRate.toFixed(1) + ' Hz' : '--';
+  updateSparkline(rows.physics.sparkline, metrics.physicsRate, 0, 80);
+
+  // Alpha with chart - show min-max range
+  const alphaRange =
+    metrics.alphaMin.toFixed(2) + '-' + metrics.alphaMax.toFixed(2);
+  rows.alpha.valueEl.textContent = alphaRange;
+  updateSparkline(rows.alpha.sparkline, alpha, 0, 1);
+
+  // Bodies count (no chart)
+  rows.bodies.valueEl.textContent = String(bodies);
 }
 
 // ============================================================================
@@ -465,14 +912,17 @@ function safeStringify(obj: unknown): string {
  * }
  */
 export function createDebugConsole(): HTMLDivElement {
-  // Load saved state
   const state = loadState();
+  const metrics = createMetricsState();
 
   // Create DOM structure
   const container = createContainer(state);
   const header = createHeader();
   const headerTitle = createHeaderTitle();
   const headerButtons = createHeaderButtons();
+  const mainContent = createMainContent();
+  const perfPanel = createPerfPanel();
+  const perfRows = createPerfRows();
   const logArea = createLogArea();
   const footer = createFooter();
 
@@ -485,11 +935,17 @@ export function createDebugConsole(): HTMLDivElement {
     'Minimize/Expand',
     () => {
       state.minimized = !state.minimized;
-      container.style.height = state.minimized
-        ? `${String(HEADER_HEIGHT)}px`
-        : `${String(DEFAULT_HEIGHT)}px`;
+      if (state.minimized) {
+        container.style.height = `${String(HEADER_HEIGHT)}px`;
+        container.style.minHeight = `${String(HEADER_HEIGHT)}px`;
+        container.style.resize = 'none';
+      } else {
+        container.style.height = `${String(state.height)}px`;
+        container.style.minHeight = `${String(MIN_HEIGHT)}px`;
+        container.style.resize = 'both';
+      }
       minimizeBtn.textContent = state.minimized ? '+' : '-';
-      logArea.style.display = state.minimized ? 'none' : 'block';
+      mainContent.style.display = state.minimized ? 'none' : 'flex';
       footer.style.display = state.minimized ? 'none' : 'flex';
       saveState(state);
     }
@@ -522,11 +978,22 @@ export function createDebugConsole(): HTMLDivElement {
     showBugReportModal();
   });
 
+  // Assemble perf panel
+  perfPanel.appendChild(perfRows.fps.row);
+  perfPanel.appendChild(perfRows.display.row);
+  perfPanel.appendChild(perfRows.physics.row);
+  perfPanel.appendChild(perfRows.alpha.row);
+  perfPanel.appendChild(perfRows.bodies.row);
+
   // Assemble header
   headerButtons.appendChild(minimizeBtn);
   headerButtons.appendChild(closeBtn);
   header.appendChild(headerTitle);
   header.appendChild(headerButtons);
+
+  // Assemble main content
+  mainContent.appendChild(perfPanel);
+  mainContent.appendChild(logArea);
 
   // Assemble footer
   footer.appendChild(copyBtn);
@@ -535,12 +1002,12 @@ export function createDebugConsole(): HTMLDivElement {
 
   // Assemble container
   container.appendChild(header);
-  container.appendChild(logArea);
+  container.appendChild(mainContent);
   container.appendChild(footer);
 
   // Apply minimized state
   if (state.minimized) {
-    logArea.style.display = 'none';
+    mainContent.style.display = 'none';
     footer.style.display = 'none';
   }
 
@@ -548,6 +1015,39 @@ export function createDebugConsole(): HTMLDivElement {
   setupDragging(container, header, state);
   setupKeyboardShortcut(container, state);
   setupConsoleIntegration(logManager);
+
+  // Track resize and save dimensions
+  let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
+  const resizeObserver = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      if (!state.minimized) {
+        state.width = entry.contentRect.width;
+        state.height = entry.contentRect.height;
+
+        // Debounce save to localStorage
+        if (resizeTimeout) clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          saveState(state);
+        }, 200);
+      }
+    }
+  });
+  resizeObserver.observe(container);
+
+  // Performance update loop
+  function updateLoop(): void {
+    const now = performance.now();
+    const deltaMs = now - metrics.lastTime;
+    metrics.lastTime = now;
+
+    if (state.visible && !state.minimized) {
+      updatePerfDisplay(perfRows, metrics, deltaMs);
+    }
+
+    requestAnimationFrame(updateLoop);
+  }
+
+  requestAnimationFrame(updateLoop);
 
   return container;
 }

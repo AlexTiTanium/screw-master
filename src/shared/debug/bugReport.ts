@@ -21,6 +21,7 @@
 import type { RecordedAction } from './types';
 import { getCapturedLogs, type CapturedLog } from './consoleCapture';
 import { getRecordedActions } from './harness/actionDsl';
+import { getTelemetryExport } from './telemetry';
 
 /**
  * Snapshot of a display object from the PixiJS render tree.
@@ -73,6 +74,64 @@ export interface RenderState {
   sceneState: 'running' | 'paused' | 'stopped' | 'unknown';
 }
 
+/** Statistics for a metric */
+interface MetricStats {
+  min: number;
+  max: number;
+  avg: number;
+  median: number;
+  stdDev: number;
+  p95: number;
+  p99: number;
+}
+
+/** Alpha distribution buckets */
+interface AlphaDistribution {
+  /** Count of samples with alpha in [0, 0.1) */
+  low: number;
+  /** Count of samples with alpha in [0.1, 0.5) - expected for 120Hz/60Hz */
+  normal: number;
+  /** Count of samples with alpha in [0.5, 0.7) - borderline */
+  high: number;
+  /** Count of samples with alpha >= 0.7 - indicates timing issues */
+  veryHigh: number;
+}
+
+/** Frame timing analysis */
+interface FrameTimingAnalysis {
+  /** Stats for frame delta times */
+  deltaMs: MetricStats;
+  /** Count of frames that took longer than expected (>10ms at 120Hz) */
+  droppedFrames: number;
+  /** Count of frames that were significantly delayed (>20ms) */
+  majorStalls: number;
+}
+
+/**
+ * Performance telemetry data.
+ */
+export interface TelemetryData {
+  version: number;
+  captureStart: string;
+  duration: number;
+  sampleCount: number;
+  summary: {
+    fps: MetricStats;
+    alpha: MetricStats;
+    physicsHz: MetricStats;
+  };
+  alphaDistribution: AlphaDistribution;
+  frameTiming: FrameTimingAnalysis;
+  samples: {
+    t: number;
+    fps: number;
+    physicsHz: number;
+    alpha: number;
+    bodies: number;
+    deltaMs: number;
+  }[];
+}
+
 /**
  * Complete bug report data structure.
  */
@@ -91,6 +150,8 @@ export interface BugReport {
   consoleLogs: CapturedLog[];
   /** Recorded user actions */
   userActions: RecordedAction[];
+  /** Performance telemetry history */
+  telemetry: TelemetryData;
 }
 
 /**
@@ -352,6 +413,9 @@ export async function collectBugReport(
   // Get recorded user actions
   const userActions = getRecordedActions();
 
+  // Get telemetry data
+  const telemetry = getTelemetryExport();
+
   // Resume the game
   await window.__gameTest?.act({ type: 'resume' });
 
@@ -362,6 +426,7 @@ export async function collectBugReport(
     gameState,
     consoleLogs,
     userActions,
+    telemetry,
   };
 
   // Only add description if provided

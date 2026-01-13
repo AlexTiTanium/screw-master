@@ -127,12 +127,14 @@ export class PhysicsSystem extends BaseSystem {
    * // Called automatically by ODIE each frame
    */
   update(time: Time): void {
+    // ODIE's time.deltaTime is in milliseconds
     this.physicsManager.step(time.deltaTime);
 
     // Disable interpolation in test mode for determinism
+    // Use captureAlphaForDebug() to sync debug console display with actual render
     const alpha = isTestMode()
       ? 1.0
-      : this.physicsManager.getInterpolationAlpha();
+      : this.physicsManager.captureAlphaForDebug();
 
     this.forEachEntity('physicsBodies', (baseEntity) => {
       this.syncEntityPhysics(asEntity2D(baseEntity), alpha);

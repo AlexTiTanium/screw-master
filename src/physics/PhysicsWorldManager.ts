@@ -71,6 +71,9 @@ export class PhysicsWorldManager {
   private nextBodyId = 0;
   private accumulator = 0;
   private paused = false;
+  private stepCount = 0;
+  /** Last alpha value captured during render (for debug display). */
+  private lastCapturedAlpha = 0;
 
   private constructor() {
     // Create world with gravity (negative Y because Planck uses standard coordinates)
@@ -231,6 +234,14 @@ export class PhysicsWorldManager {
   /**
    * Step the physics simulation with fixed timestep accumulator.
    *
+   * Uses standard fixed timestep pattern: accumulate frame time, step physics
+   * when enough time has accumulated, subtract fixedTimestep per step.
+   *
+   * For 60Hz physics on a 120Hz display:
+   * - Each frame adds ~8.33ms to accumulator
+   * - After 2 frames (~16.67ms), accumulator >= fixedTimestep, physics steps
+   * - Alpha oscillates between 0.0 and ~0.5 (sawtooth pattern)
+   *
    * @param deltaMs - Time elapsed in milliseconds
    * @example
    * physics.step(16.67); // ~60fps
@@ -238,8 +249,11 @@ export class PhysicsWorldManager {
   step(deltaMs: number): void {
     if (this.paused) return;
 
-    this.accumulator += deltaMs;
+    // Cap deltaMs to prevent spiral of death on large frame deltas (e.g., page load, tab switch)
+    const cappedDelta = Math.min(deltaMs, PHYSICS_CONFIG.fixedTimestep * 4);
+    this.accumulator += cappedDelta;
 
+    // Standard fixed timestep loop - step when we have enough accumulated time
     while (this.accumulator >= PHYSICS_CONFIG.fixedTimestep) {
       // Capture state BEFORE stepping (this becomes the interpolation start point)
       this.capturePrevSnapshots();
@@ -250,6 +264,7 @@ export class PhysicsWorldManager {
         PHYSICS_CONFIG.positionIterations
       );
 
+      this.stepCount++;
       this.accumulator -= PHYSICS_CONFIG.fixedTimestep;
     }
   }
@@ -327,13 +342,54 @@ export class PhysicsWorldManager {
    *
    * Alpha ranges from 0.0 (previous physics state) to ~1.0 (current state).
    * Calculated from accumulator: how far between physics steps we are.
+   * Clamped to [0, 1] to handle edge cases like large frame deltas on load.
    *
-   * @returns Alpha value in [0, 1)
+   * @returns Alpha value in [0, 1]
    * @example
    * const alpha = physics.getInterpolationAlpha(); // 0.5 means halfway between steps
    */
   getInterpolationAlpha(): number {
-    return this.accumulator / PHYSICS_CONFIG.fixedTimestep;
+    const alpha = this.accumulator / PHYSICS_CONFIG.fixedTimestep;
+    return Math.max(0, Math.min(1, alpha));
+  }
+
+  /**
+   * Get total physics step count since start (for monitoring).
+   *
+   * @returns Total number of physics steps executed
+   * @example
+   * const steps = physics.getStepCount();
+   */
+  getStepCount(): number {
+    return this.stepCount;
+  }
+
+  /**
+   * Capture current alpha value for debug display.
+   * Should be called once per frame from the game's render loop,
+   * ensuring the debug console shows the correct synchronized value.
+   *
+   * @returns The captured alpha value
+   * @example
+   * // In PhysicsSystem.update()
+   * const alpha = physics.captureAlphaForDebug();
+   */
+  captureAlphaForDebug(): number {
+    this.lastCapturedAlpha = this.getInterpolationAlpha();
+    return this.lastCapturedAlpha;
+  }
+
+  /**
+   * Get the last captured alpha value (for debug console).
+   * This returns the alpha from when the game last rendered,
+   * not the current accumulator state.
+   *
+   * @returns Last captured alpha value in [0, 1]
+   * @example
+   * const alpha = physics.getCapturedAlpha();
+   */
+  getCapturedAlpha(): number {
+    return this.lastCapturedAlpha;
   }
 
   /**
@@ -478,6 +534,7 @@ export class PhysicsWorldManager {
     this.prevSnapshots.clear();
     this.nextBodyId = 0;
     this.accumulator = 0;
+    this.stepCount = 0;
     this.paused = false;
   }
 

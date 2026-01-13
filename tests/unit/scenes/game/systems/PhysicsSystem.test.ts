@@ -216,6 +216,7 @@ describe('PhysicsSystem', () => {
 
       system.init();
 
+      // ODIE's time.deltaTime is in milliseconds
       const time = { deltaTime: 16 } as Time; // ~60fps (16ms)
       system.update(time);
 
