@@ -1,4 +1,5 @@
-import type { Entity } from '@play-co/odie';
+import type { Entity, Entity2D } from '@play-co/odie';
+import type { Container, Sprite } from 'pixi.js';
 import { ScrewColor } from '@shared/types';
 
 /**
@@ -76,3 +77,58 @@ export const REMOVAL_ARC_HEIGHT = 130;
 
 /** Arc height offset for transfer bezier control point. */
 export const TRANSFER_ARC_HEIGHT = 80;
+
+/**
+ * Component access type for screw entities.
+ */
+export interface ScrewComponentData {
+  color: ScrewColor;
+  state: string;
+  trayEntityId?: string;
+  slotIndex?: number;
+  isAnimating: boolean;
+}
+
+/**
+ * Component access type for tray entities.
+ */
+export interface TrayComponentData {
+  color: ScrewColor;
+  capacity: number;
+  displayOrder: number;
+  isAnimating: boolean;
+}
+
+/**
+ * Context provided to animator classes for accessing system resources.
+ */
+export interface AnimatorContext {
+  /** Set of active GSAP timelines for cleanup tracking */
+  activeTimelines: Set<GSAPTimeline>;
+  /** Get screws currently in a specific tray by UID */
+  getScrewsInTray: (trayUID: string) => Entity[];
+  /** Get typed component access for an entity */
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
+  getComponents: <T>(entity: Entity) => T;
+  /** Get animation layer container */
+  getAnimationLayer: () => Container | null;
+  /** Get colored tray layer container */
+  getColoredTrayLayer: () => Container | null;
+  /** Get visual sprite for an entity */
+  getGameVisual: (entity: Entity2D) => Sprite | null;
+  /** Get tray slot placeholders */
+  getTrayPlaceholders: (entity: Entity2D) => Sprite[] | null;
+  /** Get target position based on tray's displayOrder */
+  getTraySlotTargetPosition: (
+    displayOrder: number,
+    slotIndex: number,
+    capacity: number
+  ) => { x: number; y: number };
+  /** Get slot position from tray entity position */
+  getTraySlotPosition: (
+    trayEntity: Entity2D,
+    slotIndex: number,
+    isBuffer: boolean,
+    capacity?: number
+  ) => { x: number; y: number };
+}

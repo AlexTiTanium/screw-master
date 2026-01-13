@@ -1,5 +1,5 @@
 import type { Entity, Entity2D, Time } from '@play-co/odie';
-import { Assets, type Sprite, type Texture } from 'pixi.js';
+import type { Sprite } from 'pixi.js';
 import gsap from 'gsap';
 import { BaseSystem } from './BaseSystem';
 import { ScrewComponent } from '../components';
@@ -8,9 +8,6 @@ import {
   getTraySlotPosition,
   getTraySlotTargetPosition,
   gameEvents,
-  gameTick,
-  TRAY_DISPLAY_POSITIONS,
-  TRAY_SPAWN_X,
   getAnimationLayer,
   getColoredTrayLayer,
 } from '../utils';
@@ -20,20 +17,16 @@ import type {
   TrayShiftEvent,
   TrayRevealEvent,
 } from './TrayManagementSystem';
-import type { ScrewComponentAccess, TrayComponentAccess } from '../types';
-import type { ScrewColor } from '@shared/types';
+import type { ScrewComponentAccess } from '../types';
 import {
-  type FlightParams,
+  type AnimatorContext,
   type ScrewTransferEvent,
-  LONG_SCREW_ASSET_MAP,
-  TRAY_SLOT_SCALE,
-  BUFFER_SLOT_SCALE,
-  POP_OUT_SCALE,
-  POP_OUT_HEIGHT,
-  REMOVAL_ARC_HEIGHT,
-  TRANSFER_ARC_HEIGHT,
+  ScrewRemovalAnimator,
+  ScrewTransferAnimator,
+  TrayHideAnimator,
+  TrayShiftAnimator,
+  TrayRevealAnimator,
 } from './animation';
-import { bezierPosition } from './animation';
 
 // Re-export types for external use
 export type {
@@ -43,24 +36,32 @@ export type {
 } from './animation';
 
 /**
- * System for handling screw animations.
+ * System for coordinating all game animations.
  *
- * This system listens for removal and transfer events and animates
- * screws using GSAP tweens.
+ * This system acts as a coordinator that delegates animation work to
+ * specialized animator classes. It manages the shared resources (timeline
+ * tracking, layer access) and event listener registration.
  *
- * Animation sequence for removal:
- * 1. Unscrew phase (0.4s): Rotate 720 degrees + scale up
- * 2. Swap texture: Short screw to long screw
- * 3. Flight phase (0.5s): Arc trajectory to target tray
- * 4. Settle phase (0.1s): Bounce effect
+ * Animation types:
+ * - Screw removal: Unscrew and fly to target tray
+ * - Screw transfer: Move from buffer to colored tray
+ * - Tray hide: Scale down and disappear when full
+ * - Tray shift: Slide left when another tray hides
+ * - Tray reveal: Slide in from right to replace hidden tray
  *
  * Listens for:
  * - `screw:startRemoval` - Begin removal animation
- * - `screw:startTransfer` - Begin transfer animation (buffer to tray)
+ * - `screw:startTransfer` - Begin transfer animation
+ * - `tray:startHide` - Begin tray hide animation
+ * - `tray:startShift` - Begin tray shift animation
+ * - `tray:startReveal` - Begin tray reveal animation
  *
- * Emits:
- * - `screw:removalComplete` - When removal animation finishes
- * - `screw:transferComplete` - When transfer animation finishes
+ * Emits (via animators):
+ * - `screw:removalComplete`
+ * - `screw:transferComplete`
+ * - `tray:hideComplete`
+ * - `tray:shiftComplete`
+ * - `tray:revealComplete`
  */
 export class AnimationSystem extends BaseSystem {
   static readonly NAME = 'animation';
@@ -71,58 +72,59 @@ export class AnimationSystem extends BaseSystem {
   /** Active GSAP timelines for cleanup */
   private activeTimelines = new Set<gsap.core.Timeline>();
 
-  /**
-   * Bound handler for screw:startRemoval event.
-   * @internal
-   * @param event - The removal event data
-   */
+  /** Screw removal animator */
+  private screwRemoval!: ScrewRemovalAnimator;
+
+  /** Screw transfer animator */
+  private screwTransfer!: ScrewTransferAnimator;
+
+  /** Tray hide animator */
+  private trayHide!: TrayHideAnimator;
+
+  /** Tray shift animator */
+  private trayShift!: TrayShiftAnimator;
+
+  /** Tray reveal animator */
+  private trayReveal!: TrayRevealAnimator;
+
+  // Bound event handlers
   private handleRemovalEvent = (event: ScrewRemovalEvent): void => {
-    void this.handleRemoval(event);
+    void this.screwRemoval.handle(event);
   };
 
-  /**
-   * Bound handler for screw:startTransfer event.
-   * @internal
-   * @param event - The transfer event data
-   */
   private handleTransferEvent = (event: ScrewTransferEvent): void => {
-    void this.handleTransfer(event);
+    void this.screwTransfer.handle(event);
   };
 
-  /**
-   * Bound handler for tray:startHide event.
-   * @internal
-   * @param event - The hide event data
-   */
   private handleTrayHideEvent = (event: TrayHideEvent): void => {
-    void this.handleTrayHide(event);
+    void this.trayHide.handle(event);
   };
 
-  /**
-   * Bound handler for tray:startShift event.
-   * @internal
-   * @param event - The shift event data
-   */
   private handleTrayShiftEvent = (event: TrayShiftEvent): void => {
-    void this.handleTrayShift(event);
+    void this.trayShift.handle(event);
   };
 
-  /**
-   * Bound handler for tray:startReveal event.
-   * @internal
-   * @param event - The reveal event data
-   */
   private handleTrayRevealEvent = (event: TrayRevealEvent): void => {
-    void this.handleTrayReveal(event);
+    void this.trayReveal.handle(event);
   };
 
   /**
-   * Initialize event listeners.
+   * Initialize animators and event listeners.
    * @example
    * system.init(); // Called automatically by ECS
    */
   init(): void {
-    // Screw animation events
+    // Create animator context with shared resources
+    const ctx = this.createAnimatorContext();
+
+    // Initialize all animators
+    this.screwRemoval = new ScrewRemovalAnimator(ctx);
+    this.screwTransfer = new ScrewTransferAnimator(ctx);
+    this.trayHide = new TrayHideAnimator(ctx);
+    this.trayShift = new TrayShiftAnimator(ctx);
+    this.trayReveal = new TrayRevealAnimator(ctx);
+
+    // Register event listeners
     gameEvents.on<ScrewRemovalEvent>(
       'screw:startRemoval',
       this.handleRemovalEvent
@@ -131,8 +133,6 @@ export class AnimationSystem extends BaseSystem {
       'screw:startTransfer',
       this.handleTransferEvent
     );
-
-    // Tray animation events
     gameEvents.on<TrayHideEvent>('tray:startHide', this.handleTrayHideEvent);
     gameEvents.on<TrayShiftEvent>('tray:startShift', this.handleTrayShiftEvent);
     gameEvents.on<TrayRevealEvent>(
@@ -142,502 +142,31 @@ export class AnimationSystem extends BaseSystem {
   }
 
   /**
-   * Handle screw removal animation.
-   * @param event - The removal event data
+   * Create the animator context with shared resources.
+   * @returns Context object for animators
    * @example
-   * // Triggered by screw:startRemoval event
-   * gameEvents.emit('screw:startRemoval', { screwEntity, targetTray, slotIndex: 0, isBuffer: false });
    */
-  private async handleRemoval(event: ScrewRemovalEvent): Promise<void> {
-    const { screwEntity, targetTray, slotIndex, isBuffer } = event;
-    const screwEntity2D = screwEntity as Entity2D;
-    const visual = getGameVisual(screwEntity2D);
-
-    // Disable pointer events during animation to prevent intercepting clicks for other screws
-    screwEntity2D.view.eventMode = 'none';
-
-    if (!visual) {
-      this.completeRemoval(screwEntity, isBuffer, targetTray, slotIndex);
-      return;
-    }
-
-    await this.animateRemoval(screwEntity2D, visual as Sprite, event);
-    this.completeRemoval(screwEntity, isBuffer, targetTray, slotIndex);
-  }
-
-  /**
-   * Setup animation timeline and move entity to animation layer.
-   * @param entity - The entity to animate
-   * @returns GSAP timeline
-   * @example
-   * const timeline = this.setupAnimationTimeline(entity);
-   */
-  private setupAnimationTimeline(entity: Entity2D): gsap.core.Timeline {
-    const timeline = gsap.timeline();
-    this.activeTimelines.add(timeline);
-
-    const animationLayer = getAnimationLayer();
-    if (animationLayer) {
-      animationLayer.addChild(entity.view);
-    }
-
-    return timeline;
-  }
-
-  /**
-   * Perform the removal animation sequence.
-   * @param entity - The screw entity
-   * @param sprite - The sprite visual
-   * @param event - The removal event data
-   * @example
-   * // Called internally by handleRemoval
-   * await this.animateRemoval(entity, sprite, event);
-   */
-  private async animateRemoval(
-    entity: Entity2D,
-    sprite: Sprite,
-    event: ScrewRemovalEvent
-  ): Promise<void> {
-    const timeline = this.setupAnimationTimeline(entity);
-
-    try {
-      await this.executeRemovalAnimation(entity, sprite, event, timeline);
-    } finally {
-      this.activeTimelines.delete(timeline);
-    }
-  }
-
-  /**
-   * Execute the removal animation phases.
-   * @param entity - The screw entity
-   * @param sprite - The sprite visual
-   * @param event - The removal event data
-   * @param timeline - GSAP timeline
-   * @example
-   * // Called internally by animateRemoval
-   * await this.executeRemovalAnimation(entity, sprite, event, timeline);
-   */
-  private async executeRemovalAnimation(
-    entity: Entity2D,
-    sprite: Sprite,
-    event: ScrewRemovalEvent,
-    timeline: gsap.core.Timeline
-  ): Promise<void> {
-    const { targetTray, slotIndex, isBuffer } = event;
-    const screw = this.getComponents<ScrewComponentAccess>(entity).screw;
-    await this.swapToLongScrew(sprite, screw.color);
-
-    const startPos = { x: entity.position.x, y: entity.position.y };
-    // For colored trays, use displayOrder-based target to handle tray shifts during flight
-    // For buffer trays, use current tray position (buffer doesn't shift)
-    const targetPos = isBuffer
-      ? this.getSlotTargetPosition(targetTray, slotIndex, isBuffer)
-      : this.getColoredTrayTargetPosition(targetTray, slotIndex);
-
-    const endScale = isBuffer ? BUFFER_SLOT_SCALE : TRAY_SLOT_SCALE;
-    const params = this.createFlightParams(
-      startPos,
-      targetPos,
-      endScale,
-      REMOVAL_ARC_HEIGHT
-    );
-
-    await this.animateFlight(timeline, entity, sprite, params, 0.45);
-    await this.animateSettle(timeline, sprite, endScale);
-  }
-
-  /**
-   * Get target position for colored tray using displayOrder.
-   * This ensures correct targeting even if tray shifts during animation.
-   * @param targetTray - The target tray entity
-   * @param slotIndex - The slot index
-   * @returns The target position based on displayOrder
-   */
-  private getColoredTrayTargetPosition(
-    targetTray: Entity,
-    slotIndex: number
-  ): { x: number; y: number } {
-    const tray = this.getComponents<TrayComponentAccess>(targetTray).tray;
-    return getTraySlotTargetPosition(
-      tray.displayOrder,
-      slotIndex,
-      tray.capacity
-    );
-  }
-
-  /**
-   * Get the target position for a slot in a tray.
-   * @param targetTray - The target tray entity
-   * @param slotIndex - The slot index
-   * @param isBuffer - Whether this is a buffer tray
-   * @returns The target position
-   * @example
-   * const pos = this.getSlotTargetPosition(tray, 0, false);
-   */
-  private getSlotTargetPosition(
-    targetTray: Entity,
-    slotIndex: number,
-    isBuffer: boolean
-  ): { x: number; y: number } {
-    const trayCapacity = isBuffer
-      ? undefined
-      : this.getComponents<TrayComponentAccess>(targetTray).tray.capacity;
-    return getTraySlotPosition(
-      targetTray as Entity2D,
-      slotIndex,
-      isBuffer,
-      trayCapacity
-    );
-  }
-
-  /**
-   * Swap screw texture to long screw variant.
-   * @param sprite - The sprite to update
-   * @param color - Screw color for texture lookup
-   * @example
-   * await this.swapToLongScrew(sprite, ScrewColor.Red);
-   */
-  private async swapToLongScrew(
-    sprite: Sprite,
-    color: ScrewColor
-  ): Promise<void> {
-    sprite.scale.set(POP_OUT_SCALE);
-    const longTexture = await Assets.load<Texture>(LONG_SCREW_ASSET_MAP[color]);
-    sprite.texture = longTexture;
-  }
-
-  /**
-   * Create flight parameters for bezier animation.
-   * @param start - Start position with x and y coordinates
-   * @param start.x - Start X coordinate
-   * @param start.y - Start Y coordinate
-   * @param end - End position with x and y coordinates
-   * @param end.x - End X coordinate
-   * @param end.y - End Y coordinate
-   * @param endScale - Target scale
-   * @param arcHeight - Arc height offset
-   * @returns Flight parameters
-   * @example
-   * const params = this.createFlightParams({ x: 0, y: 0 }, { x: 100, y: 100 }, 0.5, 130);
-   */
-  private createFlightParams(
-    start: { x: number; y: number },
-    end: { x: number; y: number },
-    endScale: number,
-    arcHeight: number
-  ): FlightParams {
-    const flightStartY = start.y - POP_OUT_HEIGHT;
+  private createAnimatorContext(): AnimatorContext {
     return {
-      startX: start.x,
-      startY: flightStartY,
-      controlX: (start.x + end.x) / 2,
-      controlY: Math.min(flightStartY, end.y) - arcHeight,
-      endX: end.x,
-      endY: end.y,
-      startScale: POP_OUT_SCALE,
-      endScale,
+      activeTimelines: this.activeTimelines,
+      getScrewsInTray: (trayUID) => this.getScrewsInTray(trayUID),
+      getComponents: (entity) => this.getComponents(entity),
+      getAnimationLayer: () => getAnimationLayer(),
+      getColoredTrayLayer: () => getColoredTrayLayer(),
+      getGameVisual: (entity) => getGameVisual(entity) as Sprite | null,
+      getTrayPlaceholders: (entity) => getTrayPlaceholders(entity) ?? null,
+      getTraySlotTargetPosition: (displayOrder, slotIndex, capacity) =>
+        getTraySlotTargetPosition(displayOrder, slotIndex, capacity),
+      getTraySlotPosition: (trayEntity, slotIndex, isBuffer, capacity) =>
+        getTraySlotPosition(trayEntity, slotIndex, isBuffer, capacity),
     };
   }
-
-  /**
-   * Animate flight along bezier curve with scale interpolation.
-   * @param timeline - GSAP timeline
-   * @param entity - The entity to animate
-   * @param sprite - The sprite visual
-   * @param params - Flight parameters
-   * @param duration - Animation duration in seconds
-   * @example
-   * await this.animateFlight(timeline, entity, sprite, params, 0.45);
-   */
-  private async animateFlight(
-    timeline: gsap.core.Timeline,
-    entity: Entity2D,
-    sprite: Sprite,
-    params: FlightParams,
-    duration: number
-  ): Promise<void> {
-    const progress = { t: 0 };
-    const updatePosition = (): void => {
-      this.updateFlightPosition(progress.t, entity, sprite, params);
-    };
-    await timeline.to(progress, {
-      t: 1,
-      duration,
-      ease: 'power2.inOut',
-      onUpdate: updatePosition,
-    });
-  }
-
-  /**
-   * Update entity position and scale during flight animation.
-   * @param t - Animation progress (0-1)
-   * @param entity - The entity to move
-   * @param sprite - The sprite to scale
-   * @param params - Flight parameters
-   * @example
-   * this.updateFlightPosition(0.5, entity, sprite, params);
-   */
-  private updateFlightPosition(
-    t: number,
-    entity: Entity2D,
-    sprite: Sprite,
-    params: FlightParams
-  ): void {
-    entity.position.x = bezierPosition(
-      t,
-      params.startX,
-      params.controlX,
-      params.endX
-    );
-    entity.position.y = bezierPosition(
-      t,
-      params.startY,
-      params.controlY,
-      params.endY
-    );
-    sprite.scale.set(
-      params.startScale + (params.endScale - params.startScale) * t
-    );
-  }
-
-  /**
-   * Animate settle bounce at end of flight.
-   * @param timeline - GSAP timeline
-   * @param sprite - The sprite visual
-   * @param scale - Target scale
-   * @example
-   * await this.animateSettle(timeline, sprite, 0.5);
-   */
-  private async animateSettle(
-    timeline: gsap.core.Timeline,
-    sprite: Sprite,
-    scale: number
-  ): Promise<void> {
-    await timeline.to(sprite.scale, {
-      x: scale,
-      y: scale,
-      duration: 0.1,
-      ease: 'bounce.out',
-    });
-  }
-
-  /**
-   * Complete the removal and emit event.
-   * @param screwEntity - The screw entity
-   * @param isBuffer - Whether the target is a buffer tray
-   * @param targetTray - The target tray entity (optional, for placeholder hiding)
-   * @param slotIndex - The slot index (optional, for placeholder hiding)
-   * @example
-   * this.completeRemoval(screwEntity, false, tray, 0);
-   */
-  private completeRemoval(
-    screwEntity: Entity,
-    isBuffer: boolean,
-    targetTray?: Entity,
-    slotIndex?: number
-  ): void {
-    const screw = this.getComponents<ScrewComponentAccess>(screwEntity).screw;
-    screw.state = isBuffer ? 'inBuffer' : 'inTray';
-    screw.isAnimating = false;
-
-    const screwEntity2D = screwEntity as Entity2D;
-    if (!isBuffer) {
-      // Colored tray: move to layer and snap to final position
-      const coloredTrayLayer = getColoredTrayLayer();
-      if (coloredTrayLayer) {
-        coloredTrayLayer.addChild(screwEntity2D.view);
-      }
-      if (targetTray && slotIndex !== undefined) {
-        this.checkScrewPosition(screwEntity2D, targetTray, slotIndex);
-        this.hidePlaceholder(targetTray as Entity2D, slotIndex);
-      }
-    }
-    // Buffer tray: leave in animation layer (above uiLayer)
-
-    gameEvents.emit('screw:removalComplete', { screwEntity });
-  }
-
-  /**
-   * Check if screw position matches expected slot position.
-   * Logs warning if mismatch detected - this indicates a bug that should be fixed.
-   * Does NOT move the screw - the animation should have landed it correctly.
-   * @param screwEntity - The screw entity
-   * @param targetTray - The target tray entity
-   * @param slotIndex - The slot index
-   * @example
-   * this.checkScrewPosition(screw, tray, 0);
-   */
-  private checkScrewPosition(
-    screwEntity: Entity2D,
-    targetTray: Entity,
-    slotIndex: number
-  ): void {
-    const screw = this.getComponents<ScrewComponentAccess>(screwEntity).screw;
-    const tray = this.getComponents<TrayComponentAccess>(targetTray).tray;
-    const expected = getTraySlotTargetPosition(
-      tray.displayOrder,
-      slotIndex,
-      tray.capacity
-    );
-    const dX = Math.abs(screwEntity.position.x - expected.x);
-    const dY = Math.abs(screwEntity.position.y - expected.y);
-
-    if (dX > 0.5 || dY > 0.5) {
-      // Position mismatch - this is a BUG, log for investigation
-      gameTick.warn(
-        'POSITION_MISMATCH',
-        `${screw.color} screw at (${screwEntity.position.x.toFixed(1)}, ${screwEntity.position.y.toFixed(1)}) ` +
-          `expected (${String(expected.x)}, ${String(expected.y)}) ` +
-          `delta=(${dX.toFixed(1)}, ${dY.toFixed(1)}) ` +
-          `tray.displayOrder=${String(tray.displayOrder)} tray.isAnimating=${String(tray.isAnimating)}`
-      );
-    }
-  }
-
-  /**
-   * Handle screw transfer animation (buffer to colored tray).
-   * @param event - The removal event data
-   * @example
-   * // Triggered by screw:startTransfer event
-   * gameEvents.emit('screw:startTransfer', { screwEntity, targetTray, slotIndex: 0 });
-   */
-  private async handleTransfer(event: ScrewTransferEvent): Promise<void> {
-    const { screwEntity, targetTray, slotIndex } = event;
-    const screwEntity2D = screwEntity as Entity2D;
-    const visual = getGameVisual(screwEntity2D);
-
-    // Disable pointer events during animation to prevent intercepting clicks for other screws
-    screwEntity2D.view.eventMode = 'none';
-
-    if (!visual) {
-      this.completeTransfer(screwEntity, targetTray, slotIndex);
-      return;
-    }
-
-    const sprite = visual as Sprite;
-    const timeline = this.setupAnimationTimeline(screwEntity2D);
-
-    try {
-      await this.executeTransferAnimation(
-        screwEntity2D,
-        sprite,
-        event,
-        timeline
-      );
-    } finally {
-      this.activeTimelines.delete(timeline);
-    }
-
-    this.completeTransfer(screwEntity, targetTray, slotIndex);
-  }
-
-  /**
-   * Execute the transfer animation phases.
-   * @param entity - The screw entity
-   * @param sprite - The sprite visual
-   * @param event - The transfer event data
-   * @param timeline - GSAP timeline
-   * @example
-   * // Called internally by handleTransfer
-   * await this.executeTransferAnimation(entity, sprite, event, timeline);
-   */
-  private async executeTransferAnimation(
-    entity: Entity2D,
-    sprite: Sprite,
-    event: ScrewTransferEvent,
-    timeline: gsap.core.Timeline
-  ): Promise<void> {
-    const { targetTray, slotIndex } = event;
-    const startPos = { x: entity.position.x, y: entity.position.y };
-    // Use getTraySlotTargetPosition to get the FINAL position based on displayOrder
-    // This ensures correct targeting even when tray is mid-animation/shifting
-    const tray = this.getComponents<TrayComponentAccess>(targetTray).tray;
-    const targetPos = getTraySlotTargetPosition(
-      tray.displayOrder,
-      slotIndex,
-      tray.capacity
-    );
-    const params = this.createTransferFlightParams(startPos, targetPos);
-
-    // Transfer animation: 1.5x faster than removal (0.4 / 1.5 ≈ 0.27s)
-    await this.animateFlight(timeline, entity, sprite, params, 0.27);
-    await this.animateSettle(timeline, sprite, TRAY_SLOT_SCALE);
-  }
-
-  /**
-   * Create flight parameters for transfer animation (no pop-out).
-   * @param start - Start position with x and y coordinates
-   * @param start.x - Start X coordinate
-   * @param start.y - Start Y coordinate
-   * @param end - End position with x and y coordinates
-   * @param end.x - End X coordinate
-   * @param end.y - End Y coordinate
-   * @returns Flight parameters
-   * @example
-   * const params = this.createTransferFlightParams({ x: 0, y: 0 }, { x: 100, y: 100 });
-   */
-  private createTransferFlightParams(
-    start: { x: number; y: number },
-    end: { x: number; y: number }
-  ): FlightParams {
-    return {
-      startX: start.x,
-      startY: start.y,
-      controlX: (start.x + end.x) / 2,
-      controlY: Math.min(start.y, end.y) - TRANSFER_ARC_HEIGHT,
-      endX: end.x,
-      endY: end.y,
-      startScale: BUFFER_SLOT_SCALE,
-      endScale: TRAY_SLOT_SCALE,
-    };
-  }
-
-  /**
-   * Complete the transfer and emit event.
-   * @param screwEntity - The screw entity
-   * @param targetTray - The target tray entity
-   * @param slotIndex - The slot index in the tray
-   * @example
-   * this.completeTransfer(screwEntity, tray, 0);
-   */
-  private completeTransfer(
-    screwEntity: Entity,
-    targetTray: Entity,
-    slotIndex: number
-  ): void {
-    const screw = this.getComponents<ScrewComponentAccess>(screwEntity).screw;
-    screw.state = 'inTray';
-    screw.trayEntityId = String(targetTray.UID);
-    screw.slotIndex = slotIndex;
-    screw.isAnimating = false;
-
-    const screwEntity2D = screwEntity as Entity2D;
-
-    // Move screw view to coloredTrayLayer after animation
-    const coloredTrayLayer = getColoredTrayLayer();
-    if (coloredTrayLayer) {
-      coloredTrayLayer.addChild(screwEntity2D.view);
-    }
-
-    // Check if position matches expected - logs warning if mismatch (bug indicator)
-    this.checkScrewPosition(screwEntity2D, targetTray, slotIndex);
-
-    // Hide placeholder when screw lands in colored tray
-    this.hidePlaceholder(targetTray as Entity2D, slotIndex);
-
-    gameEvents.emit('screw:transferComplete', { screwEntity });
-  }
-
-  // ============================================================================
-  // Tray Animations
-  // ============================================================================
 
   /**
    * Find all screw entities currently in a specific tray.
    * @param trayUID - The UID of the tray to search
    * @returns Array of screw entities in the tray
    * @example
-   * const screws = this.getScrewsInTray('123');
    */
   private getScrewsInTray(trayUID: string): Entity[] {
     const screws: Entity[] = [];
@@ -648,209 +177,6 @@ export class AnimationSystem extends BaseSystem {
       }
     });
     return screws;
-  }
-
-  /**
-   * Handle tray hide animation with stepped scale-down effect.
-   * Reparents screws to tray view so they scale together, then animates
-   * the tray with a multi-step shrink animation matching the Figma design.
-   * @param event - The tray hide event data
-   * @example
-   * // Triggered by tray:startHide event
-   * gameEvents.emit('tray:startHide', { trayEntity });
-   */
-  private async handleTrayHide(event: TrayHideEvent): Promise<void> {
-    const { trayEntity } = event;
-    const entity2D = trayEntity as Entity2D;
-    const screwsInTray = this.getScrewsInTray(String(trayEntity.UID));
-
-    this.reparentScrewsToTray(screwsInTray, entity2D);
-    this.setupTrayPivotForCenterScale(entity2D);
-    await this.animateTrayScaleDown(entity2D);
-
-    gameEvents.emit('tray:hideComplete', { trayEntity, screwsInTray });
-  }
-
-  /**
-   * Set up tray pivot for center-based scaling animation.
-   * Adjusts position to compensate for pivot change.
-   * @param entity - The tray entity
-   * @example
-   */
-  private setupTrayPivotForCenterScale(entity: Entity2D): void {
-    // Tray dimensions: 185x150
-    const pivotX = 185 / 2;
-    const pivotY = 150 / 2;
-    entity.view.pivot.set(pivotX, pivotY);
-    entity.position.x += pivotX;
-    entity.position.y += pivotY;
-  }
-
-  /**
-   * Animate tray scale-down smoothly from 1 to 0.
-   * @param entity - The tray entity to animate
-   * @example
-   */
-  private async animateTrayScaleDown(entity: Entity2D): Promise<void> {
-    const timeline = gsap.timeline();
-    this.activeTimelines.add(timeline);
-
-    try {
-      // Single smooth scale animation from 1 → 0
-      await timeline.to(entity.scale, {
-        x: 0,
-        y: 0,
-        duration: 0.4,
-        ease: 'power2.in',
-      });
-    } finally {
-      this.activeTimelines.delete(timeline);
-    }
-  }
-
-  /**
-   * Reparent screw visuals to tray view so they scale together.
-   * Converts screw positions to tray-local coordinates.
-   * @param screws - Array of screw entities to reparent
-   * @param trayEntity - The tray entity to parent screws to
-   * @example
-   * this.reparentScrewsToTray(screwsInTray, trayEntity);
-   */
-  private reparentScrewsToTray(screws: Entity[], trayEntity: Entity2D): void {
-    // Use trayEntity.view (the container) instead of the tray sprite
-    // This is because we scale trayEntity.scale, not the sprite
-    const trayView = trayEntity.view;
-
-    for (const screwEntity of screws) {
-      const screwEntity2D = screwEntity as Entity2D;
-      const screwVisual = getGameVisual(screwEntity2D);
-      if (!screwVisual) continue;
-
-      // Calculate local position relative to tray
-      // Screw is at entity world position, tray is at tray entity position
-      // Local position = screw world position - tray world position
-      const localX = screwEntity2D.position.x - trayEntity.position.x;
-      const localY = screwEntity2D.position.y - trayEntity.position.y;
-
-      // Remove from current parent first to avoid PixiJS warning
-      if (screwVisual.parent) {
-        screwVisual.parent.removeChild(screwVisual);
-      }
-
-      // Reparent visual to tray view container
-      screwVisual.position.set(localX, localY);
-      trayView.addChild(screwVisual);
-    }
-  }
-
-  /**
-   * Handle tray shift animation (slide left to new position).
-   * Also moves any screws currently in the tray so they stay aligned.
-   * @param event - The tray shift event data
-   * @example
-   * // Triggered by tray:startShift event
-   * gameEvents.emit('tray:startShift', { trayEntity, newDisplayOrder: 0 });
-   */
-  private async handleTrayShift(event: TrayShiftEvent): Promise<void> {
-    const { trayEntity, newDisplayOrder } = event;
-    const entity2D = trayEntity as Entity2D;
-    const targetPos = TRAY_DISPLAY_POSITIONS[newDisplayOrder];
-
-    if (!targetPos) {
-      gameEvents.emit('tray:shiftComplete', { trayEntity });
-      return;
-    }
-
-    const screwsInTray = this.getScrewsInTray(String(trayEntity.UID));
-    const deltaX = targetPos.x - entity2D.position.x;
-
-    const timeline = gsap.timeline();
-    this.activeTimelines.add(timeline);
-
-    try {
-      this.addTrayShiftAnimations(
-        timeline,
-        entity2D,
-        targetPos.x,
-        screwsInTray,
-        deltaX
-      );
-      await timeline;
-    } finally {
-      this.activeTimelines.delete(timeline);
-    }
-
-    gameEvents.emit('tray:shiftComplete', { trayEntity });
-  }
-
-  /**
-   * Add tray and screw shift animations to a timeline.
-   * @param timeline - GSAP timeline
-   * @param trayEntity - The tray entity to animate
-   * @param targetX - Target X position for tray
-   * @param screws - Screws in the tray to move
-   * @param deltaX - X distance to move
-   * @example
-   * this.addTrayShiftAnimations(timeline, trayEntity, 57, screws, -195);
-   */
-  private addTrayShiftAnimations(
-    timeline: gsap.core.Timeline,
-    trayEntity: Entity2D,
-    targetX: number,
-    screws: Entity[],
-    deltaX: number
-  ): void {
-    timeline.to(
-      trayEntity.position,
-      { x: targetX, duration: 0.3, ease: 'power2.inOut' },
-      0
-    );
-
-    for (const screwEntity of screws) {
-      const screw2D = screwEntity as Entity2D;
-      timeline.to(
-        screw2D.position,
-        { x: screw2D.position.x + deltaX, duration: 0.3, ease: 'power2.inOut' },
-        0
-      );
-    }
-  }
-
-  /**
-   * Handle tray reveal animation (slide in from right).
-   * @param event - The tray reveal event data
-   * @example
-   * // Triggered by tray:startReveal event
-   * gameEvents.emit('tray:startReveal', { trayEntity, displayOrder: 1 });
-   */
-  private async handleTrayReveal(event: TrayRevealEvent): Promise<void> {
-    const { trayEntity, displayOrder } = event;
-    const entity2D = trayEntity as Entity2D;
-    const targetPos = TRAY_DISPLAY_POSITIONS[displayOrder];
-
-    if (!targetPos) {
-      gameEvents.emit('tray:revealComplete', { trayEntity });
-      return;
-    }
-
-    // Start tray at rightmost covered slot position (hidden under cover)
-    entity2D.position.x = TRAY_SPAWN_X;
-    entity2D.position.y = targetPos.y;
-
-    const timeline = gsap.timeline();
-    this.activeTimelines.add(timeline);
-
-    try {
-      await timeline.to(entity2D.position, {
-        x: targetPos.x,
-        duration: 0.3,
-        ease: 'power2.out',
-      });
-    } finally {
-      this.activeTimelines.delete(timeline);
-    }
-
-    gameEvents.emit('tray:revealComplete', { trayEntity });
   }
 
   /**
