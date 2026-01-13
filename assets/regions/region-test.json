@@ -21,7 +21,7 @@
         {
           "partId": "board-birch-square",
           "position": { "x": 140, "y": 170 },
-          "layer": 2,
+          "layer": 1,
           "screws": [
             { "position": { "x": 135, "y": 65 }, "color": "yellow" },
             { "position": { "x": 50, "y": 195 }, "color": "red" },
@@ -31,7 +31,7 @@
         {
           "partId": "board-mahogany-square",
           "position": { "x": -140, "y": -100 },
-          "layer": 3,
+          "layer": 1,
           "screws": [
             { "position": { "x": 50, "y": 50 }, "color": "green" },
             { "position": { "x": 220, "y": 50 }, "color": "yellow" },
@@ -41,7 +41,7 @@
         {
           "partId": "board-pine-horizontal",
           "position": { "x": -30, "y": -250 },
-          "layer": 4,
+          "layer": 2,
           "screws": [
             { "position": { "x": 100, "y": 158 }, "color": "blue" },
             { "position": { "x": 400, "y": 158 }, "color": "green" }
