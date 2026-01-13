@@ -225,11 +225,12 @@ export class AnimationSystem extends BaseSystem {
     await this.swapToLongScrew(sprite, screw.color);
 
     const startPos = { x: entity.position.x, y: entity.position.y };
-    const targetPos = this.getSlotTargetPosition(
-      targetTray,
-      slotIndex,
-      isBuffer
-    );
+    // For colored trays, use displayOrder-based target to handle tray shifts during flight
+    // For buffer trays, use current tray position (buffer doesn't shift)
+    const targetPos = isBuffer
+      ? this.getSlotTargetPosition(targetTray, slotIndex, isBuffer)
+      : this.getColoredTrayTargetPosition(targetTray, slotIndex);
+
     const endScale = isBuffer ? BUFFER_SLOT_SCALE : TRAY_SLOT_SCALE;
     const params = this.createFlightParams(
       startPos,
@@ -240,6 +241,25 @@ export class AnimationSystem extends BaseSystem {
 
     await this.animateFlight(timeline, entity, sprite, params, 0.45);
     await this.animateSettle(timeline, sprite, endScale);
+  }
+
+  /**
+   * Get target position for colored tray using displayOrder.
+   * This ensures correct targeting even if tray shifts during animation.
+   * @param targetTray - The target tray entity
+   * @param slotIndex - The slot index
+   * @returns The target position based on displayOrder
+   */
+  private getColoredTrayTargetPosition(
+    targetTray: Entity,
+    slotIndex: number
+  ): { x: number; y: number } {
+    const tray = this.getComponents<TrayComponentAccess>(targetTray).tray;
+    return getTraySlotTargetPosition(
+      tray.displayOrder,
+      slotIndex,
+      tray.capacity
+    );
   }
 
   /**

@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// Video recording: disabled by default for faster tests
+// Set RECORD_VIDEO=1 to enable video recording
+const recordVideo = process.env.RECORD_VIDEO === '1';
+
 export default defineConfig({
   testDir: './e2e/specs',
   fullyParallel: true,
@@ -23,7 +27,7 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:3333',
     trace: 'on-first-retry',
-    video: 'on-first-retry',
+    video: recordVideo ? 'on' : 'off',
     screenshot: 'only-on-failure',
   },
 

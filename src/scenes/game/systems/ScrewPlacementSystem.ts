@@ -83,11 +83,22 @@ export class ScrewPlacementSystem extends BaseSystem {
         const tray = this.getComponents<TrayComponentAccess>(
           coloredTarget.tray
         ).tray;
-        gameTick.log(
-          'PLACEMENT',
-          `→ ${tray.color} tray [slot ${String(coloredTarget.slotIndex)}]`
-        );
-        return coloredTarget;
+
+        // Check for position race condition: if target is at displayOrder 1 and
+        // displayOrder 0 is about to fill, the shift will move our target mid-flight.
+        // Redirect to buffer instead to avoid visual glitch.
+        if (tray.displayOrder === 1 && this.willDisplayOrder0Fill()) {
+          gameTick.log(
+            'PLACEMENT',
+            `→ ${tray.color} tray at displayOrder 1 would race, redirecting to buffer`
+          );
+        } else {
+          gameTick.log(
+            'PLACEMENT',
+            `→ ${tray.color} tray [slot ${String(coloredTarget.slotIndex)}]`
+          );
+          return coloredTarget;
+        }
       }
     }
 
@@ -305,6 +316,42 @@ export class ScrewPlacementSystem extends BaseSystem {
       }
       return this.findPlacementTarget(screw.color) !== null;
     });
+  }
+
+  /**
+   * Check if a tray at displayOrder 0 will fill soon, triggering a shift.
+   * Used to block placements to displayOrder 1 trays that would be affected by shift.
+   *
+   * @returns true if the tray at displayOrder 0 will fill with pending in-flight screws
+   * @example
+   * if (system.willDisplayOrder0Fill()) {
+   *   // Block placement to displayOrder 1 trays
+   * }
+   */
+  willDisplayOrder0Fill(): boolean {
+    const coloredTrays = this.getEntities('coloredTrays');
+    const screws = this.getEntities('screws');
+
+    for (const trayEntity of coloredTrays) {
+      const tray = this.getComponents<TrayComponentAccess>(trayEntity).tray;
+      // Only check the tray at displayOrder 0 (front position)
+      if (tray.displayOrder !== 0) continue;
+
+      const trayUid = String(trayEntity.UID);
+      const inFlightCount = screws.filter((entity) => {
+        const screw = this.getComponents<ScrewComponentAccess>(entity).screw;
+        return (
+          screw.isAnimating &&
+          screw.state === 'dragging' &&
+          screw.trayEntityId === trayUid
+        );
+      }).length;
+
+      if (tray.screwCount + inFlightCount >= tray.capacity) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

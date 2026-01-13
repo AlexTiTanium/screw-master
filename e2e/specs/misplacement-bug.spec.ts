@@ -8,9 +8,10 @@ import { test, expect } from '@playwright/test';
 import { attachTelemetry } from '../helpers/telemetry';
 import { createHarnessClient } from '../helpers/harness';
 
-// Use larger viewport for better screenshot quality
+// Video recording controlled by RECORD_VIDEO env var (see playwright.config.ts)
+const recordVideo = process.env.RECORD_VIDEO === '1';
 test.use({
-  video: { mode: 'on', size: { width: 540, height: 960 } },
+  video: recordVideo ? { mode: 'on', size: { width: 540, height: 960 } } : 'off',
   viewport: { width: 540, height: 960 },
 });
 
@@ -629,7 +630,8 @@ test.describe('Misplacement Bug', () => {
         text.includes('TAP:') ||
         text.includes('TRAY') ||
         text.includes('TRANSFER:') ||
-        text.includes('SNAP:')
+        text.includes('SNAP:') ||
+        text.includes('BLOCKED')
       ) {
         console.log(`[GAME] ${text}`);
       }

@@ -13,9 +13,10 @@ import { test, expect } from '@playwright/test';
 import { attachTelemetry } from '../helpers/telemetry';
 import { createHarnessClient } from '../helpers/harness';
 
-// Enable video recording for visual verification
+// Video recording controlled by RECORD_VIDEO env var (see playwright.config.ts)
+const recordVideo = process.env.RECORD_VIDEO === '1';
 test.use({
-  video: { mode: 'on', size: { width: 540, height: 960 } },
+  video: recordVideo ? { mode: 'on', size: { width: 540, height: 960 } } : 'off',
   viewport: { width: 540, height: 960 },
 });
 
@@ -256,20 +257,20 @@ test.describe('Position Mismatch Detection', () => {
 
     const harness = createHarnessClient(page);
     await harness.waitForReady(15000);
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(300);
 
     // Exact action sequence from bug report console-log.txt
     // This fills blue tray twice, causing multiple tray shift cycles
     const actions = [
-      { x: 765, y: 1434, delay: 300, comment: 'blue → blue [0]' },
-      { x: 680, y: 1304, delay: 300, comment: 'yellow → buffer [0]' },
-      { x: 595, y: 1434, delay: 300, comment: 'red → red [0]' },
-      { x: 485, y: 1289, delay: 300, comment: 'blue → blue [1]' },
-      { x: 400, y: 1369, delay: 300, comment: 'green → buffer [1]' },
-      { x: 315, y: 1289, delay: 300, comment: 'red → red [1]' },
-      { x: 400, y: 1169, delay: 300, comment: 'red → red [2] - FILLS RED' },
-      { x: 360, y: 949, delay: 300, comment: 'blue → buffer [2]' },
-      { x: 660, y: 949, delay: 1000, comment: 'green → buffer [3]' },
+      { x: 765, y: 1434, delay: 200, comment: 'blue → blue [0]' },
+      { x: 680, y: 1304, delay: 200, comment: 'yellow → buffer [0]' },
+      { x: 595, y: 1434, delay: 200, comment: 'red → red [0]' },
+      { x: 485, y: 1289, delay: 200, comment: 'blue → blue [1]' },
+      { x: 400, y: 1369, delay: 200, comment: 'green → buffer [1]' },
+      { x: 315, y: 1289, delay: 200, comment: 'red → red [1]' },
+      { x: 400, y: 1169, delay: 200, comment: 'red → red [2] - FILLS RED' },
+      { x: 360, y: 949, delay: 200, comment: 'blue → buffer [2]' },
+      { x: 660, y: 949, delay: 500, comment: 'green → buffer [3]' },
     ];
 
     for (const action of actions) {
@@ -282,7 +283,7 @@ test.describe('Position Mismatch Detection', () => {
     }
 
     // Wait for all animations and auto-transfers to complete
-    await page.waitForTimeout(4000);
+    await page.waitForTimeout(2500);
 
     // Verify screws are at correct positions
     const screws = await harness.queryByComponent('screw');

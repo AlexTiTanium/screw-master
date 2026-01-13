@@ -111,10 +111,11 @@ export class ScrewInteractionSystem extends BaseSystem {
     if (!this.canInteractWithScrew(screw)) return;
 
     const placementSystem = this.scene.getSystem(ScrewPlacementSystem);
-    if (this.isInteractionBlocked(placementSystem)) return;
-
     const target = placementSystem.findPlacementTarget(screw.color);
     if (!target) return;
+
+    // Block interaction based on system state
+    if (this.isInteractionBlocked(placementSystem)) return;
 
     this.logTapAction(entity, screw.color, target);
 
@@ -131,7 +132,13 @@ export class ScrewInteractionSystem extends BaseSystem {
   }
 
   /**
-   * Check if interaction is blocked due to buffer full + tray transitions.
+   * Check if interaction is blocked.
+   *
+   * Blocking rule: Buffer full + trays animating/busy → block all (soft lock prevention)
+   *
+   * Note: Position race conditions (displayOrder 1 target + shift imminent) are handled
+   * by findPlacementTarget, which redirects to buffer instead of blocking.
+   *
    * @param placementSystem - The placement system
    * @returns True if interaction should be blocked
    * @example
@@ -142,6 +149,7 @@ export class ScrewInteractionSystem extends BaseSystem {
     const traysAnimating = placementSystem.anyTrayAnimating();
     const traysBusy = placementSystem.trayManagementBusy();
 
+    // Buffer full + trays in transition → block all
     if (bufferFull && (traysAnimating || traysBusy)) {
       gameTick.log(
         'BLOCKED',
@@ -149,6 +157,7 @@ export class ScrewInteractionSystem extends BaseSystem {
       );
       return true;
     }
+
     return false;
   }
 

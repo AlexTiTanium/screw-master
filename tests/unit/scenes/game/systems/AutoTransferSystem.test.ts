@@ -2,6 +2,12 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 import type { Entity, QueryResults } from '@play-co/odie';
 
+// Helper to flush microtasks (for queueMicrotask-deferred handlers)
+const flushMicrotasks = (): Promise<void> =>
+  new Promise((resolve) => {
+    queueMicrotask(resolve);
+  });
+
 import { AutoTransferSystem } from '@scenes/game/systems/AutoTransferSystem';
 import { ScrewPlacementSystem } from '@scenes/game/systems/ScrewPlacementSystem';
 import { TrayManagementSystem } from '@scenes/game/systems/TrayManagementSystem';
@@ -307,7 +313,7 @@ describe('AutoTransferSystem', () => {
       );
     });
 
-    it('should initiate transfer when matching tray is available', () => {
+    it('should initiate transfer when matching tray is available', async () => {
       const bufferTray = createMockBufferTrayEntity(100, ['1']);
       const screw = createMockScrewEntity(1, ScrewColor.Red, 'inBuffer');
       const tray = createMockTrayEntity(10, ScrewColor.Red);
@@ -325,6 +331,7 @@ describe('AutoTransferSystem', () => {
 
       system.init();
       gameEvents.emit('screw:removalComplete', {});
+      await flushMicrotasks(); // Handler is deferred via queueMicrotask
 
       expect(emitSpy).toHaveBeenCalledWith(
         'screw:startTransfer',
@@ -336,7 +343,7 @@ describe('AutoTransferSystem', () => {
       );
     });
 
-    it('should process screws in FIFO order', () => {
+    it('should process screws in FIFO order', async () => {
       const bufferTray = createMockBufferTrayEntity(100, ['1', '2']);
       const screw1 = createMockScrewEntity(1, ScrewColor.Red, 'inBuffer');
       const screw2 = createMockScrewEntity(2, ScrewColor.Blue, 'inBuffer');
@@ -362,6 +369,7 @@ describe('AutoTransferSystem', () => {
 
       system.init();
       gameEvents.emit('screw:removalComplete', {});
+      await flushMicrotasks(); // Handler is deferred via queueMicrotask
 
       // Should transfer first screw (FIFO)
       expect(emitSpy).toHaveBeenCalledWith(
@@ -370,7 +378,7 @@ describe('AutoTransferSystem', () => {
       );
     });
 
-    it('should only transfer one screw at a time', () => {
+    it('should only transfer one screw at a time', async () => {
       const bufferTray = createMockBufferTrayEntity(100, ['1', '2']);
       const screw1 = createMockScrewEntity(1, ScrewColor.Red, 'inBuffer');
       const screw2 = createMockScrewEntity(2, ScrewColor.Red, 'inBuffer');
@@ -393,6 +401,7 @@ describe('AutoTransferSystem', () => {
 
       system.init();
       gameEvents.emit('screw:removalComplete', {});
+      await flushMicrotasks(); // Handler is deferred via queueMicrotask
 
       // Should only emit one transfer event
       const transferCalls = emitSpy.mock.calls.filter(
@@ -482,7 +491,7 @@ describe('AutoTransferSystem', () => {
   });
 
   describe('onTransferComplete (via screw:transferComplete)', () => {
-    it('should reset isTransferring flag', () => {
+    it('should reset isTransferring flag', async () => {
       const bufferTray = createMockBufferTrayEntity(100, []);
 
       (system as { queries: QueryResults }).queries = createMockQueryResults(
@@ -495,11 +504,12 @@ describe('AutoTransferSystem', () => {
 
       system.init();
       gameEvents.emit('screw:transferComplete', {});
+      await flushMicrotasks(); // Handler is deferred via queueMicrotask
 
       expect(system['isTransferring']).toBe(false);
     });
 
-    it('should check for more transfers after completion', () => {
+    it('should check for more transfers after completion', async () => {
       const bufferTray = createMockBufferTrayEntity(100, ['1']);
       const screw = createMockScrewEntity(1, ScrewColor.Red, 'inBuffer');
       const tray = createMockTrayEntity(10, ScrewColor.Red);
@@ -519,6 +529,7 @@ describe('AutoTransferSystem', () => {
 
       system.init();
       gameEvents.emit('screw:transferComplete', {});
+      await flushMicrotasks(); // Handler is deferred via queueMicrotask
 
       // Should trigger another transfer
       expect(emitSpy).toHaveBeenCalledWith(
@@ -529,7 +540,7 @@ describe('AutoTransferSystem', () => {
   });
 
   describe('checkAutoTransfer (via tray:revealed)', () => {
-    it('should check for transfers when new tray is revealed', () => {
+    it('should check for transfers when new tray is revealed', async () => {
       const bufferTray = createMockBufferTrayEntity(100, ['1']);
       const screw = createMockScrewEntity(1, ScrewColor.Red, 'inBuffer');
       const tray = createMockTrayEntity(10, ScrewColor.Red);
@@ -547,6 +558,7 @@ describe('AutoTransferSystem', () => {
 
       system.init();
       gameEvents.emit('tray:revealed', { trayEntity: tray });
+      await flushMicrotasks(); // Handler is deferred via queueMicrotask
 
       expect(emitSpy).toHaveBeenCalledWith(
         'screw:startTransfer',
