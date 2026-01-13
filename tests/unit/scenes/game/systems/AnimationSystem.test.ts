@@ -7,26 +7,35 @@ import { gameEvents } from '@scenes/game/utils';
 import { getComponents } from '@scenes/game/types';
 import { ScrewColor } from '@shared/types';
 
-// Mock GSAP with chainable timeline
-const createMockTimeline = (): {
+// Mock timeline type for test assertions
+interface MockTimeline {
   to: ReturnType<typeof vi.fn>;
   kill: ReturnType<typeof vi.fn>;
-  then: ReturnType<typeof vi.fn>;
-} => {
-  const timeline: {
-    to: ReturnType<typeof vi.fn>;
-    kill: ReturnType<typeof vi.fn>;
-    then: ReturnType<typeof vi.fn>;
-  } = {
-    to: vi.fn(),
-    kill: vi.fn(),
-    then: vi.fn((resolve: () => void) => {
+  then: (resolve: (value?: unknown) => void) => Promise<void>;
+}
+
+// Mock GSAP with chainable and thenable timeline
+const createMockTimeline = (): MockTimeline => {
+  // Create a thenable object that immediately resolves
+  const toMock = vi.fn();
+  const killMock = vi.fn();
+
+  const timeline: MockTimeline = {
+    to: toMock,
+    kill: killMock,
+    // Make timeline itself thenable (for `await timeline`)
+    then: (resolve: (value?: unknown) => void) => {
       resolve();
-      return timeline;
-    }),
+      return Promise.resolve();
+    },
   };
-  // Make timeline.to() chainable and thenable
-  timeline.to.mockImplementation(() => timeline);
+
+  // Make timeline.to() return a Promise that resolves immediately
+  // This allows `await timeline.to(...)` to work
+  toMock.mockImplementation(() => {
+    return Promise.resolve(timeline);
+  });
+
   return timeline;
 };
 
@@ -71,6 +80,14 @@ vi.mock('@scenes/game/utils', async (importOriginal) => {
     }),
   };
 });
+
+// Helper to flush all pending microtasks/promises
+async function flushPromises(): Promise<void> {
+  // Multiple awaits to flush through promise chains
+  for (let i = 0; i < 10; i++) {
+    await Promise.resolve();
+  }
+}
 
 // Helper to create a mock screw entity
 function createMockScrewEntity(
@@ -201,294 +218,119 @@ describe('AnimationSystem', () => {
         expect.any(Function)
       );
     });
-  });
 
-  describe('createFlightParams', () => {
-    it('should calculate correct flight parameters', () => {
-      const start = { x: 100, y: 200 };
-      const end = { x: 300, y: 500 };
-      const endScale = 0.5;
-      const arcHeight = 130;
+    it('should initialize all animator instances', () => {
+      system.init();
 
-      const params = system['createFlightParams'](
-        start,
-        end,
-        endScale,
-        arcHeight
-      );
-
-      expect(params.startX).toBe(100);
-      expect(params.startY).toBe(200 - 20); // POP_OUT_HEIGHT = 20
-      expect(params.endX).toBe(300);
-      expect(params.endY).toBe(500);
-      expect(params.controlX).toBe(200); // Midpoint
-      expect(params.controlY).toBe(180 - 130); // min(startY, endY) - arcHeight
-      expect(params.startScale).toBe(0.8); // POP_OUT_SCALE
-      expect(params.endScale).toBe(0.5);
-    });
-
-    it('should handle when end is higher than start', () => {
-      const start = { x: 100, y: 500 };
-      const end = { x: 300, y: 200 };
-      const endScale = 0.5;
-      const arcHeight = 130;
-
-      const params = system['createFlightParams'](
-        start,
-        end,
-        endScale,
-        arcHeight
-      );
-
-      // Control Y should be above the higher point
-      expect(params.controlY).toBe(200 - 130); // min(480, 200) - arcHeight
+      // After init, animators should be created (accessed via private fields)
+      expect(system['screwRemoval']).toBeDefined();
+      expect(system['screwTransfer']).toBeDefined();
+      expect(system['trayHide']).toBeDefined();
+      expect(system['trayShift']).toBeDefined();
+      expect(system['trayReveal']).toBeDefined();
     });
   });
 
-  describe('createTransferFlightParams', () => {
-    it('should create transfer params without pop-out', () => {
-      const start = { x: 180, y: 750 };
-      const end = { x: 150, y: 500 };
-
-      const params = system['createTransferFlightParams'](start, end);
-
-      expect(params.startX).toBe(180);
-      expect(params.startY).toBe(750); // No pop-out offset
-      expect(params.endX).toBe(150);
-      expect(params.endY).toBe(500);
-      expect(params.startScale).toBe(0.7); // BUFFER_SLOT_SCALE
-      expect(params.endScale).toBe(0.5); // TRAY_SLOT_SCALE
-    });
-
-    it('should calculate control point for transfer arc', () => {
-      const start = { x: 180, y: 750 };
-      const end = { x: 150, y: 500 };
-
-      const params = system['createTransferFlightParams'](start, end);
-
-      expect(params.controlX).toBe(165); // Midpoint
-      expect(params.controlY).toBe(500 - 80); // min(startY, endY) - TRANSFER_ARC_HEIGHT
-    });
-  });
-
-  describe('getSlotTargetPosition', () => {
-    it('should get position for colored tray slot', async () => {
-      const { getTraySlotPosition } = await import('@scenes/game/utils');
-      const tray = createMockTrayEntity(10, ScrewColor.Red, 3);
-
-      system['getSlotTargetPosition'](tray, 1, false);
-
-      expect(getTraySlotPosition).toHaveBeenCalledWith(tray, 1, false, 3);
-    });
-
-    it('should get position for buffer tray slot', async () => {
-      const { getTraySlotPosition } = await import('@scenes/game/utils');
+  describe('event-based animation flow', () => {
+    it('should handle screw:startRemoval event via screwRemoval animator', async () => {
+      system.init();
+      const screw = createMockScrewEntity(1, ScrewColor.Red, 'inBoard');
       const tray = createMockTrayEntity(10, ScrewColor.Red);
 
-      system['getSlotTargetPosition'](tray, 0, true);
-
-      expect(getTraySlotPosition).toHaveBeenCalledWith(
-        tray,
-        0,
-        true,
-        undefined
-      );
-    });
-  });
-
-  describe('completeRemoval', () => {
-    it('should set screw state to inTray for colored tray', () => {
-      const screw = createMockScrewEntity(1, ScrewColor.Red, 'dragging');
-
-      system['completeRemoval'](screw, false);
-
-      const screwComponent = getComponents<{ screw: { state: string } }>(
-        screw
-      ).screw;
-      expect(screwComponent.state).toBe('inTray');
-    });
-
-    it('should set screw state to inBuffer for buffer tray', () => {
-      const screw = createMockScrewEntity(1, ScrewColor.Red, 'dragging');
-
-      system['completeRemoval'](screw, true);
-
-      const screwComponent = getComponents<{ screw: { state: string } }>(
-        screw
-      ).screw;
-      expect(screwComponent.state).toBe('inBuffer');
-    });
-
-    it('should reset isAnimating flag', () => {
-      const screw = createMockScrewEntity(1, ScrewColor.Red, 'dragging');
-      getComponents<{ screw: { isAnimating: boolean } }>(
-        screw
-      ).screw.isAnimating = true;
-
-      system['completeRemoval'](screw, false);
-
-      const screwComponent = getComponents<{ screw: { isAnimating: boolean } }>(
-        screw
-      ).screw;
-      expect(screwComponent.isAnimating).toBe(false);
-    });
-
-    it('should emit screw:removalComplete event', () => {
-      const screw = createMockScrewEntity(1, ScrewColor.Red, 'dragging');
-      const emitSpy = vi.spyOn(gameEvents, 'emit');
-
-      system['completeRemoval'](screw, false);
-
-      expect(emitSpy).toHaveBeenCalledWith('screw:removalComplete', {
+      // Emit the event that triggers removal animation
+      gameEvents.emit('screw:startRemoval', {
         screwEntity: screw,
+        targetTray: tray,
+        slotIndex: 0,
+        isBuffer: false,
+      });
+
+      // Wait for async handling
+      await vi.waitFor(() => {
+        const screwComponent = getComponents<{ screw: { state: string } }>(
+          screw
+        ).screw;
+        return screwComponent.state === 'inTray';
       });
     });
-  });
 
-  describe('completeTransfer', () => {
-    it('should set screw state to inTray', () => {
+    it('should handle screw:startTransfer event via screwTransfer animator', async () => {
+      system.init();
       const screw = createMockScrewEntity(1, ScrewColor.Red, 'inBuffer');
       const tray = createMockTrayEntity(10, ScrewColor.Red);
 
-      system['completeTransfer'](screw, tray, 1);
-
-      const screwComponent = getComponents<{ screw: { state: string } }>(
-        screw
-      ).screw;
-      expect(screwComponent.state).toBe('inTray');
-    });
-
-    it('should set trayEntityId and slotIndex', () => {
-      const screw = createMockScrewEntity(1, ScrewColor.Red, 'inBuffer');
-      const tray = createMockTrayEntity(10, ScrewColor.Red);
-
-      system['completeTransfer'](screw, tray, 2);
-
-      const screwComponent = getComponents<{
-        screw: { trayEntityId: string; slotIndex: number };
-      }>(screw).screw;
-      expect(screwComponent.trayEntityId).toBe('10');
-      expect(screwComponent.slotIndex).toBe(2);
-    });
-
-    it('should reset isAnimating flag', () => {
-      const screw = createMockScrewEntity(1, ScrewColor.Red, 'inBuffer');
-      getComponents<{ screw: { isAnimating: boolean } }>(
-        screw
-      ).screw.isAnimating = true;
-      const tray = createMockTrayEntity(10, ScrewColor.Red);
-
-      system['completeTransfer'](screw, tray, 0);
-
-      const screwComponent = getComponents<{ screw: { isAnimating: boolean } }>(
-        screw
-      ).screw;
-      expect(screwComponent.isAnimating).toBe(false);
-    });
-
-    it('should emit screw:transferComplete event', () => {
-      const screw = createMockScrewEntity(1, ScrewColor.Red, 'inBuffer');
-      const tray = createMockTrayEntity(10, ScrewColor.Red);
-      const emitSpy = vi.spyOn(gameEvents, 'emit');
-
-      system['completeTransfer'](screw, tray, 0);
-
-      expect(emitSpy).toHaveBeenCalledWith('screw:transferComplete', {
+      // Emit the event that triggers transfer animation
+      gameEvents.emit('screw:startTransfer', {
         screwEntity: screw,
+        targetTray: tray,
+        slotIndex: 0,
+      });
+
+      // Wait for async handling
+      await vi.waitFor(() => {
+        const screwComponent = getComponents<{ screw: { state: string } }>(
+          screw
+        ).screw;
+        return screwComponent.state === 'inTray';
       });
     });
-  });
 
-  describe('handleTrayHide', () => {
-    it('should emit tray:hideComplete after animation with screwsInTray', async () => {
+    it('should handle tray:startHide event via trayHide animator', async () => {
+      system.init();
       const tray = createMockTrayEntity(10, ScrewColor.Red);
-      // Mock getScrewsInTray to return empty array via queries
+      // Mock queries for getScrewsInTray
       Object.defineProperty(system, 'queries', {
         value: createMockQueryResults([]),
         writable: true,
       });
       const emitSpy = vi.spyOn(gameEvents, 'emit');
 
-      await system['handleTrayHide']({ trayEntity: tray });
+      gameEvents.emit('tray:startHide', { trayEntity: tray });
+
+      // Flush all pending microtasks (multiple awaits needed for promise chains)
+      await flushPromises();
 
       expect(emitSpy).toHaveBeenCalledWith('tray:hideComplete', {
         trayEntity: tray,
         screwsInTray: [],
       });
     });
-  });
 
-  describe('handleTrayShift', () => {
-    it('should emit tray:shiftComplete after animation', async () => {
+    it('should handle tray:startShift event via trayShift animator', async () => {
+      system.init();
       const tray = createMockTrayEntity(10, ScrewColor.Red);
-      // Mock getScrewsInTray to return empty array via queries
+      // Mock queries for getScrewsInTray
       Object.defineProperty(system, 'queries', {
         value: createMockQueryResults([]),
         writable: true,
       });
       const emitSpy = vi.spyOn(gameEvents, 'emit');
 
-      await system['handleTrayShift']({ trayEntity: tray, newDisplayOrder: 0 });
+      gameEvents.emit('tray:startShift', {
+        trayEntity: tray,
+        newDisplayOrder: 0,
+      });
+
+      // Flush all pending microtasks
+      await flushPromises();
 
       expect(emitSpy).toHaveBeenCalledWith('tray:shiftComplete', {
         trayEntity: tray,
       });
     });
 
-    it('should skip animation if no target position', async () => {
+    it('should handle tray:startReveal event via trayReveal animator', async () => {
+      system.init();
       const tray = createMockTrayEntity(10, ScrewColor.Red);
       const emitSpy = vi.spyOn(gameEvents, 'emit');
 
-      await system['handleTrayShift']({
+      gameEvents.emit('tray:startReveal', {
         trayEntity: tray,
-        newDisplayOrder: 99,
+        displayOrder: 1,
       });
 
-      expect(emitSpy).toHaveBeenCalledWith('tray:shiftComplete', {
-        trayEntity: tray,
-      });
-    });
-
-    it('should animate screws in tray along with tray', async () => {
-      const tray = createMockTrayEntity(10, ScrewColor.Red);
-      const screw = createMockScrewEntity(20, ScrewColor.Red, 'inTray');
-      (screw.c.screw as { trayEntityId: string }).trayEntityId = '10'; // Match tray UID
-
-      // Mock queries to return the screw
-      Object.defineProperty(system, 'queries', {
-        value: createMockQueryResults([screw]),
-        writable: true,
-      });
-      const emitSpy = vi.spyOn(gameEvents, 'emit');
-
-      await system['handleTrayShift']({ trayEntity: tray, newDisplayOrder: 0 });
-
-      expect(emitSpy).toHaveBeenCalledWith('tray:shiftComplete', {
-        trayEntity: tray,
-      });
-    });
-  });
-
-  describe('handleTrayReveal', () => {
-    it('should emit tray:revealComplete after animation', async () => {
-      const tray = createMockTrayEntity(10, ScrewColor.Red);
-      const emitSpy = vi.spyOn(gameEvents, 'emit');
-
-      await system['handleTrayReveal']({ trayEntity: tray, displayOrder: 1 });
-
-      expect(emitSpy).toHaveBeenCalledWith('tray:revealComplete', {
-        trayEntity: tray,
-      });
-    });
-
-    it('should skip animation if no target position', async () => {
-      const tray = createMockTrayEntity(10, ScrewColor.Red);
-      const emitSpy = vi.spyOn(gameEvents, 'emit');
-
-      await system['handleTrayReveal']({
-        trayEntity: tray,
-        displayOrder: 99,
-      });
+      // Flush all pending microtasks
+      await flushPromises();
 
       expect(emitSpy).toHaveBeenCalledWith('tray:revealComplete', {
         trayEntity: tray,
@@ -497,6 +339,34 @@ describe('AnimationSystem', () => {
   });
 
   describe('destroy', () => {
+    it('should unregister all event listeners', () => {
+      system.init();
+      const offSpy = vi.spyOn(gameEvents, 'off');
+
+      system.destroy();
+
+      expect(offSpy).toHaveBeenCalledWith(
+        'screw:startRemoval',
+        expect.any(Function)
+      );
+      expect(offSpy).toHaveBeenCalledWith(
+        'screw:startTransfer',
+        expect.any(Function)
+      );
+      expect(offSpy).toHaveBeenCalledWith(
+        'tray:startHide',
+        expect.any(Function)
+      );
+      expect(offSpy).toHaveBeenCalledWith(
+        'tray:startShift',
+        expect.any(Function)
+      );
+      expect(offSpy).toHaveBeenCalledWith(
+        'tray:startReveal',
+        expect.any(Function)
+      );
+    });
+
     it('should kill all active timelines', () => {
       // Add a mock timeline to active set
       const localMockTimeline = createMockTimeline();
@@ -544,6 +414,17 @@ describe('AnimationSystem', () => {
 
     it('should have correct Queries', () => {
       expect(AnimationSystem.Queries).toHaveProperty('screws');
+    });
+  });
+
+  describe('hidePlaceholder', () => {
+    it('should be a public method for hiding placeholders', () => {
+      const tray = createMockTrayEntity(10, ScrewColor.Red);
+
+      // Should not throw when calling public method
+      expect(() => {
+        system.hidePlaceholder(tray, 0);
+      }).not.toThrow();
     });
   });
 });

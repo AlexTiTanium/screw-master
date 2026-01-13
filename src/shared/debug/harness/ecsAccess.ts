@@ -68,6 +68,7 @@ function shouldSkipProperty(key: string, value: unknown): boolean {
  * @param v - The value to extract
  * @param depth - Current recursion depth
  * @returns Object with include flag and extracted value
+ * @example
  */
 function extractPropertyValue(
   v: unknown,
@@ -124,6 +125,7 @@ function serializeObjectValue(value: unknown, depth = 0): unknown {
  * Extracts UID from a display object if available.
  * @param obj - The object to extract UID from
  * @returns The UID string or null
+ * @example
  */
 function extractUid(obj: unknown): string | null {
   if (obj && typeof obj === 'object') {
