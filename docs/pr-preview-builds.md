@@ -1,6 +1,6 @@
 # PR Preview Builds
 
-Automated test builds are deployed for every pull request, allowing reviewers to test changes in a live environment before merging.
+Automated test builds are deployed for every pull request, allowing reviewers to test changes in a live environment before merging. This enables faster feedback cycles and ensures features work correctly before merging.
 
 ---
 
