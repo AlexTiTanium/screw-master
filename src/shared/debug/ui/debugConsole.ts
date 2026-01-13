@@ -31,8 +31,10 @@ import { PhysicsWorldManager } from '@physics';
 // ============================================================================
 
 const STORAGE_KEY = 'debugConsole';
-const DEFAULT_WIDTH = 500;
-const DEFAULT_HEIGHT = 220;
+const DEFAULT_X = 0;
+const DEFAULT_Y = 662;
+const DEFAULT_WIDTH = 398;
+const DEFAULT_HEIGHT = 148;
 const HEADER_HEIGHT = 30;
 const FOOTER_HEIGHT = 36;
 const PERF_PANEL_WIDTH = 175;
@@ -61,8 +63,8 @@ function loadState(): ConsoleState {
     if (saved) {
       const parsed = JSON.parse(saved) as Partial<ConsoleState>;
       return {
-        x: parsed.x ?? 10,
-        y: parsed.y ?? window.innerHeight - DEFAULT_HEIGHT - 10,
+        x: parsed.x ?? DEFAULT_X,
+        y: parsed.y ?? DEFAULT_Y,
         width: parsed.width ?? DEFAULT_WIDTH,
         height: parsed.height ?? DEFAULT_HEIGHT,
         minimized: parsed.minimized ?? false,
@@ -73,8 +75,8 @@ function loadState(): ConsoleState {
     // Ignore localStorage errors
   }
   return {
-    x: 10,
-    y: window.innerHeight - DEFAULT_HEIGHT - 10,
+    x: DEFAULT_X,
+    y: DEFAULT_Y,
     width: DEFAULT_WIDTH,
     height: DEFAULT_HEIGHT,
     minimized: false,
