@@ -10,7 +10,13 @@
 
 import { test, expect } from '@playwright/test';
 import { attachTelemetry } from '../helpers/telemetry';
-import { createHarnessClient, type EntitySnapshot } from '../helpers/harness';
+import {
+  createHarnessClient,
+  type EntitySnapshot,
+  waitForScrewState,
+  waitForAnimationsToSettle,
+  waitForCondition,
+} from '../helpers/harness';
 
 test.describe('Tray Shift Screw Positions', () => {
   test('screws in shifted tray move with the tray', async ({ page }) => {
@@ -19,7 +25,6 @@ test.describe('Tray Shift Screw Positions', () => {
 
     const harness = createHarnessClient(page);
     await harness.waitForReady(15000);
-    await page.waitForTimeout(500);
 
     // Test level layout:
     // - Red tray at displayOrder 0, capacity 3
@@ -38,7 +43,7 @@ test.describe('Tray Shift Screw Positions', () => {
     // = (400 - 135 + 220, 1369 - 130 + 50) = (485, 1289)
     await harness.act({ type: 'pointerDown', x: 485, y: 1289 });
     await harness.act({ type: 'pointerUp', x: 485, y: 1289 });
-    await page.waitForTimeout(800);
+    await waitForScrewState(harness, page, 'blue', 'inTray', { timeout: 3000 });
 
     // Verify blue screw is in blue tray
     let screws = await harness.queryByComponent('screw');
@@ -74,19 +79,48 @@ test.describe('Tray Shift Screw Positions', () => {
     // = (540-140-135+50, 1199+170-130+50) = (315, 1289)
     await harness.act({ type: 'pointerDown', x: 315, y: 1289 });
     await harness.act({ type: 'pointerUp', x: 315, y: 1289 });
-    await page.waitForTimeout(800);
+    await waitForScrewState(harness, page, 'red', 'inTray', { timeout: 3000 });
 
     // Second red screw (Board 2): local (50, 195) on 270x260 board at local (140, 170)
     // = (540+140-135+50, 1199+170-130+195) = (595, 1434)
     await harness.act({ type: 'pointerDown', x: 595, y: 1434 });
     await harness.act({ type: 'pointerUp', x: 595, y: 1434 });
-    await page.waitForTimeout(800);
+    await waitForScrewState(harness, page, 'red', 'inTray', {
+      timeout: 3000,
+      count: 2,
+    });
 
     // Third red screw (Board 3): local (135, 200) on 270x260 board at local (-140, -100)
     // = (540-140-135+135, 1199-100-130+200) = (400, 1169)
     await harness.act({ type: 'pointerDown', x: 400, y: 1169 });
     await harness.act({ type: 'pointerUp', x: 400, y: 1169 });
-    await page.waitForTimeout(1500); // Wait for hide/shift/reveal animations
+
+    // Wait for hide/shift/reveal animations to complete
+    await waitForCondition(
+      page,
+      async () => {
+        const t = await harness.queryByComponent('tray');
+        const blueTray = t.find(
+          (tr: EntitySnapshot) =>
+            (tr.components.tray as { color: string }).color === 'blue'
+        );
+        if (!blueTray) return false;
+        return (
+          (blueTray.components.tray as { displayOrder: number })
+            .displayOrder === 0
+        );
+      },
+      {
+        timeout: 5000,
+        message: 'Expected blue tray to shift to displayOrder 0',
+      }
+    );
+
+    // Additional settle time for position animation
+    await waitForAnimationsToSettle(harness, page, {
+      timeout: 3000,
+      stableTime: 200,
+    });
 
     // Step 3: Verify blue tray shifted from position 1 to position 0
     trays = await harness.queryByComponent('tray');

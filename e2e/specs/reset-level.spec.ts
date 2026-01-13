@@ -5,7 +5,12 @@
 
 import { test, expect } from '@playwright/test';
 import { attachTelemetry } from '../helpers/telemetry';
-import { createHarnessClient } from '../helpers/harness';
+import {
+  createHarnessClient,
+  waitForScrewState,
+  waitForBufferState,
+  waitForCondition,
+} from '../helpers/harness';
 
 test.describe('Level Reset', () => {
   test('reset cleans up screws in buffer tray', async ({ page }) => {
@@ -14,9 +19,6 @@ test.describe('Level Reset', () => {
 
     const harness = createHarnessClient(page);
     await harness.waitForReady(15000);
-
-    // Wait for level to fully render
-    await page.waitForTimeout(300);
 
     // Get initial screw count
     const initialScrews = await harness.queryByComponent('screw');
@@ -44,8 +46,10 @@ test.describe('Level Reset', () => {
     await harness.act({ type: 'pointerDown', x: 680, y: 1304 });
     await harness.act({ type: 'pointerUp', x: 680, y: 1304 });
 
-    // Wait for animation to complete
-    await page.waitForTimeout(800);
+    // Wait for screw to reach buffer state
+    await waitForScrewState(harness, page, 'yellow', 'inBuffer', {
+      timeout: 3000,
+    });
 
     // Verify screw is now in buffer
     const bufferTraysAfterTap = await harness.queryByComponent('bufferTray');
@@ -73,8 +77,8 @@ test.describe('Level Reset', () => {
     await harness.act({ type: 'pointerDown', x: restartX, y: restartY });
     await harness.act({ type: 'pointerUp', x: restartX, y: restartY });
 
-    // Wait for level to reload
-    await page.waitForTimeout(500);
+    // Wait for buffer to be empty (level reloaded)
+    await waitForBufferState(harness, page, 0, { timeout: 3000 });
 
     // Verify buffer tray is empty again
     const bufferTraysAfterReset = await harness.queryByComponent('bufferTray');
@@ -107,9 +111,6 @@ test.describe('Level Reset', () => {
     const harness = createHarnessClient(page);
     await harness.waitForReady(15000);
 
-    // Wait for level to fully render
-    await page.waitForTimeout(300);
-
     // Get initial state
     const initialScrews = await harness.queryByComponent('screw');
     const initialScrewCount = initialScrews.length;
@@ -120,8 +121,8 @@ test.describe('Level Reset', () => {
     await harness.act({ type: 'pointerDown', x: 315, y: 1289 });
     await harness.act({ type: 'pointerUp', x: 315, y: 1289 });
 
-    // Wait for animation
-    await page.waitForTimeout(800);
+    // Wait for screw to reach tray state
+    await waitForScrewState(harness, page, 'red', 'inTray', { timeout: 3000 });
 
     // Verify screw is in tray
     const screwsAfterTap = await harness.queryByComponent('screw');
@@ -137,8 +138,23 @@ test.describe('Level Reset', () => {
     await harness.act({ type: 'pointerDown', x: 988, y: 91 });
     await harness.act({ type: 'pointerUp', x: 988, y: 91 });
 
-    // Wait for level to reload
-    await page.waitForTimeout(500);
+    // Wait for level to fully reload with all screws in inBoard state
+    await waitForCondition(
+      page,
+      async () => {
+        const screws = await harness.queryByComponent('screw');
+        // Must have the correct count AND all be in inBoard state
+        if (screws.length !== initialScrewCount) return false;
+        return screws.every((s) => {
+          const sc = s.components.screw as { state: string };
+          return sc.state === 'inBoard';
+        });
+      },
+      {
+        timeout: 5000,
+        message: 'Expected all screws to be in inBoard state after reset',
+      }
+    );
 
     // Verify all screws are back to 'inBoard' state
     const screwsAfterReset = await harness.queryByComponent('screw');
@@ -162,26 +178,28 @@ test.describe('Level Reset', () => {
     const harness = createHarnessClient(page);
     await harness.waitForReady(15000);
 
-    await page.waitForTimeout(300);
-
     // Move a yellow screw to buffer tray (using centered coordinates)
     // Yellow screw at world (680, 1304)
     await harness.act({ type: 'pointerDown', x: 680, y: 1304 });
     await harness.act({ type: 'pointerUp', x: 680, y: 1304 });
-    await page.waitForTimeout(800);
+    await waitForScrewState(harness, page, 'yellow', 'inBuffer', {
+      timeout: 3000,
+    });
 
     // Move a green screw to buffer tray (using centered coordinates)
     // Green screw at world (400, 1369) - Board 1 at (400,1369) - half(135,130) + screw(135,130)
     await harness.act({ type: 'pointerDown', x: 400, y: 1369 });
     await harness.act({ type: 'pointerUp', x: 400, y: 1369 });
-    await page.waitForTimeout(800);
+    await waitForScrewState(harness, page, 'green', 'inBuffer', {
+      timeout: 3000,
+    });
 
     // Now we have 2 screws in the buffer tray
 
     // Click restart
     await harness.act({ type: 'pointerDown', x: 988, y: 91 });
     await harness.act({ type: 'pointerUp', x: 988, y: 91 });
-    await page.waitForTimeout(500);
+    await waitForBufferState(harness, page, 0, { timeout: 3000 });
 
     // Verify all screws are back to 'inBoard' state (no visual remnants)
     const screwsAfterReset = await harness.queryByComponent('screw');
@@ -206,8 +224,6 @@ test.describe('Level Reset', () => {
     const harness = createHarnessClient(page);
     await harness.waitForReady(15000);
 
-    await page.waitForTimeout(300);
-
     // Get initial entity counts
     const initialScrews = await harness.queryByComponent('screw');
     const initialTrays = await harness.queryByComponent('tray');
@@ -217,16 +233,35 @@ test.describe('Level Reset', () => {
     // Move some screws (using centered coordinates)
     await harness.act({ type: 'pointerDown', x: 315, y: 1289 }); // Red at (315, 1289)
     await harness.act({ type: 'pointerUp', x: 315, y: 1289 });
-    await page.waitForTimeout(800);
+    await waitForScrewState(harness, page, 'red', 'inTray', { timeout: 3000 });
 
     await harness.act({ type: 'pointerDown', x: 680, y: 1304 }); // Yellow to buffer at (680, 1304)
     await harness.act({ type: 'pointerUp', x: 680, y: 1304 });
-    await page.waitForTimeout(800);
+    await waitForScrewState(harness, page, 'yellow', 'inBuffer', {
+      timeout: 3000,
+    });
 
     // Click restart
     await harness.act({ type: 'pointerDown', x: 988, y: 91 });
     await harness.act({ type: 'pointerUp', x: 988, y: 91 });
-    await page.waitForTimeout(500);
+
+    // Wait for level to fully reload with correct entity counts
+    await waitForCondition(
+      page,
+      async () => {
+        const screws = await harness.queryByComponent('screw');
+        // Must have correct count AND all in inBoard state
+        if (screws.length !== initialScrews.length) return false;
+        return screws.every((s) => {
+          const sc = s.components.screw as { state: string };
+          return sc.state === 'inBoard';
+        });
+      },
+      {
+        timeout: 5000,
+        message: 'Expected all screws to be in inBoard state after reset',
+      }
+    );
 
     // Verify entity counts match initial state
     const resetScrews = await harness.queryByComponent('screw');
