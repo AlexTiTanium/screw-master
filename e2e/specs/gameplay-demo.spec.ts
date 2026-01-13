@@ -10,7 +10,9 @@ import { createHarnessClient } from '../helpers/harness';
 // Video recording controlled by RECORD_VIDEO env var (see playwright.config.ts)
 const recordVideo = process.env.RECORD_VIDEO === '1';
 test.use({
-  video: recordVideo ? { mode: 'on', size: { width: 360, height: 640 } } : 'off',
+  video: recordVideo
+    ? { mode: 'on', size: { width: 360, height: 640 } }
+    : 'off',
   viewport: { width: 360, height: 640 },
 });
 
