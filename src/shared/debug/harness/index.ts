@@ -20,3 +20,4 @@ export {
   resetFrameCounter,
 } from './renderSignature';
 export { createActionExecutor } from './actionDsl';
+export { createPhysicsAccess } from './physicsAccess';

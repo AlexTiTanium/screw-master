@@ -44,3 +44,7 @@ export type {
   TrayRevealedEvent,
 } from './TrayManagementSystem';
 export { TickSystem } from './TickSystem';
+export { PartStateSystem } from './PartStateSystem';
+export type { PartFreedEvent } from './PartStateSystem';
+export { PhysicsSystem } from './PhysicsSystem';
+export type { PartSettledEvent } from './PhysicsSystem';

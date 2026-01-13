@@ -1,11 +1,12 @@
 import { DefineEntity, Entity2D } from '@play-co/odie';
-import { PartComponent } from '../components';
+import { PartComponent, PhysicsBodyComponent } from '../components';
 
 /**
  * Entity type definition for a puzzle part (board).
  *
  * This entity combines Entity2D (providing position, scale, rotation, and view)
- * with PartComponent (providing part definition reference, layer, and state).
+ * with PartComponent (providing part definition reference, layer, and state)
+ * and PhysicsBodyComponent (providing physics body association).
  *
  * @example
  * // Create using the factory function (recommended)
@@ -18,4 +19,8 @@ import { PartComponent } from '../components';
  * });
  * scene.addChild(board);
  */
-export const PartEntity = DefineEntity(Entity2D, PartComponent);
+export const PartEntity = DefineEntity(
+  Entity2D,
+  PartComponent,
+  PhysicsBodyComponent
+);

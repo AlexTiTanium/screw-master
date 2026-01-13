@@ -11,7 +11,8 @@
 
 import type { Entity } from '@play-co/odie';
 import type { ScrewColor } from '@shared/types';
-import type { ScrewState, GamePhase } from '../components';
+import type { BodyType } from '@physics';
+import type { ScrewState, GamePhase, PartState } from '../components';
 
 /**
  * Get typed component access from an entity.
@@ -63,5 +64,23 @@ export interface GameStateComponentAccess {
     totalScrews: number;
     removedScrews: number;
     winConditionType: string;
+  };
+}
+
+export interface PartComponentAccess {
+  part: {
+    partDefinitionId: string;
+    layer: number;
+    screwCount: number;
+    state: PartState;
+  };
+}
+
+export interface PhysicsBodyComponentAccess {
+  physicsBody: {
+    bodyId: number;
+    bodyType: BodyType;
+    isSleeping: boolean;
+    enabled: boolean;
   };
 }

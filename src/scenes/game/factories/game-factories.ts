@@ -12,6 +12,7 @@ import { Assets, type Container, Sprite, type Texture } from 'pixi.js';
 
 import type { Position } from '@shared/types';
 import { ScrewColor } from '@shared/types';
+import { PhysicsWorldManager } from '@physics';
 import { ScrewEntity } from '../entities/ScrewEntity';
 import { PartEntity } from '../entities/PartEntity';
 import { TrayEntity } from '../entities/TrayEntity';
@@ -195,6 +196,8 @@ export interface PartEntityOptions {
   position: Position;
   /** Z-order layer (defaults to 0) */
   layer?: number;
+  /** Part dimensions for physics body (optional) */
+  dimensions?: { width: number; height: number };
 }
 
 /**
@@ -216,25 +219,84 @@ export async function createPartEntity(
   options: PartEntityOptions
 ): Promise<Entity2D> {
   const texture = await Assets.load<Texture>(options.assetAlias);
+  const width = options.dimensions?.width ?? texture.width;
+  const height = options.dimensions?.height ?? texture.height;
+  const layer = options.layer ?? 0;
 
-  const entity = createEntity(PartEntity, {
+  const entity = createPartEntityBase(options);
+  setupPartSprite(entity, texture);
+  entity.position.set(options.position.x, options.position.y);
+  attachPhysicsBody(entity, width, height, layer);
+
+  return entity;
+}
+
+/**
+ * Create the base part entity with components.
+ *
+ * @param options - Entity options
+ * @returns Created entity
+ * @example
+ * const entity = createPartEntityBase(options);
+ */
+function createPartEntityBase(options: PartEntityOptions): Entity2D {
+  return createEntity(PartEntity, {
     part: {
       partDefinitionId: options.partDefinitionId,
       layer: options.layer ?? 0,
       screwCount: 0,
       state: 'static',
     },
+    physicsBody: {
+      bodyId: -1,
+      bodyType: 'static',
+      isSleeping: true,
+      enabled: true,
+    },
   });
+}
 
+/**
+ * Setup the sprite for a part entity.
+ *
+ * @param entity - The entity to setup
+ * @param texture - The texture to use
+ * @example
+ * setupPartSprite(entity, texture);
+ */
+function setupPartSprite(entity: Entity2D, texture: Texture): void {
   const sprite = new Sprite(texture);
-  sprite.anchor.set(0.5); // Center anchor for centered coordinate system
-  sprite.eventMode = 'static'; // Block clicks from reaching screws underneath
-
+  sprite.anchor.set(0.5);
+  sprite.eventMode = 'static';
   gameVisualRegistry.set(entity, sprite);
   entity.view.addChild(sprite);
-  entity.position.set(options.position.x, options.position.y);
+}
 
-  return entity;
+/**
+ * Attach a physics body to a part entity.
+ *
+ * @param entity - The entity to attach physics to
+ * @param width - Width in pixels
+ * @param height - Height in pixels
+ * @param layer - Visual layer for collision filtering
+ * @example
+ * attachPhysicsBody(entity, 100, 50, 1);
+ */
+function attachPhysicsBody(
+  entity: Entity2D,
+  width: number,
+  height: number,
+  layer: number
+): void {
+  const physicsManager = PhysicsWorldManager.getInstance();
+  const bodyId = physicsManager.createBodyForPart(
+    entity,
+    width,
+    height,
+    true,
+    layer
+  );
+  (entity.c.physicsBody as { bodyId: number }).bodyId = bodyId;
 }
 
 // ============================================================================

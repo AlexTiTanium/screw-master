@@ -57,6 +57,7 @@ import {
   createECSAccess,
   createRenderSignatureGenerator,
   createActionExecutor,
+  createPhysicsAccess,
 } from './harness';
 
 /** Reference to gameTick, set via registerTickCounter */
@@ -308,6 +309,7 @@ function createHarness(): GameTestHarness {
     metrics: {},
     ecs: ecsAccess,
     tick: createTickAccess(),
+    physics: createPhysicsAccess(),
     getRenderSignature: createRenderSignatureGenerator(
       () => ecsAccess.getEntities(),
       () => state.sceneState,
