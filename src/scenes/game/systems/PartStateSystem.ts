@@ -2,8 +2,8 @@
  * PartStateSystem - Monitors screw removal and updates part state.
  *
  * This system:
- * - Listens for screw:removalComplete events
- * - Decrements the parent part's screwCount
+ * - Listens for screw:startRemoval events
+ * - Decrements the parent part's screwCount with a delay
  * - When screwCount reaches 0, transitions part to 'free' state
  * - Emits part:freed event for physics system to handle
  *
@@ -24,7 +24,10 @@ import { gameEvents } from '../utils';
 
 import { BaseSystem } from './BaseSystem';
 
-import type { ScrewRemovalCompleteEvent } from './AnimationSystem';
+import type { ScrewRemovalEvent } from './ScrewInteractionSystem';
+
+/** Delay in milliseconds before part starts falling after screw tap. */
+const FALL_DELAY_MS = 100;
 
 /** Event data for part:freed */
 export interface PartFreedEvent {
@@ -52,7 +55,10 @@ export class PartStateSystem extends BaseSystem {
     parts: { components: [PartComponent] },
   };
 
-  private boundHandleScrewRemoval: (data: ScrewRemovalCompleteEvent) => void;
+  private boundHandleScrewRemoval: (data: ScrewRemovalEvent) => void;
+
+  /** Pending timeouts for delayed part freeing. */
+  private pendingTimeouts = new Set<ReturnType<typeof setTimeout>>();
 
   constructor() {
     super();
@@ -66,8 +72,8 @@ export class PartStateSystem extends BaseSystem {
    * system.init();
    */
   init(): void {
-    gameEvents.on<ScrewRemovalCompleteEvent>(
-      'screw:removalComplete',
+    gameEvents.on<ScrewRemovalEvent>(
+      'screw:startRemoval',
       this.boundHandleScrewRemoval
     );
   }
@@ -79,7 +85,12 @@ export class PartStateSystem extends BaseSystem {
    * system.destroy();
    */
   destroy(): void {
-    gameEvents.off('screw:removalComplete', this.boundHandleScrewRemoval);
+    gameEvents.off('screw:startRemoval', this.boundHandleScrewRemoval);
+    // Clear any pending timeouts
+    for (const timeout of this.pendingTimeouts) {
+      clearTimeout(timeout);
+    }
+    this.pendingTimeouts.clear();
   }
 
   /**
@@ -89,7 +100,7 @@ export class PartStateSystem extends BaseSystem {
    * @example
    * // Called internally via event subscription
    */
-  private handleScrewRemoval(data: ScrewRemovalCompleteEvent): void {
+  private handleScrewRemoval(data: ScrewRemovalEvent): void {
     const partEntity = this.findPartEntityForScrew(data.screwEntity);
     if (!partEntity) return;
 
@@ -99,7 +110,15 @@ export class PartStateSystem extends BaseSystem {
     part.screwCount = Math.max(0, part.screwCount - 1);
 
     if (part.screwCount === 0) {
-      this.freePart(partEntity, part);
+      // Delay part freeing so fall starts shortly after tap
+      const timeout = setTimeout(() => {
+        this.pendingTimeouts.delete(timeout);
+        // Re-check state in case something changed
+        if (part.state !== 'free') {
+          this.freePart(partEntity, part);
+        }
+      }, FALL_DELAY_MS);
+      this.pendingTimeouts.add(timeout);
     }
   }
 
