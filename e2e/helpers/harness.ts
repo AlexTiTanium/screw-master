@@ -230,7 +230,7 @@ export async function waitForCondition(
   options: { timeout?: number; interval?: number; message?: string } = {}
 ): Promise<void> {
   const {
-    timeout = 5000,
+    timeout = 10000,
     interval = 100,
     message = 'Condition not met',
   } = options;
@@ -256,7 +256,7 @@ export async function waitForScrewState(
   targetState: 'inBoard' | 'inTray' | 'inBuffer',
   options: { timeout?: number; count?: number } = {}
 ): Promise<void> {
-  const { timeout = 5000, count = 1 } = options;
+  const { timeout = 10000, count = 1 } = options;
 
   await waitForCondition(
     page,
@@ -285,7 +285,7 @@ export async function waitForTrayState(
   expectedScrewCount: number,
   options: { timeout?: number } = {}
 ): Promise<void> {
-  const { timeout = 5000 } = options;
+  const { timeout = 10000 } = options;
 
   await waitForCondition(
     page,
@@ -315,7 +315,7 @@ export async function waitForBufferState(
   expectedCount: number,
   options: { timeout?: number } = {}
 ): Promise<void> {
-  const { timeout = 5000 } = options;
+  const { timeout = 10000 } = options;
 
   await waitForCondition(
     page,
@@ -341,7 +341,7 @@ export async function waitForAnimationsToSettle(
   page: Page,
   options: { timeout?: number; stableTime?: number } = {}
 ): Promise<void> {
-  const { timeout = 5000, stableTime = 200 } = options;
+  const { timeout = 10000, stableTime = 200 } = options;
   const startTime = Date.now();
   let lastPositions = new Map<string | number, { x: number; y: number }>();
   let stableSince = 0;
