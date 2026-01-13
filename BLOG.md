@@ -24,6 +24,43 @@ Screw Master is an interactive game built with a modern TypeScript stack, combin
 
 ## Entries
 
+### Jan 12, 2026 - The Bug Report System (Teaching AI to Debug Visual Chaos)
+
+**The real problem isn't writing code with AI — it's writing code that solves *your* problem.**
+
+Started with tray animations. These are complex: multiple moving parts, interpolation between states. Describing this in a prompt? Time-consuming nightmare (I tried). Solution: prototype the animation states in Figma, then ask AI to implement the interpolation. Worked — not on the first try, some elements landed in wrong spots — but a few commands later, it behaved exactly as intended.
+
+**Then came the chaos.**
+
+With animations running, the game became a storm of concurrent motion: screws flying, trays sliding, user input happening simultaneously. Race conditions everywhere. Screws appearing in wrong places for split seconds. Visual bugs that vanish before you can describe them.
+
+**The debugging dead-end:** Try explaining "I saw a screw in the wrong spot for one frame" in a prompt. E2E tests couldn't help either — no way to reproduce timing-dependent issues.
+
+**The solution: One-click bug reports.**
+
+Built a system that captures everything in a single click during gameplay:
+- **Game logs** with frame numbers and timings for every action, animation, and decision
+- **Screenshot** at the moment of the bug
+- **Full ECS state** dump
+- **Render graph state**
+- All packaged into a folder via Vite middleware
+
+Added documentation explaining the bug-solving workflow:
+1. Report a bug (one click)
+2. AI reads the report and reproduces it in an E2E test
+3. AI fixes the bug
+4. Same E2E input confirms the fix
+
+**See it in action:** [PR #11](https://github.com/AlexTiTanium/screw-master/pull/11) — the video shows the bug reproduction and fix confirmation.
+
+**Why this matters:** E2E tests now guard against regressions. Each bug found adds to a safety net. The game stays stable enough to keep building features without fear of breaking everything.
+
+**The bigger idea:** This isn't just for bugs. Same system could drive feature development — pause the game, press a button, describe what you want, and AI gets full context (game state + your request) to implement and test the feature.
+
+**Next up:** Maybe extend this with state-change sampling. Could be heavy, but the potential is there.
+
+---
+
 ### Jan 9, 2026 - Figma MCP and Automated PR Media
 
 **Today was a breakthrough day.** Two major wins that changed the development workflow entirely.
