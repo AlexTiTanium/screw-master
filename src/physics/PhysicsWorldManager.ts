@@ -240,7 +240,9 @@ export class PhysicsWorldManager {
    * For 60Hz physics on a 120Hz display:
    * - Each frame adds ~8.33ms to accumulator
    * - After 2 frames (~16.67ms), accumulator >= fixedTimestep, physics steps
-   * - Alpha oscillates between 0.0 and ~0.5 (sawtooth pattern)
+   * - Alpha oscillates in a sawtooth pattern:
+   *   - Frame 1: accumulator = 8.33ms, alpha ≈ 0.5
+   *   - Frame 2: accumulator = 16.66ms, alpha ≈ 1.0, then step resets
    *
    * @param deltaMs - Time elapsed in milliseconds
    * @example
