@@ -1,0 +1,13 @@
+{
+  "name": "screw-master",
+  "owner": {
+    "name": "Alex"
+  },
+  "plugins": [
+    {
+      "name": "sm",
+      "source": "./",
+      "description": "A plugin to help with code reviews."
+    }
+  ]
+}

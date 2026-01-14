@@ -1,0 +1,14 @@
+{
+  "name": "sm",
+  "version": "1.0.0",
+  "description": "Development automation plugin for Screw Master game - includes commands for bug fixing, feature development, level creation, maintenance, and feature prioritization",
+  "author": {
+    "name": "Screw Master Team"
+  },
+  "keywords": [
+    "game-development",
+    "ecs",
+    "tdd",
+    "automation"
+  ]
+}
