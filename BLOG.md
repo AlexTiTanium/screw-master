@@ -24,6 +24,28 @@ Screw Master is an interactive game built with a modern TypeScript stack, combin
 
 ## Entries
 
+### Jan 13, 2026 - Preview Builds, Physics, and Bug Whack-a-Mole
+
+**Two steps forward, many bugs to squash.**
+
+Started the day wanting preview builds for PRs. Tried GitHub Pages first — one small problem: deployments take forever, but the cooldown is only 10 minutes. The odds of getting a working build before the next run? Slim. Switched to Cloudflare Pages. Tricky setup, but eventually it works and does exactly what it should.
+
+**Then came physics.**
+
+Simple goal: make level parts fall when screws are removed. Took about 4 attempts to get it working. And naturally, it brought a cascade of new bugs.
+
+The bug report system got heavy usage today. But here's what I learned: just handing AI the report and saying "fix it" doesn't work. There's a strict order that actually works:
+
+1. **Reproduce first** — Ask AI to replay your input in an E2E test and get the same broken state. Watch the video. Confirm it actually reproduced the issue (AI gets lazy and sometimes reuses inputs from previous tests).
+2. **Add assertions** — Write expect checks that fail on the bug.
+3. **Fix and verify** — Only then do the proper fix and confirm the test passes.
+
+Skip any step and you'll waste hours. Iterative is the only way.
+
+**Current state:** Got a build with pivot point constraints and more advanced physics simulation. But you know... bugs.
+
+**Next up:** More physics work — pivot constraints, improved simulation. And the never-ending bug queue.
+
 ### Jan 12, 2026 - The Bug Report System (Teaching AI to Debug Visual Chaos)
 
 **The real problem isn't writing code with AI — it's writing code that solves *your* problem.**
