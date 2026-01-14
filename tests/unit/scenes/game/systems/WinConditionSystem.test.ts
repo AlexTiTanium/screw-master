@@ -225,6 +225,31 @@ describe('WinConditionSystem', () => {
       expect(emitSpy).not.toHaveBeenCalledWith('game:won');
     });
 
+    it('should not emit game:won when screws remain in buffer', () => {
+      const gameState = createMockGameStateEntity('playing');
+      // No screws in board, but one screw still in buffer waiting to be transferred
+      const screws = [
+        createMockScrewEntity(1, ScrewColor.Red, 'inTray'),
+        createMockScrewEntity(2, ScrewColor.Blue, 'inTray'),
+        createMockScrewEntity(3, ScrewColor.Yellow, 'inBuffer'),
+      ];
+
+      (system as { queries: QueryResults }).queries = createMockQueryResults(
+        screws,
+        gameState
+      );
+
+      const emitSpy = vi.spyOn(gameEvents, 'emit');
+
+      system.init();
+      gameEvents.emit('screw:removalComplete', {});
+
+      // Should NOT win because there's still a screw in the buffer
+      expect(emitSpy).not.toHaveBeenCalledWith('game:won');
+      const state = (gameState.c as { gameState: { phase: string } }).gameState;
+      expect(state.phase).toBe('playing');
+    });
+
     it('should handle default win condition type', () => {
       const gameState = createMockGameStateEntity('playing', 'unknownType');
       const screws: Entity[] = []; // No screws - all removed
@@ -399,6 +424,42 @@ describe('WinConditionSystem', () => {
       );
 
       const count = system['countInBoardScrews']();
+      expect(count).toBe(0);
+    });
+  });
+
+  describe('countInBufferScrews', () => {
+    it('should count only screws with state inBuffer', () => {
+      const gameState = createMockGameStateEntity('playing');
+      const screws = [
+        createMockScrewEntity(1, ScrewColor.Red, 'inBoard'),
+        createMockScrewEntity(2, ScrewColor.Blue, 'inTray'),
+        createMockScrewEntity(3, ScrewColor.Green, 'inBuffer'),
+        createMockScrewEntity(4, ScrewColor.Yellow, 'inBuffer'),
+      ];
+
+      (system as { queries: QueryResults }).queries = createMockQueryResults(
+        screws,
+        gameState
+      );
+
+      const count = system['countInBufferScrews']();
+      expect(count).toBe(2);
+    });
+
+    it('should return 0 when no screws in buffer', () => {
+      const gameState = createMockGameStateEntity('playing');
+      const screws = [
+        createMockScrewEntity(1, ScrewColor.Red, 'inTray'),
+        createMockScrewEntity(2, ScrewColor.Blue, 'inBoard'),
+      ];
+
+      (system as { queries: QueryResults }).queries = createMockQueryResults(
+        screws,
+        gameState
+      );
+
+      const count = system['countInBufferScrews']();
       expect(count).toBe(0);
     });
   });

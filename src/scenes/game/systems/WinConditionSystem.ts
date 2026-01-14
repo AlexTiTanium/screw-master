@@ -133,13 +133,28 @@ export class WinConditionSystem extends BaseSystem {
   }
 
   /**
+   * Count how many screws are in the buffer waiting to be transferred.
+   * @returns Number of screws with state 'inBuffer'
+   * @example
+   * const buffered = this.countInBufferScrews();
+   */
+  private countInBufferScrews(): number {
+    return this.getEntities('screws').filter(
+      (entity) =>
+        this.getComponents<ScrewComponentAccess>(entity).screw.state ===
+        'inBuffer'
+    ).length;
+  }
+
+  /**
    * Check if all screws have been removed from the puzzle.
-   * @returns True if no screws remain in the board
+   * A screw is considered "removed" when it is in a tray (not in board or buffer).
+   * @returns True if no screws remain in the board or buffer
    * @example
    * const allRemoved = this.checkAllScrewsRemoved();
    */
   private checkAllScrewsRemoved(): boolean {
-    return this.countInBoardScrews() === 0;
+    return this.countInBoardScrews() === 0 && this.countInBufferScrews() === 0;
   }
 
   /**
