@@ -45,6 +45,13 @@ export type {
 } from './TrayManagementSystem';
 export { TickSystem } from './TickSystem';
 export { PartStateSystem } from './PartStateSystem';
-export type { PartFreedEvent } from './PartStateSystem';
+export type { PartFreedEvent, PartStateChangedEvent } from './PartStateSystem';
 export { PhysicsSystem } from './PhysicsSystem';
 export type { PartSettledEvent } from './PhysicsSystem';
+export { PivotPhysicsSystem } from './PivotPhysicsSystem';
+export type {
+  PartDragStartEvent,
+  PartDragMoveEvent,
+  PartDragEndEvent,
+} from './PivotPhysicsSystem';
+export { PartDragSystem } from './PartDragSystem';

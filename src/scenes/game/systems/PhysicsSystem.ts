@@ -23,7 +23,10 @@ import { gameEvents } from '../utils';
 import { BaseSystem } from './BaseSystem';
 
 import type { PartFreedEvent } from './PartStateSystem';
-import type { PhysicsBodyComponentAccess } from '../types/component-access';
+import type {
+  PhysicsBodyComponentAccess,
+  PartComponentAccess,
+} from '../types/component-access';
 
 /** Distance in pixels for fade-out effect. */
 const FADE_DISTANCE = 400;
@@ -177,6 +180,20 @@ export class PhysicsSystem extends BaseSystem {
   }
 
   /**
+   * @param entity - The entity to check
+   * @returns True if the entity is in pivoting or loosened state
+   * @example this.isPivotingOrLoosened(entity);
+   */
+  private isPivotingOrLoosened(entity: Entity2D): boolean {
+    // Check if entity has PartComponent
+    const components = entity.c as unknown as Partial<PartComponentAccess>;
+    if (!components.part) return false;
+
+    const state = components.part.state;
+    return state === 'pivoting' || state === 'loosened';
+  }
+
+  /**
    * Sync physics state to entity position.
    *
    * @param entity - The entity to sync
@@ -193,6 +210,9 @@ export class PhysicsSystem extends BaseSystem {
       physicsBody.bodyType === 'static'
     )
       return;
+
+    // Skip pivoting/loosened parts - they're synced by PivotPhysicsSystem
+    if (this.isPivotingOrLoosened(entity)) return;
 
     this.updateEntityPosition(entity, physicsBody.bodyId, alpha);
     this.updateEntityRotation(entity, physicsBody.bodyId, alpha);
