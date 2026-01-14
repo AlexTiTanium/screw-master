@@ -21,7 +21,7 @@ const FALL_DELAY_MS = 100;
 function createMockPartEntity(
   uid: number,
   screwCount: number,
-  state: 'static' | 'constrained' | 'free' = 'static'
+  state: 'static' | 'loosened' | 'pivoting' | 'free' = 'static'
 ): Entity {
   return {
     UID: uid,
@@ -31,6 +31,13 @@ function createMockPartEntity(
         layer: 0,
         screwCount,
         state,
+      },
+      pivot: {
+        isPivoting: false,
+        pivotScrewEntityId: '',
+        pivotPoint: { x: 0, y: 0 },
+        angleLimit: Math.PI / 4,
+        isDragging: false,
       },
     },
   } as unknown as Entity;
@@ -191,8 +198,8 @@ describe('PartStateSystem', () => {
       expect(part.screwCount).toBe(2);
     });
 
-    it('should not change state when screwCount > 0 after removal', () => {
-      const partEntity = createMockPartEntity(1, 2);
+    it('should transition to loosened state when screwCount reaches 2', () => {
+      const partEntity = createMockPartEntity(1, 3); // Start with 3 screws
       const screwEntity = createMockScrewEntity(10, '1');
       const targetTray = createMockTrayEntity(100);
 
@@ -209,14 +216,36 @@ describe('PartStateSystem', () => {
         isBuffer: false,
       });
 
-      vi.advanceTimersByTime(FALL_DELAY_MS + 100);
-
+      // screwCount now 2, should transition to 'loosened'
       const part = (partEntity.c as { part: { state: string } }).part;
-      expect(part.state).toBe('static');
+      expect(part.state).toBe('loosened');
+    });
+
+    it('should transition to pivoting state when screwCount reaches 1', () => {
+      const partEntity = createMockPartEntity(1, 2); // Start with 2 screws
+      const screwEntity = createMockScrewEntity(10, '1');
+      const targetTray = createMockTrayEntity(100);
+
+      (system as { queries: QueryResults }).queries = createMockQueryResults(
+        [partEntity],
+        [screwEntity]
+      );
+
+      system.init();
+      gameEvents.emit('screw:startRemoval', {
+        screwEntity,
+        targetTray,
+        slotIndex: 0,
+        isBuffer: false,
+      });
+
+      // screwCount now 1, should transition to 'pivoting'
+      const part = (partEntity.c as { part: { state: string } }).part;
+      expect(part.state).toBe('pivoting');
     });
 
     it('should transition to free state after delay when screwCount reaches 0', () => {
-      const partEntity = createMockPartEntity(1, 1); // Last screw
+      const partEntity = createMockPartEntity(1, 1, 'pivoting'); // Last screw, already pivoting
       const screwEntity = createMockScrewEntity(10, '1');
       const targetTray = createMockTrayEntity(100);
 
@@ -233,9 +262,9 @@ describe('PartStateSystem', () => {
         isBuffer: false,
       });
 
-      // State should still be static before delay
+      // State should still be pivoting before delay (falls from current angle)
       const part = (partEntity.c as { part: { state: string } }).part;
-      expect(part.state).toBe('static');
+      expect(part.state).toBe('pivoting');
 
       // Advance time past delay
       vi.advanceTimersByTime(FALL_DELAY_MS);
@@ -244,7 +273,7 @@ describe('PartStateSystem', () => {
     });
 
     it('should emit part:freed event after delay when screwCount reaches 0', () => {
-      const partEntity = createMockPartEntity(1, 1);
+      const partEntity = createMockPartEntity(1, 1, 'pivoting'); // Last screw, already pivoting
       const screwEntity = createMockScrewEntity(10, '1');
       const targetTray = createMockTrayEntity(100);
 
@@ -276,7 +305,7 @@ describe('PartStateSystem', () => {
     });
 
     it('should not emit part:freed when screwCount > 0', () => {
-      const partEntity = createMockPartEntity(1, 2);
+      const partEntity = createMockPartEntity(1, 3); // Start with 3, goes to 2
       const screwEntity = createMockScrewEntity(10, '1');
       const targetTray = createMockTrayEntity(100);
 

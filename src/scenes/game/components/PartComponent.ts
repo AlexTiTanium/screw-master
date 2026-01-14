@@ -2,8 +2,13 @@ import { defineComponent } from '@shared/ecs';
 
 /**
  * Part state types.
+ *
+ * - 'static': Part is fully fixed (3+ screws attached)
+ * - 'loosened': Part has slight play (2 screws attached)
+ * - 'pivoting': Part can swing around remaining screw (1 screw attached)
+ * - 'free': Part falls with gravity (0 screws attached)
  */
-export type PartState = 'static' | 'constrained' | 'free';
+export type PartState = 'static' | 'loosened' | 'pivoting' | 'free';
 
 /**
  * Component for part/board entities.

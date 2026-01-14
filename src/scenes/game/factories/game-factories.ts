@@ -253,6 +253,13 @@ function createPartEntityBase(options: PartEntityOptions): Entity2D {
       isSleeping: true,
       enabled: true,
     },
+    pivot: {
+      isPivoting: false,
+      pivotScrewEntityId: '',
+      pivotPoint: { x: 0, y: 0 },
+      angleLimit: Math.PI / 4,
+      isDragging: false,
+    },
   });
 }
 

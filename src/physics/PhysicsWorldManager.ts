@@ -9,9 +9,9 @@
  * - Boundary walls for world edges
  */
 
-import { World, Vec2, Box } from 'planck';
+import { World, Vec2, Box, RevoluteJoint, MouseJoint } from 'planck';
 
-import type { Body } from 'planck';
+import type { Body, Joint } from 'planck';
 import type { Entity2D } from '@play-co/odie';
 
 import { lerp, lerpAngle } from '@shared/utils/math';
@@ -74,6 +74,14 @@ export class PhysicsWorldManager {
   private stepCount = 0;
   /** Last alpha value captured during render (for debug display). */
   private lastCapturedAlpha = 0;
+
+  /** Joint tracking for pivot physics. */
+  private joints = new Map<number, Joint>();
+  private nextJointId = 0;
+  /** Ground bodies created for mouse joints (need cleanup). */
+  private mouseJointGroundBodies = new Map<number, Body>();
+  /** Anchor bodies created for revolute joints (need cleanup). */
+  private anchorBodies = new Map<number, Body>();
 
   private constructor() {
     // Create world with gravity (negative Y because Planck uses standard coordinates)
@@ -489,6 +497,196 @@ export class PhysicsWorldManager {
     this.prevSnapshots.delete(bodyId);
   }
 
+  // ============================================================================
+  // Joint Management (for pivot physics)
+  // ============================================================================
+
+  /**
+   * Create a static anchor body at a specific position.
+   * Used as the fixed anchor point for revolute joints.
+   *
+   * @param positionPixels - Position in pixels
+   * @returns Body ID of the anchor
+   * @example
+   * const anchorId = physics.createAnchorBody({ x: 100, y: 200 });
+   */
+  createAnchorBody(positionPixels: PixelPosition): number {
+    const scale = PHYSICS_CONFIG.scale;
+    const anchor = this.world.createBody({
+      type: 'static',
+      position: new Vec2(positionPixels.x / scale, positionPixels.y / scale),
+    });
+
+    const bodyId = this.nextBodyId++;
+    this.bodies.set(bodyId, anchor);
+    this.anchorBodies.set(bodyId, anchor);
+    return bodyId;
+  }
+
+  /**
+   * @param pixels - Position in pixels
+   * @returns Position as Vec2 in meters
+   * @example this.pixelsToVec2({ x: 100, y: 200 });
+   */
+  // eslint-disable-next-line @typescript-eslint/no-deprecated
+  private pixelsToVec2(pixels: PixelPosition): Vec2 {
+    const scale = PHYSICS_CONFIG.scale;
+    return new Vec2(pixels.x / scale, pixels.y / scale);
+  }
+
+  /**
+   * @param joint - Joint to register (or null if creation failed)
+   * @returns Joint ID or -1 if null
+   * @example this.registerJoint(joint);
+   */
+  private registerJoint(joint: Joint | null): number {
+    if (!joint) return -1;
+    const jointId = this.nextJointId++;
+    this.joints.set(jointId, joint);
+    return jointId;
+  }
+
+  /**
+   * Create a revolute joint (hinge) for pivot physics.
+   *
+   * @param anchorBodyId - ID of the static anchor body
+   * @param partBodyId - ID of the part body to pivot
+   * @param anchorPixels - Anchor position in pixels (pivot point)
+   * @param angleLimit - Maximum rotation in radians (e.g., Math.PI/4 for ±45°)
+   * @returns Joint ID for tracking, or -1 if failed
+   * @example
+   * const jointId = physics.createRevoluteJoint(anchorId, partId, { x: 100, y: 200 }, Math.PI/4);
+   */
+  createRevoluteJoint(
+    anchorBodyId: number,
+    partBodyId: number,
+    anchorPixels: PixelPosition,
+    angleLimit: number
+  ): number {
+    const anchorBody = this.bodies.get(anchorBodyId);
+    const partBody = this.bodies.get(partBodyId);
+    if (!anchorBody || !partBody) return -1;
+
+    const anchorMeters = this.pixelsToVec2(anchorPixels);
+
+    // Make the part body dynamic so it can rotate
+    partBody.setType('dynamic');
+    partBody.setAwake(true);
+
+    const joint = this.world.createJoint(
+      // eslint-disable-next-line @typescript-eslint/no-deprecated
+      RevoluteJoint(
+        { enableLimit: true, lowerAngle: -angleLimit, upperAngle: angleLimit },
+        anchorBody,
+        partBody,
+        anchorMeters
+      )
+    );
+
+    return this.registerJoint(joint);
+  }
+
+  /**
+   * Create a mouse joint for dragging a body.
+   *
+   * @param bodyId - The body to drag
+   * @param targetPixels - Initial target position in pixels
+   * @param maxForce - Maximum force (default 1000)
+   * @returns Joint ID for tracking, or -1 if failed
+   * @example
+   * const jointId = physics.createMouseJoint(bodyId, { x: 150, y: 200 });
+   */
+  createMouseJoint(
+    bodyId: number,
+    targetPixels: PixelPosition,
+    maxForce = 1000
+  ): number {
+    const body = this.bodies.get(bodyId);
+    if (!body) return -1;
+
+    const targetMeters = this.pixelsToVec2(targetPixels);
+    const groundBody = this.world.createBody({ type: 'static' });
+
+    const joint = this.world.createJoint(
+      // eslint-disable-next-line @typescript-eslint/no-deprecated
+      MouseJoint(
+        {
+          maxForce: maxForce * body.getMass(),
+          frequencyHz: 5,
+          dampingRatio: 0.7,
+        },
+        groundBody,
+        body,
+        targetMeters
+      )
+    );
+
+    if (!joint) {
+      this.world.destroyBody(groundBody);
+      return -1;
+    }
+
+    const jointId = this.nextJointId++;
+    this.joints.set(jointId, joint);
+    this.mouseJointGroundBodies.set(jointId, groundBody);
+    return jointId;
+  }
+
+  /**
+   * Update mouse joint target position during drag.
+   *
+   * @param jointId - The mouse joint ID
+   * @param targetPixels - New target position in pixels
+   * @example
+   * physics.updateMouseJointTarget(jointId, { x: 200, y: 250 });
+   */
+  updateMouseJointTarget(jointId: number, targetPixels: PixelPosition): void {
+    const joint = this.joints.get(jointId);
+    if (!joint) return;
+
+    const targetMeters = this.pixelsToVec2(targetPixels);
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
+    (joint as ReturnType<typeof MouseJoint>).setTarget(targetMeters);
+  }
+
+  /**
+   * Destroy a joint and clean up associated resources.
+   *
+   * @param jointId - The joint ID to destroy
+   * @example
+   * physics.destroyJoint(jointId);
+   */
+  destroyJoint(jointId: number): void {
+    const joint = this.joints.get(jointId);
+    if (!joint) return;
+
+    this.world.destroyJoint(joint);
+    this.joints.delete(jointId);
+
+    // Clean up ground body if this was a mouse joint
+    const groundBody = this.mouseJointGroundBodies.get(jointId);
+    if (groundBody) {
+      this.world.destroyBody(groundBody);
+      this.mouseJointGroundBodies.delete(jointId);
+    }
+  }
+
+  /**
+   * Destroy an anchor body (used when pivot is removed).
+   *
+   * @param bodyId - The anchor body ID to destroy
+   * @example
+   * physics.destroyAnchorBody(anchorId);
+   */
+  destroyAnchorBody(bodyId: number): void {
+    const body = this.anchorBodies.get(bodyId);
+    if (!body) return;
+
+    this.world.destroyBody(body);
+    this.anchorBodies.delete(bodyId);
+    this.bodies.delete(bodyId);
+  }
+
   /**
    * Pause physics simulation.
    *
@@ -521,13 +719,28 @@ export class PhysicsWorldManager {
   }
 
   /**
-   * Reset physics world (clear all dynamic bodies, keep boundaries).
+   * Reset physics world (clear all bodies, joints, keep boundaries).
    * Used for level restart.
    *
    * @example
    * physics.reset();
    */
   reset(): void {
+    // Remove all joints first
+    for (const [, joint] of this.joints) {
+      this.world.destroyJoint(joint);
+    }
+    this.joints.clear();
+
+    // Clean up mouse joint ground bodies
+    for (const [, body] of this.mouseJointGroundBodies) {
+      this.world.destroyBody(body);
+    }
+    this.mouseJointGroundBodies.clear();
+
+    // Clean up anchor bodies (tracked separately)
+    this.anchorBodies.clear();
+
     // Remove all user-created bodies
     for (const [, body] of this.bodies) {
       this.world.destroyBody(body);
@@ -535,6 +748,7 @@ export class PhysicsWorldManager {
     this.bodies.clear();
     this.prevSnapshots.clear();
     this.nextBodyId = 0;
+    this.nextJointId = 0;
     this.accumulator = 0;
     this.stepCount = 0;
     this.paused = false;

@@ -31,6 +31,8 @@ import {
   TrayManagementSystem,
   PartStateSystem,
   PhysicsSystem,
+  PivotPhysicsSystem,
+  PartDragSystem,
 } from './systems';
 import {
   gameEvents,
@@ -165,6 +167,10 @@ export class GameScene {
     this.scene.addSystem(ScrewInteractionSystem);
     // PartStateSystem listens for screw:removalComplete to track part state
     this.scene.addSystem(PartStateSystem);
+    // PivotPhysicsSystem listens for part:stateChanged to manage pivot joints
+    this.scene.addSystem(PivotPhysicsSystem);
+    // PartDragSystem enables touch interaction for loosened/pivoting parts
+    this.scene.addSystem(PartDragSystem);
     // PhysicsSystem runs after PartStateSystem to handle part:freed events
     this.scene.addSystem(PhysicsSystem);
     this.scene.addSystem(AutoTransferSystem);

@@ -11,3 +11,5 @@ export { BufferTrayComponent } from './BufferTrayComponent';
 export type { BufferTrayComponentData } from './BufferTrayComponent';
 export { GameStateComponent } from './GameStateComponent';
 export type { GameStateComponentData, GamePhase } from './GameStateComponent';
+export { PivotComponent } from './PivotComponent';
+export type { PivotComponentData } from './PivotComponent';

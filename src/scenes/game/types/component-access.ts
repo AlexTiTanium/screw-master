@@ -84,3 +84,13 @@ export interface PhysicsBodyComponentAccess {
     enabled: boolean;
   };
 }
+
+export interface PivotComponentAccess {
+  pivot: {
+    isPivoting: boolean;
+    pivotScrewEntityId: string;
+    pivotPoint: { x: number; y: number };
+    angleLimit: number;
+    isDragging: boolean;
+  };
+}

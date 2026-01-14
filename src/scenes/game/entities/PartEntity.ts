@@ -1,5 +1,9 @@
 import { DefineEntity, Entity2D } from '@play-co/odie';
-import { PartComponent, PhysicsBodyComponent } from '../components';
+import {
+  PartComponent,
+  PhysicsBodyComponent,
+  PivotComponent,
+} from '../components';
 
 /**
  * Entity type definition for a puzzle part (board).
@@ -22,5 +26,6 @@ import { PartComponent, PhysicsBodyComponent } from '../components';
 export const PartEntity = DefineEntity(
   Entity2D,
   PartComponent,
-  PhysicsBodyComponent
+  PhysicsBodyComponent,
+  PivotComponent
 );

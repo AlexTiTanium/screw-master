@@ -436,7 +436,7 @@ export class TrayManagementSystem extends BaseSystem {
    * @example
    * this.finalizeTransition(comp, shifted, revealed);
    */
-  // eslint-disable-next-line max-lines-per-function -- debug logging adds lines
+
   private finalizeTransition(
     fullTrayComponent: TrayComponentAccess['tray'],
     traysToShift: Entity[],
