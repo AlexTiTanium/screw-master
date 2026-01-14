@@ -12,4 +12,5 @@ export type {
   PixelPosition,
   CreateBodyOptions,
   PhysicsAccess,
+  BodySnapshot,
 } from './types';

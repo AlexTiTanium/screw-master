@@ -15,6 +15,7 @@
 import type { Time, Entity, Entity2D } from '@play-co/odie';
 
 import { PhysicsWorldManager, PHYSICS_CONFIG } from '@physics';
+import { isTestMode } from '@shared/debug';
 
 import { PhysicsBodyComponent } from '../components';
 import { gameEvents } from '../utils';
@@ -126,9 +127,17 @@ export class PhysicsSystem extends BaseSystem {
    * // Called automatically by ODIE each frame
    */
   update(time: Time): void {
+    // ODIE's time.deltaTime is in milliseconds
     this.physicsManager.step(time.deltaTime);
+
+    // Disable interpolation in test mode for determinism
+    // Use captureAlphaForDebug() to sync debug console display with actual render
+    const alpha = isTestMode()
+      ? 1.0
+      : this.physicsManager.captureAlphaForDebug();
+
     this.forEachEntity('physicsBodies', (baseEntity) => {
-      this.syncEntityPhysics(asEntity2D(baseEntity));
+      this.syncEntityPhysics(asEntity2D(baseEntity), alpha);
     });
 
     // Destroy queued entities after iteration
@@ -171,10 +180,11 @@ export class PhysicsSystem extends BaseSystem {
    * Sync physics state to entity position.
    *
    * @param entity - The entity to sync
+   * @param alpha - Interpolation factor [0, 1]
    * @example
-   * this.syncEntityPhysics(entity);
+   * this.syncEntityPhysics(entity, 0.5);
    */
-  private syncEntityPhysics(entity: Entity2D): void {
+  private syncEntityPhysics(entity: Entity2D, alpha: number): void {
     const physicsBody =
       this.getComponents<PhysicsBodyComponentAccess>(entity).physicsBody;
     if (
@@ -184,8 +194,8 @@ export class PhysicsSystem extends BaseSystem {
     )
       return;
 
-    this.updateEntityPosition(entity, physicsBody.bodyId);
-    this.updateEntityRotation(entity, physicsBody.bodyId);
+    this.updateEntityPosition(entity, physicsBody.bodyId, alpha);
+    this.updateEntityRotation(entity, physicsBody.bodyId, alpha);
 
     // Handle falling parts: fade and destruction
     if (this.fallingParts.has(entity.UID)) {
@@ -220,15 +230,23 @@ export class PhysicsSystem extends BaseSystem {
   }
 
   /**
-   * Update entity position from physics.
+   * Update entity position from physics (with interpolation).
    *
    * @param entity - The entity to update
    * @param bodyId - The physics body ID
+   * @param alpha - Interpolation factor [0, 1]
    * @example
-   * this.updateEntityPosition(entity, bodyId);
+   * this.updateEntityPosition(entity, bodyId, 0.5);
    */
-  private updateEntityPosition(entity: Entity2D, bodyId: number): void {
-    const position = this.physicsManager.getBodyPosition(bodyId);
+  private updateEntityPosition(
+    entity: Entity2D,
+    bodyId: number,
+    alpha: number
+  ): void {
+    const position = this.physicsManager.getBodyPositionInterpolated(
+      bodyId,
+      alpha
+    );
     if (position) {
       entity.position.x = position.x;
       entity.position.y = position.y;
@@ -236,15 +254,23 @@ export class PhysicsSystem extends BaseSystem {
   }
 
   /**
-   * Update entity rotation from physics.
+   * Update entity rotation from physics (with interpolation).
    *
    * @param entity - The entity to update
    * @param bodyId - The physics body ID
+   * @param alpha - Interpolation factor [0, 1]
    * @example
-   * this.updateEntityRotation(entity, bodyId);
+   * this.updateEntityRotation(entity, bodyId, 0.5);
    */
-  private updateEntityRotation(entity: Entity2D, bodyId: number): void {
-    entity.view.rotation = this.physicsManager.getBodyRotation(bodyId);
+  private updateEntityRotation(
+    entity: Entity2D,
+    bodyId: number,
+    alpha: number
+  ): void {
+    entity.view.rotation = this.physicsManager.getBodyRotationInterpolated(
+      bodyId,
+      alpha
+    );
   }
 
   /**

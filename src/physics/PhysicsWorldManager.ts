@@ -14,8 +14,10 @@ import { World, Vec2, Box } from 'planck';
 import type { Body } from 'planck';
 import type { Entity2D } from '@play-co/odie';
 
+import { lerp, lerpAngle } from '@shared/utils/math';
+
 import { PHYSICS_CONFIG } from './PhysicsConfig';
-import type { PixelPosition } from './types';
+import type { BodySnapshot, PixelPosition } from './types';
 
 /** Category bit for boundary walls - collides with all layers. */
 const BOUNDARY_CATEGORY = 0x8000;
@@ -64,9 +66,14 @@ export class PhysicsWorldManager {
   // eslint-disable-next-line @typescript-eslint/no-deprecated
   private world: World;
   private bodies = new Map<number, Body>();
+  /** Previous physics state (before most recent step) for interpolation. */
+  private prevSnapshots = new Map<number, BodySnapshot>();
   private nextBodyId = 0;
   private accumulator = 0;
   private paused = false;
+  private stepCount = 0;
+  /** Last alpha value captured during render (for debug display). */
+  private lastCapturedAlpha = 0;
 
   private constructor() {
     // Create world with gravity (negative Y because Planck uses standard coordinates)
@@ -227,6 +234,14 @@ export class PhysicsWorldManager {
   /**
    * Step the physics simulation with fixed timestep accumulator.
    *
+   * Uses standard fixed timestep pattern: accumulate frame time, step physics
+   * when enough time has accumulated, subtract fixedTimestep per step.
+   *
+   * For 60Hz physics on a 120Hz display:
+   * - Each frame adds ~8.33ms to accumulator
+   * - After 2 frames (~16.67ms), accumulator >= fixedTimestep, physics steps
+   * - Alpha oscillates between 0.0 and ~0.5 (sawtooth pattern)
+   *
    * @param deltaMs - Time elapsed in milliseconds
    * @example
    * physics.step(16.67); // ~60fps
@@ -234,15 +249,42 @@ export class PhysicsWorldManager {
   step(deltaMs: number): void {
     if (this.paused) return;
 
-    this.accumulator += deltaMs;
+    // Cap deltaMs to prevent spiral of death on large frame deltas (e.g., page load, tab switch)
+    const cappedDelta = Math.min(deltaMs, PHYSICS_CONFIG.fixedTimestep * 4);
+    this.accumulator += cappedDelta;
 
+    // Standard fixed timestep loop - step when we have enough accumulated time
     while (this.accumulator >= PHYSICS_CONFIG.fixedTimestep) {
+      // Capture state BEFORE stepping (this becomes the interpolation start point)
+      this.capturePrevSnapshots();
+
       this.world.step(
         PHYSICS_CONFIG.fixedTimestep / 1000,
         PHYSICS_CONFIG.velocityIterations,
         PHYSICS_CONFIG.positionIterations
       );
+
+      this.stepCount++;
       this.accumulator -= PHYSICS_CONFIG.fixedTimestep;
+    }
+  }
+
+  /**
+   * Capture current body transforms as previous state for interpolation.
+   * Called before each physics step to save the pre-step positions.
+   *
+   * @example
+   * // Called internally before physics step
+   * this.capturePrevSnapshots();
+   */
+  private capturePrevSnapshots(): void {
+    for (const [bodyId, body] of this.bodies) {
+      const pos = body.getPosition();
+      this.prevSnapshots.set(bodyId, {
+        x: pos.x,
+        y: pos.y,
+        rotation: body.getAngle(),
+      });
     }
   }
 
@@ -296,6 +338,125 @@ export class PhysicsWorldManager {
   }
 
   /**
+   * Get interpolation alpha for smooth rendering.
+   *
+   * Alpha ranges from 0.0 (previous physics state) to ~1.0 (current state).
+   * Calculated from accumulator: how far between physics steps we are.
+   * Clamped to [0, 1] to handle edge cases like large frame deltas on load.
+   *
+   * @returns Alpha value in [0, 1]
+   * @example
+   * const alpha = physics.getInterpolationAlpha(); // 0.5 means halfway between steps
+   */
+  getInterpolationAlpha(): number {
+    const alpha = this.accumulator / PHYSICS_CONFIG.fixedTimestep;
+    return Math.max(0, Math.min(1, alpha));
+  }
+
+  /**
+   * Get total physics step count since start (for monitoring).
+   *
+   * @returns Total number of physics steps executed
+   * @example
+   * const steps = physics.getStepCount();
+   */
+  getStepCount(): number {
+    return this.stepCount;
+  }
+
+  /**
+   * Capture current alpha value for debug display.
+   * Should be called once per frame from the game's render loop,
+   * ensuring the debug console shows the correct synchronized value.
+   *
+   * @returns The captured alpha value
+   * @example
+   * // In PhysicsSystem.update()
+   * const alpha = physics.captureAlphaForDebug();
+   */
+  captureAlphaForDebug(): number {
+    this.lastCapturedAlpha = this.getInterpolationAlpha();
+    return this.lastCapturedAlpha;
+  }
+
+  /**
+   * Get the last captured alpha value (for debug console).
+   * This returns the alpha from when the game last rendered,
+   * not the current accumulator state.
+   *
+   * @returns Last captured alpha value in [0, 1]
+   * @example
+   * const alpha = physics.getCapturedAlpha();
+   */
+  getCapturedAlpha(): number {
+    return this.lastCapturedAlpha;
+  }
+
+  /**
+   * Get interpolated body position in pixel coordinates.
+   * Blends between previous and current physics state.
+   *
+   * @param bodyId - The body ID to query
+   * @param alpha - Interpolation factor [0, 1]
+   * @returns Interpolated position in pixels or null if body not found
+   * @example
+   * const alpha = physics.getInterpolationAlpha();
+   * const pos = physics.getBodyPositionInterpolated(bodyId, alpha);
+   */
+  getBodyPositionInterpolated(
+    bodyId: number,
+    alpha: number
+  ): PixelPosition | null {
+    const body = this.bodies.get(bodyId);
+    if (!body) return null;
+
+    const prev = this.prevSnapshots.get(bodyId);
+    const current = body.getPosition();
+
+    // If no snapshot yet (before first physics step), use live body state
+    if (!prev) {
+      return {
+        x: current.x * PHYSICS_CONFIG.scale,
+        y: current.y * PHYSICS_CONFIG.scale,
+      };
+    }
+
+    // Interpolate between previous snapshot and current live body state
+    const x = lerp(prev.x, current.x, alpha) * PHYSICS_CONFIG.scale;
+    const y = lerp(prev.y, current.y, alpha) * PHYSICS_CONFIG.scale;
+
+    return { x, y };
+  }
+
+  /**
+   * Get interpolated body rotation in radians.
+   * Blends between previous and current physics state.
+   * Uses angular interpolation to handle the -π/π boundary correctly.
+   *
+   * @param bodyId - The body ID to query
+   * @param alpha - Interpolation factor [0, 1]
+   * @returns Interpolated rotation in radians
+   * @example
+   * const alpha = physics.getInterpolationAlpha();
+   * const rotation = physics.getBodyRotationInterpolated(bodyId, alpha);
+   */
+  getBodyRotationInterpolated(bodyId: number, alpha: number): number {
+    const body = this.bodies.get(bodyId);
+    if (!body) return 0;
+
+    const prev = this.prevSnapshots.get(bodyId);
+    const current = body.getAngle();
+
+    // If no snapshot yet (before first physics step), use live body state
+    if (!prev) {
+      return current;
+    }
+
+    // Interpolate rotation using angular interpolation (handles -π/π boundary)
+    return lerpAngle(prev.rotation, current, alpha);
+  }
+
+  /**
    * Check if a body is sleeping (at rest).
    *
    * @param bodyId - The body ID to check
@@ -323,6 +484,7 @@ export class PhysicsWorldManager {
 
     this.world.destroyBody(body);
     this.bodies.delete(bodyId);
+    this.prevSnapshots.delete(bodyId);
   }
 
   /**
@@ -369,8 +531,10 @@ export class PhysicsWorldManager {
       this.world.destroyBody(body);
     }
     this.bodies.clear();
+    this.prevSnapshots.clear();
     this.nextBodyId = 0;
     this.accumulator = 0;
+    this.stepCount = 0;
     this.paused = false;
   }
 

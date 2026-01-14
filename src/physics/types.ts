@@ -27,6 +27,16 @@ export interface CreateBodyOptions {
   entityUid?: number;
 }
 
+/** Body transform snapshot for interpolation */
+export interface BodySnapshot {
+  /** X position in meters */
+  x: number;
+  /** Y position in meters */
+  y: number;
+  /** Rotation in radians */
+  rotation: number;
+}
+
 /** Physics access interface for test harness */
 export interface PhysicsAccess {
   /** Pause physics simulation */

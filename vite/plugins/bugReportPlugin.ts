@@ -22,6 +22,44 @@ import { join } from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 /**
+ * Telemetry sample from performance monitor.
+ */
+interface TelemetrySample {
+  t: number;
+  fps: number;
+  physicsHz: number;
+  alpha: number;
+  bodies: number;
+  deltaMs: number;
+}
+
+/** Statistics for a metric */
+interface MetricStats {
+  min: number;
+  max: number;
+  avg: number;
+  median: number;
+  stdDev: number;
+  p95: number;
+  p99: number;
+}
+
+/** Alpha distribution buckets */
+interface AlphaDistribution {
+  low: number;
+  normal: number;
+  high: number;
+  veryHigh: number;
+}
+
+/** Frame timing analysis */
+interface FrameTimingAnalysis {
+  deltaMs: MetricStats;
+  droppedFrames: number;
+  majorStalls: number;
+}
+
+/**
  * Structure of the bug report request body.
  */
 interface BugReportRequest {
@@ -48,6 +86,21 @@ interface BugReportRequest {
     tick: number;
     timestamp: number;
   }>;
+  /** Performance telemetry data */
+  telemetry?: {
+    version: number;
+    captureStart: string;
+    duration: number;
+    sampleCount: number;
+    summary: {
+      fps: MetricStats;
+      alpha: MetricStats;
+      physicsHz: MetricStats;
+    };
+    alphaDistribution: AlphaDistribution;
+    frameTiming: FrameTimingAnalysis;
+    samples: TelemetrySample[];
+  };
 }
 
 /**
@@ -158,6 +211,14 @@ async function handleBugReport(
         2
       )
     );
+
+    // Save telemetry diagnostic data
+    if (report.telemetry) {
+      await writeFile(
+        join(reportDir, 'diagnostic.json'),
+        JSON.stringify(report.telemetry, null, 2)
+      );
+    }
 
     // Log success to server console
     // eslint-disable-next-line no-console

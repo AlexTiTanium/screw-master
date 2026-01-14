@@ -250,6 +250,114 @@ describe('PhysicsWorldManager', () => {
     });
   });
 
+  describe('interpolation alpha', () => {
+    it('should return alpha between 0 and 1', () => {
+      const alpha = manager.getInterpolationAlpha();
+
+      expect(alpha).toBeGreaterThanOrEqual(0);
+      expect(alpha).toBeLessThanOrEqual(1);
+    });
+
+    it('should increase alpha as accumulator fills between physics steps', () => {
+      // At 120Hz display (8.33ms frames) with 60Hz physics (16.67ms timestep)
+      // Physics steps every ~2 frames:
+      // - Frame 1: accumulator = 8.33ms, alpha ≈ 0.5
+      // - Frame 2: accumulator = 16.66ms (< 16.67ms), alpha ≈ 1.0 (no step yet)
+      // - Frame 3: accumulator = 25ms → step → leftover = 8.33ms, alpha ≈ 0.5
+
+      // Start fresh
+      manager.reset();
+
+      // First small step - partial accumulator
+      manager.step(8);
+      const alpha1 = manager.getInterpolationAlpha();
+
+      // Alpha should be close to 8/16.67 ≈ 0.48
+      expect(alpha1).toBeGreaterThan(0.4);
+      expect(alpha1).toBeLessThan(0.6);
+
+      // Second small step - still not enough to trigger physics step
+      // 16ms < 16.67ms, so no step yet
+      manager.step(8);
+      const alpha2 = manager.getInterpolationAlpha();
+
+      // Alpha should be close to 16/16.67 ≈ 0.96
+      expect(alpha2).toBeGreaterThan(0.9);
+      expect(alpha2).toBeLessThan(1.0);
+
+      // Third step - now triggers physics step (24ms > 16.67ms)
+      manager.step(8);
+      const alpha3 = manager.getInterpolationAlpha();
+
+      // After physics step, accumulator = 24 - 16.67 = 7.33ms
+      // Alpha should be ~7.33/16.67 ≈ 0.44
+      expect(alpha3).toBeGreaterThan(0.3);
+      expect(alpha3).toBeLessThan(0.6);
+    });
+
+    it('should oscillate in expected range on 120Hz display with 60Hz physics', () => {
+      // At 120Hz display (8.33ms frames) with 60Hz physics (16.67ms timestep)
+      // Physics steps every ~2 frames, so alpha oscillates:
+      // - After frame: alpha ≈ 0.5
+      // - After next frame: alpha ≈ 1.0 → physics steps → leftover ≈ 0.5
+      // Pattern: 0.5 → 1.0 → 0.5 → 1.0 → ...
+      manager.reset();
+
+      const alphas: number[] = [];
+
+      // Simulate 120 frames at ~8.33ms each (1 second at 120Hz)
+      for (let i = 0; i < 120; i++) {
+        manager.step(8.33);
+        alphas.push(manager.getInterpolationAlpha());
+      }
+
+      // Check that alpha stayed in reasonable range [0, 1]
+      const maxAlpha = Math.max(...alphas);
+      const minAlpha = Math.min(...alphas);
+
+      // Alpha should stay in [0, 1]
+      expect(maxAlpha).toBeLessThanOrEqual(1.0);
+      expect(minAlpha).toBeGreaterThanOrEqual(0);
+
+      // Verify the oscillating pattern - we should see both low and high values
+      const lowCount = alphas.filter((a) => a < 0.6).length;
+      const highCount = alphas.filter((a) => a >= 0.6).length;
+
+      // Both low and high alpha values should occur (oscillating pattern)
+      expect(lowCount).toBeGreaterThan(0);
+      expect(highCount).toBeGreaterThan(0);
+    });
+
+    it('should handle variable frame times without alpha exceeding 1', () => {
+      manager.reset();
+
+      const alphas: number[] = [];
+
+      // Simulate variable frame times (common in real browsers)
+      const frameTimes = [8, 9, 7, 10, 8, 12, 6, 9, 8, 11, 7, 8];
+
+      for (const dt of frameTimes) {
+        manager.step(dt);
+        alphas.push(manager.getInterpolationAlpha());
+      }
+
+      // Alpha should never exceed 1
+      const maxAlpha = Math.max(...alphas);
+      expect(maxAlpha).toBeLessThanOrEqual(1);
+    });
+
+    it('should capture alpha for debug display', () => {
+      manager.reset();
+      manager.step(10);
+
+      const captured = manager.captureAlphaForDebug();
+      const retrieved = manager.getCapturedAlpha();
+
+      expect(captured).toBe(retrieved);
+      expect(captured).toBeGreaterThan(0);
+    });
+  });
+
   describe('determinism', () => {
     it('should produce identical results with same inputs', () => {
       // First run

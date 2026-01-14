@@ -5,7 +5,7 @@ import { createDebugConsole } from '@shared/debug/ui/debugConsole';
 // Initialize test harness early (before any errors can occur)
 initTestHarness();
 
-// Create debug console in dev/test mode
+// Create debug UI in dev/test mode (includes integrated performance monitor)
 if (import.meta.env.DEV || isTestMode()) {
   const debugConsole = createDebugConsole();
   document.body.appendChild(debugConsole);
