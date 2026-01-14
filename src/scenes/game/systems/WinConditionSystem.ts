@@ -1,9 +1,18 @@
 import type { Time } from '@play-co/odie';
 import { BaseSystem } from './BaseSystem';
-import { ScrewComponent, GameStateComponent } from '../components';
+import {
+  ScrewComponent,
+  GameStateComponent,
+  TrayComponent,
+} from '../components';
 import { ScrewPlacementSystem } from './ScrewPlacementSystem';
-import { gameEvents } from '../utils';
-import type { ScrewComponentAccess, GameStateComponentAccess } from '../types';
+import { TrayManagementSystem } from './TrayManagementSystem';
+import { gameEvents, gameTick } from '../utils';
+import type {
+  ScrewComponentAccess,
+  GameStateComponentAccess,
+  TrayComponentAccess,
+} from '../types';
 
 /**
  * System for detecting win and stuck conditions.
@@ -30,6 +39,7 @@ export class WinConditionSystem extends BaseSystem {
   static Queries = {
     gameState: { components: [GameStateComponent] },
     screws: { components: [ScrewComponent] },
+    trays: { components: [TrayComponent] },
   };
 
   /**
@@ -51,6 +61,15 @@ export class WinConditionSystem extends BaseSystem {
   };
 
   /**
+   * Bound handler for tray:revealed event.
+   * After tray transitions complete, check win condition as all trays are now resolved.
+   * @internal
+   */
+  private handleTrayRevealed = (): void => {
+    this.checkWinAndStuckConditions();
+  };
+
+  /**
    * Initialize event listeners.
    * @example
    * system.init(); // Called automatically by ECS
@@ -58,6 +77,7 @@ export class WinConditionSystem extends BaseSystem {
   init(): void {
     gameEvents.on('screw:removalComplete', this.handleRemovalComplete);
     gameEvents.on('screw:transferComplete', this.handleTransferComplete);
+    gameEvents.on('tray:revealed', this.handleTrayRevealed);
   }
 
   /**
@@ -68,6 +88,7 @@ export class WinConditionSystem extends BaseSystem {
   destroy(): void {
     gameEvents.off('screw:removalComplete', this.handleRemovalComplete);
     gameEvents.off('screw:transferComplete', this.handleTransferComplete);
+    gameEvents.off('tray:revealed', this.handleTrayRevealed);
   }
 
   /**
@@ -177,18 +198,96 @@ export class WinConditionSystem extends BaseSystem {
   }
 
   /**
-   * Check if all screws have been removed from the puzzle.
-   * A screw is considered "removed" when it is in a tray (not in board or buffer).
-   * @returns True if no screws remain in the board or buffer
+   * Check if any screws are currently animating.
+   * @returns True if any screws have isAnimating=true
+   * @example
+   * const animating = this.anyScrewAnimating();
+   */
+  private anyScrewAnimating(): boolean {
+    return this.getEntities('screws').some(
+      (entity) =>
+        this.getComponents<ScrewComponentAccess>(entity).screw.isAnimating
+    );
+  }
+
+  /**
+   * Check if any trays are currently animating.
+   * @returns True if any trays have isAnimating=true
+   * @example
+   * const animating = this.anyTrayAnimating();
+   */
+  private anyTrayAnimating(): boolean {
+    return this.getEntities('trays').some(
+      (entity) =>
+        this.getComponents<TrayComponentAccess>(entity).tray.isAnimating
+    );
+  }
+
+  /**
+   * Check if TrayManagementSystem is busy with transitions.
+   * @returns True if tray transitions are in progress or queued
+   * @example
+   * const busy = this.trayManagementBusy();
+   */
+  private trayManagementBusy(): boolean {
+    const trayManagement = this.scene.getSystem(TrayManagementSystem);
+    return trayManagement.isBusy();
+  }
+
+  /**
+   * Check if all screws have been removed from the puzzle and game is fully resolved.
+   * Win condition requires:
+   * - No screws in board (all clicked)
+   * - No screws in buffer (all transferred)
+   * - No screws animating (all landed)
+   * - No trays animating (all settled)
+   * - No tray transitions pending (all resolved)
+   * @returns True if game is fully resolved and player has won
    * @example
    * const allRemoved = this.checkAllScrewsRemoved();
    */
   private checkAllScrewsRemoved(): boolean {
-    return this.countInBoardScrews() === 0 && this.countInBufferScrews() === 0;
+    // Check screws in board and buffer
+    const inBoard = this.countInBoardScrews();
+    const inBuffer = this.countInBufferScrews();
+
+    if (inBoard > 0 || inBuffer > 0) {
+      return false;
+    }
+
+    // Check if any screws are still animating
+    if (this.anyScrewAnimating()) {
+      gameTick.log('WIN_CHECK', '→ not yet: screws still animating');
+      return false;
+    }
+
+    // Check if any trays are still animating
+    if (this.anyTrayAnimating()) {
+      gameTick.log('WIN_CHECK', '→ not yet: trays still animating');
+      return false;
+    }
+
+    // Check if tray transitions are pending
+    if (this.trayManagementBusy()) {
+      gameTick.log('WIN_CHECK', '→ not yet: tray transitions pending');
+      return false;
+    }
+
+    return true;
   }
 
   /**
    * Check if the player is stuck (no valid moves).
+   * Stuck condition requires:
+   * - No valid moves available (from ScrewPlacementSystem)
+   * - Screws remaining in board
+   * - No screws animating (all landed)
+   * - No trays animating (all settled)
+   * - No tray transitions pending (all resolved)
+   *
+   * We must wait for all animations to complete because:
+   * - A tray being revealed could provide a valid target
+   * - A screw in flight could free up buffer space
    * @example
    * this.checkStuckCondition();
    */
@@ -201,6 +300,22 @@ export class WinConditionSystem extends BaseSystem {
 
     // Skip if game is already over
     if (gameState.phase !== 'playing') return;
+
+    // Don't declare stuck while animations are in progress - a valid move may appear
+    if (this.anyScrewAnimating()) {
+      gameTick.log('STUCK_CHECK', '→ deferred: screws still animating');
+      return;
+    }
+
+    if (this.anyTrayAnimating()) {
+      gameTick.log('STUCK_CHECK', '→ deferred: trays still animating');
+      return;
+    }
+
+    if (this.trayManagementBusy()) {
+      gameTick.log('STUCK_CHECK', '→ deferred: tray transitions pending');
+      return;
+    }
 
     // Get placement system to check valid moves
     const placementSystem = this.scene.getSystem(ScrewPlacementSystem);

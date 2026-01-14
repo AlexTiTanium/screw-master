@@ -10,7 +10,8 @@ import { ScrewColor } from '@shared/types';
 function createMockScrewEntity(
   uid: number,
   color: ScrewColor,
-  state: 'inBoard' | 'inTray' | 'inBuffer' | 'dragging'
+  state: 'inBoard' | 'inTray' | 'inBuffer' | 'dragging',
+  isAnimating = false
 ): Entity {
   return {
     UID: uid,
@@ -18,9 +19,28 @@ function createMockScrewEntity(
       screw: {
         color,
         state,
-        isAnimating: false,
+        isAnimating,
         trayEntityId: '',
         slotIndex: 0,
+      },
+    },
+  } as unknown as Entity;
+}
+
+// Helper to create a mock tray entity
+function createMockTrayEntity(
+  uid: number,
+  color: ScrewColor,
+  isAnimating = false
+): Entity {
+  return {
+    UID: uid,
+    c: {
+      tray: {
+        color,
+        isAnimating,
+        capacity: 3,
+        screwIds: [],
       },
     },
   } as unknown as Entity;
@@ -48,7 +68,8 @@ function createMockGameStateEntity(
 // Helper to create mock query results
 function createMockQueryResults(
   screws: Entity[],
-  gameState: Entity | null
+  gameState: Entity | null,
+  trays: Entity[] = []
 ): QueryResults {
   const gameStateEntities = gameState ? [gameState] : [];
   return {
@@ -66,22 +87,41 @@ function createMockQueryResults(
         gameStateEntities.forEach(callback);
       },
     },
+    trays: {
+      entities: trays,
+      first: trays[0],
+      forEach: (callback: (entity: Entity) => void) => {
+        trays.forEach(callback);
+      },
+    },
   } as unknown as QueryResults;
 }
 
 describe('WinConditionSystem', () => {
   let system: WinConditionSystem;
   let mockPlacementSystem: { hasValidMoves: ReturnType<typeof vi.fn> };
+  let mockTrayManagementSystem: { isBusy: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     system = new WinConditionSystem();
     mockPlacementSystem = {
       hasValidMoves: vi.fn().mockReturnValue(true),
     };
+    mockTrayManagementSystem = {
+      isBusy: vi.fn().mockReturnValue(false),
+    };
 
-    // Mock scene.getSystem
-    (system as unknown as { scene: { getSystem: () => unknown } }).scene = {
-      getSystem: (): unknown => mockPlacementSystem,
+    // Mock scene.getSystem to return the appropriate mock
+    (
+      system as unknown as { scene: { getSystem: (type: unknown) => unknown } }
+    ).scene = {
+      getSystem: (type: unknown): unknown => {
+        // Return TrayManagementSystem mock when requested
+        if ((type as { NAME?: string }).NAME === 'trayManagement') {
+          return mockTrayManagementSystem;
+        }
+        return mockPlacementSystem;
+      },
     };
 
     gameEvents.clear();
@@ -348,6 +388,105 @@ describe('WinConditionSystem', () => {
       // Should emit won, not stuck
       expect(emitSpy).toHaveBeenCalledWith('game:won');
       expect(emitSpy).not.toHaveBeenCalledWith('game:stuck');
+    });
+
+    it('should defer stuck check while trays are animating', () => {
+      const gameState = createMockGameStateEntity('playing');
+      const screws = [createMockScrewEntity(1, ScrewColor.Red, 'inBoard')];
+      // Tray is animating (e.g., being revealed)
+      const trays = [createMockTrayEntity(1, ScrewColor.Green, true)];
+
+      (system as { queries: QueryResults }).queries = createMockQueryResults(
+        screws,
+        gameState,
+        trays
+      );
+
+      mockPlacementSystem.hasValidMoves.mockReturnValue(false);
+
+      const emitSpy = vi.spyOn(gameEvents, 'emit');
+
+      system.init();
+      gameEvents.emit('screw:removalComplete', {});
+
+      // Should NOT emit stuck while tray is animating
+      expect(emitSpy).not.toHaveBeenCalledWith('game:stuck');
+      const state = (gameState.c as { gameState: { phase: string } }).gameState;
+      expect(state.phase).toBe('playing');
+    });
+
+    it('should defer stuck check while TrayManagementSystem is busy', () => {
+      const gameState = createMockGameStateEntity('playing');
+      const screws = [createMockScrewEntity(1, ScrewColor.Red, 'inBoard')];
+
+      (system as { queries: QueryResults }).queries = createMockQueryResults(
+        screws,
+        gameState
+      );
+
+      mockPlacementSystem.hasValidMoves.mockReturnValue(false);
+      mockTrayManagementSystem.isBusy.mockReturnValue(true);
+
+      const emitSpy = vi.spyOn(gameEvents, 'emit');
+
+      system.init();
+      gameEvents.emit('screw:removalComplete', {});
+
+      // Should NOT emit stuck while tray transitions are pending
+      expect(emitSpy).not.toHaveBeenCalledWith('game:stuck');
+      const state = (gameState.c as { gameState: { phase: string } }).gameState;
+      expect(state.phase).toBe('playing');
+    });
+
+    it('should defer stuck check while screws are animating', () => {
+      const gameState = createMockGameStateEntity('playing');
+      // One screw in board, one animating
+      const screws = [
+        createMockScrewEntity(1, ScrewColor.Red, 'inBoard'),
+        createMockScrewEntity(2, ScrewColor.Blue, 'inTray', true), // animating
+      ];
+
+      (system as { queries: QueryResults }).queries = createMockQueryResults(
+        screws,
+        gameState
+      );
+
+      mockPlacementSystem.hasValidMoves.mockReturnValue(false);
+
+      const emitSpy = vi.spyOn(gameEvents, 'emit');
+
+      system.init();
+      gameEvents.emit('screw:removalComplete', {});
+
+      // Should NOT emit stuck while screw is animating
+      expect(emitSpy).not.toHaveBeenCalledWith('game:stuck');
+      const state = (gameState.c as { gameState: { phase: string } }).gameState;
+      expect(state.phase).toBe('playing');
+    });
+
+    it('should emit game:stuck after tray animation completes', () => {
+      const gameState = createMockGameStateEntity('playing');
+      const screws = [createMockScrewEntity(1, ScrewColor.Red, 'inBoard')];
+      // No animating trays
+      const trays = [createMockTrayEntity(1, ScrewColor.Green, false)];
+
+      (system as { queries: QueryResults }).queries = createMockQueryResults(
+        screws,
+        gameState,
+        trays
+      );
+
+      mockPlacementSystem.hasValidMoves.mockReturnValue(false);
+      mockTrayManagementSystem.isBusy.mockReturnValue(false);
+
+      const emitSpy = vi.spyOn(gameEvents, 'emit');
+
+      system.init();
+      // Simulate tray:revealed event after animation completes
+      gameEvents.emit('tray:revealed', {});
+
+      // Now it SHOULD emit stuck since animations are done
+      expect(emitSpy).toHaveBeenCalledWith('game:stuck');
     });
   });
 

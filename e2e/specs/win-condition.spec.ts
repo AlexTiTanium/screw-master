@@ -169,4 +169,106 @@ test.describe('Win Condition', () => {
     // - countInBoardScrews() === 0
     // - countInBufferScrews() === 0
   });
+
+  test('regression: stuck must not fire during tray transitions (bug 2026-01-14T01-05)', async ({
+    page,
+  }) => {
+    // This test triggers the condition where:
+    // 1. Buffer is full (5 screws)
+    // 2. Last screw fills a colored tray, triggering hide+reveal transition
+    //
+    // Bug: Stuck condition fired before TrayManagementSystem queued the transition.
+    // Fix: Reordered system registration so TrayManagementSystem handlers run
+    // before WinConditionSystem handlers.
+    //
+    // Reproduces bug from: bug-reports/2026-01-14T01-05-45-753Z
+
+    attachTelemetry(page);
+    await page.goto('/?testMode=1&region=test&level=0');
+
+    const harness = createHarnessClient(page);
+    await harness.waitForReady(15000);
+
+    let stuckFired = false;
+    let stuckFiredAtBuffer = -1;
+
+    // Monitor for premature STUCK
+    page.on('console', async (msg) => {
+      const text = msg.text();
+      if (text.includes('STUCK:')) {
+        stuckFired = true;
+        // Check buffer count at moment of STUCK
+        const bufferCount = await getScrewsInBufferCount(harness);
+        stuckFiredAtBuffer = bufferCount;
+      }
+    });
+
+    // Sequence that fills buffer THEN fills red tray to trigger transition
+    // Using coordinates from gameplay-demo.spec.ts that are known to work:
+    //
+    // Board positions (world coords, 360x640 viewport):
+    // Board 1 (walnut) at (400, 1369) - has red, blue, green screws
+    // Board 2 (birch) at (680, 1369) - has yellow, red, blue screws
+    // Board 3 (mahogany) at (400, 1099) - has green, yellow, red screws
+    // Board 4 (pine) at (510, 949) - has blue, green screws
+
+    const screwSequence = [
+      // Phase 1: Put 2 red screws in red tray (capacity 3)
+      { x: 315, y: 1289, delay: 700 }, // Red on Board 1 -> red tray [slot 0]
+      { x: 595, y: 1434, delay: 700 }, // Red on Board 2 -> red tray [slot 1]
+
+      // Phase 2: Fill buffer with 5 non-red screws (no green/yellow tray visible yet)
+      { x: 680, y: 1304, delay: 700 }, // Yellow on Board 2 -> buffer [slot 0]
+      { x: 400, y: 1369, delay: 700 }, // Green on Board 1 -> buffer [slot 1]
+      { x: 315, y: 1019, delay: 700 }, // Green on Board 3 -> buffer [slot 2]
+      { x: 485, y: 1019, delay: 700 }, // Yellow on Board 3 -> buffer [slot 3]
+
+      // Phase 3: Put 2 blue screws in blue tray (capacity 3)
+      { x: 485, y: 1289, delay: 700 }, // Blue on Board 1 -> blue tray [slot 0]
+      { x: 765, y: 1434, delay: 700 }, // Blue on Board 2 -> blue tray [slot 1]
+
+      // Buffer now has 4 screws, add one more to make it full
+      // Green on Board 4 -> buffer [slot 4]
+      { x: 510, y: 1107, delay: 700 },
+
+      // Phase 4: Fill red tray with the last red screw
+      // This triggers hide+reveal transition
+      // Buffer is FULL (5 screws) at this point
+      { x: 400, y: 1169, delay: 1200 }, // Red on Board 3 -> red tray [slot 2] FILLS IT!
+    ];
+
+    for (const screw of screwSequence) {
+      await harness.act({ type: 'pointerDown', x: screw.x, y: screw.y });
+      await harness.act({ type: 'pointerUp', x: screw.x, y: screw.y });
+      await page.waitForTimeout(screw.delay);
+    }
+
+    // Wait for all transitions to complete (hide red, reveal green, transfers)
+    await page.waitForTimeout(5000);
+
+    // Verify game didn't incorrectly enter stuck state during transitions
+    const phase = await getGamePhase(harness);
+
+    // If STUCK fired with screws in buffer, it was premature
+    if (stuckFired && stuckFiredAtBuffer > 0) {
+      // This indicates the bug - STUCK fired while buffer had screws that
+      // could be transferred after the tray transition completed
+      throw new Error(
+        `STUCK fired prematurely with ${String(stuckFiredAtBuffer)} screw(s) in buffer. ` +
+          'TrayManagementSystem should queue transitions before WinConditionSystem checks.'
+      );
+    }
+
+    // After transitions complete, green screws should have transferred to green tray
+    // The exact count depends on how many green screws were in buffer
+    const finalBufferCount = await getScrewsInBufferCount(harness);
+    // Just verify buffer is not the same as before transition (some screws transferred)
+    expect(
+      finalBufferCount,
+      'After transitions, buffer count should be reduced (some screws transferred)'
+    ).toBeLessThan(5);
+
+    // Game should still be playing - we didn't complete the level
+    expect(phase).toBe('playing');
+  });
 });
