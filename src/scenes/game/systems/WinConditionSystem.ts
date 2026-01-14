@@ -42,10 +42,12 @@ export class WinConditionSystem extends BaseSystem {
 
   /**
    * Bound handler for screw:transferComplete event.
+   * After a buffer-to-tray transfer, we need to check both win and stuck conditions
+   * because the transfer may have cleared the buffer, enabling win.
    * @internal
    */
   private handleTransferComplete = (): void => {
-    this.checkStuckCondition();
+    this.checkWinAndStuckConditions();
   };
 
   /**
@@ -85,6 +87,34 @@ export class WinConditionSystem extends BaseSystem {
 
     // Update removed count
     gameState.removedScrews++;
+
+    // Check win condition
+    if (this.checkWinCondition(gameState.winConditionType)) {
+      gameState.phase = 'won';
+      gameEvents.emit('game:won');
+      return;
+    }
+
+    // Check stuck condition
+    this.checkStuckCondition();
+  }
+
+  /**
+   * Check win and stuck conditions without incrementing removed count.
+   * Used after buffer-to-tray transfers when screws move between states
+   * but no new screw has been removed from the board.
+   * @example
+   * this.checkWinAndStuckConditions();
+   */
+  private checkWinAndStuckConditions(): void {
+    const gameStateEntity = this.getFirstEntity('gameState');
+    if (!gameStateEntity) return;
+
+    const gameState =
+      this.getComponents<GameStateComponentAccess>(gameStateEntity).gameState;
+
+    // Skip if game is already over
+    if (gameState.phase !== 'playing') return;
 
     // Check win condition
     if (this.checkWinCondition(gameState.winConditionType)) {
