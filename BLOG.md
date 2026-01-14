@@ -24,6 +24,22 @@ Screw Master is an interactive game built with a modern TypeScript stack, combin
 
 ## Entries
 
+### Jan 14, 2026 - Pivot Physics MVP + Claude Code Plugins
+
+**Goal achieved.** Pivot physics is done — things actually move now. This was the target for AI week, and we hit it just one day behind schedule. Not bad for an AI estimate.
+
+**Discovery of the day: Claude Code plugins.**
+
+Instead of creating documentation files that AI agents ignore anyway, or writing text prompts that get glossed over, I can now have reliable workflows triggered by a single command. Work gets done the way I actually want it done. Game changer for consistency.
+
+**Next idea brewing:** A debug timeline for game debugging. Imagine a slider that lets you scrub through game time — forward and backward. This would let you take snapshots at any specific moment, like a screenshot from a video file. Would be incredibly useful for tracking down those frame-perfect bugs.
+
+**The milestone:** One week of AI-assisted game development complete. Pivot physics working. Preview builds deploying. Bug report system operational. Not bad.
+
+**Next up:** Exploring that debug timeline concept. And whatever bugs tomorrow brings.
+
+---
+
 ### Jan 13, 2026 - Preview Builds, Physics, and Bug Whack-a-Mole
 
 **Two steps forward, many bugs to squash.**
