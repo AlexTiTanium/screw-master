@@ -50,8 +50,8 @@ export interface TrayRevealEvent {
  * Event data emitted when a tray has finished revealing.
  */
 export interface TrayRevealedEvent {
-  /** The tray entity that was revealed */
-  trayEntity: Entity;
+  /** The tray entity that was revealed, or undefined if no new tray was revealed */
+  trayEntity: Entity | undefined;
 }
 
 /**
@@ -461,7 +461,7 @@ export class TrayManagementSystem extends BaseSystem {
       nextComp.isAnimating = false;
     }
 
-    // Mark transition complete BEFORE emitting tray:revealed
+    // Mark transition complete BEFORE emitting events
     // This ensures AutoTransferSystem.checkAutoTransfer() doesn't skip the transfer
     this.isTransitioning = false;
 
@@ -470,11 +470,12 @@ export class TrayManagementSystem extends BaseSystem {
       '→ isTransitioning=false, emitting tray:revealed, then processNextTransition'
     );
 
-    if (nextHiddenTray) {
-      gameEvents.emit('tray:revealed', {
-        trayEntity: nextHiddenTray,
-      } as TrayRevealedEvent);
-    }
+    // Always emit tray:revealed so AutoTransferSystem can check for
+    // buffer screws that can now be transferred. If there's no next hidden tray
+    // to reveal, we still need to trigger the check for remaining buffer screws.
+    gameEvents.emit('tray:revealed', {
+      trayEntity: nextHiddenTray,
+    } as TrayRevealedEvent);
   }
 
   /**

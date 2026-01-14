@@ -20,6 +20,47 @@ import type { Plugin, Connect } from 'vite';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { execSync } from 'node:child_process';
+
+/**
+ * Get the current git commit hash.
+ * Returns 'unknown' if git is not available or not in a git repo.
+ */
+function getGitCommitHash(): string {
+  try {
+    return execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
+  } catch {
+    return 'unknown';
+  }
+}
+
+/**
+ * Get the current git branch name.
+ * Returns 'unknown' if git is not available or not in a git repo.
+ */
+function getGitBranch(): string {
+  try {
+    return execSync('git rev-parse --abbrev-ref HEAD', {
+      encoding: 'utf-8',
+    }).trim();
+  } catch {
+    return 'unknown';
+  }
+}
+
+/**
+ * Check if there are uncommitted changes in the working directory.
+ */
+function hasUncommittedChanges(): boolean {
+  try {
+    const status = execSync('git status --porcelain', {
+      encoding: 'utf-8',
+    }).trim();
+    return status.length > 0;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Telemetry sample from performance monitor.
@@ -197,7 +238,7 @@ async function handleBugReport(
     const logText = formatConsoleLogs(report.consoleLogs);
     await writeFile(join(reportDir, 'console-log.txt'), logText);
 
-    // Save metadata (URL, description, user actions)
+    // Save metadata (URL, description, user actions, git info)
     await writeFile(
       join(reportDir, 'report.json'),
       JSON.stringify(
@@ -205,6 +246,11 @@ async function handleBugReport(
           timestamp: report.timestamp,
           url: report.url,
           description: report.description ?? null,
+          git: {
+            commit: getGitCommitHash(),
+            branch: getGitBranch(),
+            dirty: hasUncommittedChanges(),
+          },
           userActions: report.userActions,
         },
         null,

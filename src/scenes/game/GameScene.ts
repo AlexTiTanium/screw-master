@@ -168,8 +168,11 @@ export class GameScene {
     // PhysicsSystem runs after PartStateSystem to handle part:freed events
     this.scene.addSystem(PhysicsSystem);
     this.scene.addSystem(AutoTransferSystem);
-    this.scene.addSystem(WinConditionSystem);
+    // TrayManagementSystem MUST be before WinConditionSystem to ensure
+    // tray transitions are queued before win/stuck conditions are checked.
+    // Otherwise WinConditionSystem.isBusy() will return false prematurely.
     this.scene.addSystem(TrayManagementSystem);
+    this.scene.addSystem(WinConditionSystem);
   }
 
   /**
