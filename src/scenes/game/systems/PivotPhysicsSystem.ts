@@ -167,6 +167,13 @@ export class PivotPhysicsSystem extends BaseSystem {
         this.cleanupLoosenedState(loosenedState);
         this.loosenedStates.delete(entityUid);
       }
+      // Also clean up the revolute joint created for loosened state
+      // (it's stored in pivotJoints map for cleanup convenience)
+      const jointState = this.pivotJoints.get(entityUid);
+      if (jointState) {
+        this.cleanupJointState(jointState);
+        this.pivotJoints.delete(entityUid);
+      }
     }
 
     // Create new joints when entering pivoting state
@@ -186,23 +193,18 @@ export class PivotPhysicsSystem extends BaseSystem {
    */
   private createLoosenedState(partEntity: Entity): void {
     const entity2d = partEntity as Entity2D;
-    const physicsBody =
-      this.getComponents<PhysicsBodyComponentAccess>(partEntity).physicsBody;
+    const { physicsBody } =
+      this.getComponents<PhysicsBodyComponentAccess>(partEntity);
+    if (physicsBody.bodyId < 0) return; // Invalid body, skip silently
 
-    if (physicsBody.bodyId < 0) return;
-
-    // For loosened state, we create an anchor body at the part center
-    // with a very limited angle revolute joint (±5° = ~0.087 rad)
+    // Create anchor at part center with limited angle joint (±5°) for wobble
     const partPosition = { x: entity2d.position.x, y: entity2d.position.y };
     const anchorBodyId = this.physicsManager.createAnchorBody(partPosition);
-
-    // Create revolute joint with small angle limit for wobble
-    const wobbleAngleLimit = Math.PI / 36; // ±5 degrees
     const revoluteJointId = this.physicsManager.createRevoluteJoint(
       anchorBodyId,
       physicsBody.bodyId,
       partPosition,
-      wobbleAngleLimit
+      Math.PI / 36
     );
 
     if (revoluteJointId < 0) {
@@ -210,19 +212,10 @@ export class PivotPhysicsSystem extends BaseSystem {
       return;
     }
 
-    // Update component to reflect dynamic state (createRevoluteJoint sets body to dynamic)
     physicsBody.bodyType = 'dynamic';
     physicsBody.isSleeping = false;
-
-    this.loosenedStates.set(entity2d.UID, {
-      anchorBodyId,
-    });
-
-    // Store the joint in pivotJoints map since it uses the same cleanup logic
-    this.pivotJoints.set(entity2d.UID, {
-      anchorBodyId,
-      revoluteJointId,
-    });
+    this.loosenedStates.set(entity2d.UID, { anchorBodyId });
+    this.pivotJoints.set(entity2d.UID, { anchorBodyId, revoluteJointId });
   }
 
   /**
@@ -242,38 +235,27 @@ export class PivotPhysicsSystem extends BaseSystem {
    */
   private createPivotJoints(partEntity: Entity): void {
     const entity2d = partEntity as Entity2D;
-    const pivot = this.getComponents<PivotComponentAccess>(partEntity).pivot;
-    const physicsBody =
-      this.getComponents<PhysicsBodyComponentAccess>(partEntity).physicsBody;
+    const { pivot } = this.getComponents<PivotComponentAccess>(partEntity);
+    const { physicsBody } =
+      this.getComponents<PhysicsBodyComponentAccess>(partEntity);
+    if (physicsBody.bodyId < 0) return; // Invalid body, skip silently
 
-    if (physicsBody.bodyId < 0) return;
-
-    // Create static anchor body at the pivot point (screw position)
+    // Create anchor at screw position with unlimited rotation
     const anchorBodyId = this.physicsManager.createAnchorBody(pivot.pivotPoint);
-
-    // Create revolute joint connecting anchor to part
     const revoluteJointId = this.physicsManager.createRevoluteJoint(
       anchorBodyId,
       physicsBody.bodyId,
-      pivot.pivotPoint,
-      pivot.angleLimit
+      pivot.pivotPoint
     );
 
     if (revoluteJointId < 0) {
-      // Clean up anchor if joint creation failed
       this.physicsManager.destroyAnchorBody(anchorBodyId);
       return;
     }
 
-    // Update component to reflect dynamic state (createRevoluteJoint sets body to dynamic)
     physicsBody.bodyType = 'dynamic';
     physicsBody.isSleeping = false;
-
-    // Store joint state for cleanup later
-    this.pivotJoints.set(entity2d.UID, {
-      anchorBodyId,
-      revoluteJointId,
-    });
+    this.pivotJoints.set(entity2d.UID, { anchorBodyId, revoluteJointId });
   }
 
   /**
@@ -299,12 +281,8 @@ export class PivotPhysicsSystem extends BaseSystem {
     );
 
     if (mouseJointId >= 0) {
-      if (jointState) {
-        jointState.mouseJointId = mouseJointId;
-      }
-      if (loosenedState) {
-        loosenedState.mouseJointId = mouseJointId;
-      }
+      if (jointState) jointState.mouseJointId = mouseJointId;
+      if (loosenedState) loosenedState.mouseJointId = mouseJointId;
     }
   }
 

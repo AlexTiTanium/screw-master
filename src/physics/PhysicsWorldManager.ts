@@ -552,34 +552,36 @@ export class PhysicsWorldManager {
    * @param anchorBodyId - ID of the static anchor body
    * @param partBodyId - ID of the part body to pivot
    * @param anchorPixels - Anchor position in pixels (pivot point)
-   * @param angleLimit - Maximum rotation in radians (e.g., Math.PI/4 for ±45°)
+   * @param angleLimit - Optional max rotation in radians (e.g., Math.PI/4 for ±45°). If omitted, unlimited rotation.
    * @returns Joint ID for tracking, or -1 if failed
    * @example
-   * const jointId = physics.createRevoluteJoint(anchorId, partId, { x: 100, y: 200 }, Math.PI/4);
+   * const jointId = physics.createRevoluteJoint(anchorId, partId, { x: 100, y: 200 }); // unlimited
+   * const jointId = physics.createRevoluteJoint(anchorId, partId, { x: 100, y: 200 }, Math.PI/4); // ±45°
    */
   createRevoluteJoint(
     anchorBodyId: number,
     partBodyId: number,
     anchorPixels: PixelPosition,
-    angleLimit: number
+    angleLimit?: number
   ): number {
     const anchorBody = this.bodies.get(anchorBodyId);
     const partBody = this.bodies.get(partBodyId);
     if (!anchorBody || !partBody) return -1;
 
-    const anchorMeters = this.pixelsToVec2(anchorPixels);
-
-    // Make the part body dynamic so it can rotate
     partBody.setType('dynamic');
     partBody.setAwake(true);
 
+    const jointDef =
+      angleLimit !== undefined
+        ? { enableLimit: true, lowerAngle: -angleLimit, upperAngle: angleLimit }
+        : { enableLimit: false };
     const joint = this.world.createJoint(
       // eslint-disable-next-line @typescript-eslint/no-deprecated
       RevoluteJoint(
-        { enableLimit: true, lowerAngle: -angleLimit, upperAngle: angleLimit },
+        jointDef,
         anchorBody,
         partBody,
-        anchorMeters
+        this.pixelsToVec2(anchorPixels)
       )
     );
 

@@ -257,7 +257,7 @@ function createPartEntityBase(options: PartEntityOptions): Entity2D {
       isPivoting: false,
       pivotScrewEntityId: '',
       pivotPoint: { x: 0, y: 0 },
-      angleLimit: Math.PI / 4,
+      angleLimit: Math.PI,
       isDragging: false,
     },
   });

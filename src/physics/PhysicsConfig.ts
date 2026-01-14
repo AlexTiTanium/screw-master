@@ -38,11 +38,11 @@ export const PHYSICS_CONFIG = {
 
   /** Play area bounds in pixels */
   playArea: {
-    minX: 132,
-    maxX: 947,
+    minX: -168,
+    maxX: 1247,
     minY: 600,
     maxY: 1750,
-    width: 815,
+    width: 1415,
     height: 1150,
     centerX: 540,
     centerY: 1175,

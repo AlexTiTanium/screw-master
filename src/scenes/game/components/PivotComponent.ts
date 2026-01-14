@@ -20,8 +20,8 @@ export const PivotComponent = defineComponent('pivot', {
   pivotScrewEntityId: '',
   /** World position of the pivot point */
   pivotPoint: { x: 0, y: 0 } as Position,
-  /** Maximum rotation angle in radians (default ±45°) */
-  angleLimit: Math.PI / 4,
+  /** Maximum rotation angle in radians (default ±180° for full rotation) */
+  angleLimit: Math.PI,
   /** Whether the player is currently dragging this part */
   isDragging: false,
 });
